@@ -74,11 +74,17 @@ export default function App() {
   }, [store.setSearch]);
 
   const handleToggleHelp = useCallback(() => {
-    setShowHelp((v) => !v);
+    setShowHelp((v) => {
+      if (!v) setShowLogs(false);
+      return !v;
+    });
   }, []);
 
   const handleToggleLogs = useCallback(() => {
-    setShowLogs((v) => !v);
+    setShowLogs((v) => {
+      if (!v) setShowHelp(false);
+      return !v;
+    });
   }, []);
 
   const handleEscape = useCallback(() => {
