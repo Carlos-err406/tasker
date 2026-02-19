@@ -16,10 +16,12 @@
     "clean": "rm -rf dist dist-electron"
   },
   "dependencies": {
+    "@radix-ui/react-context-menu": "^2.2.16",
     "@tasker/core": "workspace:*",
     "chokidar": "^4.0.0",
     "electron-traywindow-positioner": "^1.2.0",
     "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1"
   },
   "optionalDependencies": {

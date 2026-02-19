@@ -101,6 +101,28 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
             <span>Close / Cancel</span>
           </div>
         </section>
+
+        <section>
+          <h3 className="font-medium text-sm mb-1.5">Editing Shortcuts</h3>
+          <div className="grid grid-cols-2 gap-1 text-muted-foreground">
+            <span className="font-mono">&#8984;B</span>
+            <span>Bold</span>
+            <span className="font-mono">&#8984;I</span>
+            <span>Italic</span>
+            <span className="font-mono">&#8984;U</span>
+            <span>Underline</span>
+            <span className="font-mono">&#8984;&#8679;X</span>
+            <span>Strikethrough</span>
+            <span className="font-mono">&#8984;K</span>
+            <span>Insert link</span>
+            <span className="font-mono">&#8984;&#8679;I</span>
+            <span>Insert image</span>
+            <span className="font-mono">Tab</span>
+            <span>Next placeholder</span>
+            <span className="font-mono">&#8984;V</span>
+            <span>Paste image from clipboard</span>
+          </div>
+        </section>
       </div>
     </div>
   );

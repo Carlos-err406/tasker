@@ -581,9 +581,17 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
 
   updateTask(db, renamedTask);
 
-  // Sync inverse parent markers (-^childId removed = unset parent on child)
+  // Sync inverse parent markers (-^childId added/removed)
   const oldSubtasks = new Set(oldParsed.hasSubtaskIds ?? []);
   const newSubtasks = new Set(newParsed.hasSubtaskIds ?? []);
+  for (const added of newSubtasks) {
+    if (!oldSubtasks.has(added)) {
+      const child = getTaskById(db, added);
+      if (child && child.parentId !== taskId && child.id !== taskId) {
+        setParent(db, added, taskId);
+      }
+    }
+  }
   for (const removed of oldSubtasks) {
     if (!newSubtasks.has(removed)) {
       const child = getTaskById(db, removed);
@@ -593,9 +601,19 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
     }
   }
 
-  // Sync inverse blocker markers (-!blockerId removed = remove blocking relationship + forward marker)
+  // Sync inverse blocker markers (-!blockerId added/removed)
   const oldBlockedBy = new Set(oldParsed.blockedByIds ?? []);
   const newBlockedBy = new Set(newParsed.blockedByIds ?? []);
+  for (const added of newBlockedBy) {
+    if (!oldBlockedBy.has(added)) {
+      const blocker = getTaskById(db, added);
+      if (blocker && added !== taskId && !hasCircularBlocking(db, added, taskId)) {
+        db.insert(taskDependencies).values({ taskId: added, blocksTaskId: taskId }).onConflictDoNothing().run();
+        // Add forward !taskId marker on the blocker's description
+        addForwardBlockerMarker(db, added, taskId);
+      }
+    }
+  }
   for (const removed of oldBlockedBy) {
     if (!newBlockedBy.has(removed)) {
       // Remove the DB relationship
@@ -603,19 +621,7 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
         and(eq(taskDependencies.taskId, removed), eq(taskDependencies.blocksTaskId, taskId)),
       ).run();
       // Remove the forward !taskId marker from the blocker's description
-      const blocker = getTaskById(db, removed);
-      if (blocker) {
-        const blockerParsed = parseDescription(blocker.description);
-        const updatedBlocksIds = (blockerParsed.blocksIds ?? []).filter(id => id !== taskId);
-        const synced = syncMetadataToDescription(
-          blocker.description, blocker.priority, blocker.dueDate, blocker.tags,
-          blockerParsed.parentId, updatedBlocksIds.length > 0 ? updatedBlocksIds : null,
-          blockerParsed.hasSubtaskIds, blockerParsed.blockedByIds, blockerParsed.relatedIds,
-        );
-        if (synced !== blocker.description) {
-          db.update(tasks).set({ description: synced }).where(eq(tasks.id, removed)).run();
-        }
-      }
+      removeForwardBlockerMarker(db, removed, taskId);
     }
   }
 
@@ -1192,6 +1198,44 @@ function removeInverseMarker(db: TaskerDb, taskId: TaskId, refId: string, isSubt
   );
   if (synced !== task.description) {
     db.update(tasks).set({ description: synced }).where(eq(tasks.id, taskId)).run();
+  }
+}
+
+/** Add forward !blockedId marker to a blocker's description */
+function addForwardBlockerMarker(db: TaskerDb, blockerId: TaskId, blockedId: string): void {
+  const blocker = getTaskById(db, blockerId);
+  if (!blocker) return;
+
+  const parsed = parseDescription(blocker.description);
+  const currentBlocksIds = [...(parsed.blocksIds ?? [])];
+  if (currentBlocksIds.includes(blockedId)) return;
+  currentBlocksIds.push(blockedId);
+
+  const synced = syncMetadataToDescription(
+    blocker.description, blocker.priority, blocker.dueDate, blocker.tags,
+    parsed.parentId, currentBlocksIds,
+    parsed.hasSubtaskIds, parsed.blockedByIds, parsed.relatedIds,
+  );
+  if (synced !== blocker.description) {
+    db.update(tasks).set({ description: synced }).where(eq(tasks.id, blockerId)).run();
+  }
+}
+
+/** Remove forward !blockedId marker from a blocker's description */
+function removeForwardBlockerMarker(db: TaskerDb, blockerId: TaskId, blockedId: string): void {
+  const blocker = getTaskById(db, blockerId);
+  if (!blocker) return;
+
+  const parsed = parseDescription(blocker.description);
+  const updatedBlocksIds = (parsed.blocksIds ?? []).filter(id => id !== blockedId);
+
+  const synced = syncMetadataToDescription(
+    blocker.description, blocker.priority, blocker.dueDate, blocker.tags,
+    parsed.parentId, updatedBlocksIds.length > 0 ? updatedBlocksIds : null,
+    parsed.hasSubtaskIds, parsed.blockedByIds, parsed.relatedIds,
+  );
+  if (synced !== blocker.description) {
+    db.update(tasks).set({ description: synced }).where(eq(tasks.id, blockerId)).run();
   }
 }
 

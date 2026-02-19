@@ -1,13 +1,16 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 import { CheckSquare, Square } from "lucide-react";
 import { openExternal } from "@/lib/services/window";
 
 function resolveImageSrc(src: string | undefined): string | undefined {
   if (!src) return src;
-  if (src.startsWith("~/")) return `local-file://${window.ipc.homePath}${src.slice(1)}`;
-  if (src.startsWith("/")) return `local-file://${src}`;
+  // Decode first (e.g. %20 → space), then re-encode for the protocol URL
+  const decoded = decodeURIComponent(src);
+  if (decoded.startsWith("~/")) return `local-file://${encodeURI(window.ipc.homePath + decoded.slice(1))}`;
+  if (decoded.startsWith("/")) return `local-file://${encodeURI(decoded)}`;
   return src;
 }
 
@@ -78,15 +81,16 @@ const components: Components = {
     </div>
   ),
   hr: () => <hr className="border-t border-border my-1" />,
-  ul: ({ children, className }) => (
-    <ul className={className?.includes("contains-task-list") ? "list-none pl-3" : "list-disc pl-4"}>{children}</ul>
-  ),
+  ul: ({ children, className }) => {
+    const isTaskList = className?.includes("contains-task-list");
+    return <ul className={isTaskList ? "list-none [&_ul]:pl-3" : "list-disc pl-4"}>{children}</ul>;
+  },
   ol: ({ children }) => (
     <ol className="list-decimal pl-4">{children}</ol>
   ),
   li: ({ children }) => <li>{children}</li>,
   p: ({ children }) => (
-    <p className="my-0.5 first:mt-0 last:mb-0">{children}</p>
+    <p className="my-0.5 first:mt-0 last:mb-0 whitespace-pre-wrap">{children}</p>
   ),
   input: ({ checked }) =>
     checked ? (
@@ -96,15 +100,32 @@ const components: Components = {
     ),
 };
 
+/** Convert standalone `[ ]` / `[x]` / `[X]` checkboxes into list-item checkboxes
+ *  so react-markdown (via remark-gfm) renders them as proper checkboxes.
+ *  Skips lines already in a list (`- [ ]`, `* [ ]`, `1. [ ]`). */
+function preprocessCheckboxes(text: string): string {
+  return text.replace(
+    /^(\s*)(\[[ xX]\])/gm,
+    (match, indent: string, checkbox: string, offset: number) => {
+      // Look backwards to see if there's a list marker before the checkbox on this line
+      const lineStart = text.lastIndexOf("\n", offset - 1) + 1;
+      const prefix = text.slice(lineStart, offset);
+      if (/[-*]\s+$/.test(prefix) || /\d+[.)]\s+$/.test(prefix)) return match;
+      return `${indent}- ${checkbox}`;
+    },
+  );
+}
+
 interface MarkdownContentProps {
   content: string;
 }
 
 export function MarkdownContent({ content }: MarkdownContentProps) {
+  const processed = preprocessCheckboxes(content);
   return (
     <div className="text-[11px] text-muted-foreground mt-0.5">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
+        {processed}
       </ReactMarkdown>
     </div>
   );

@@ -199,6 +199,37 @@ describe('renameTask', () => {
     expect(getTaskById(db, child.id)!.parentId).toBeNull();
   });
 
+  it('adding -^ inverse marker sets parent on child', () => {
+    const { task: parent } = addTask(db, 'parent', 'tasks');
+    const { task: child } = addTask(db, 'child', 'tasks');
+
+    // Rename parent to add -^childId
+    renameTask(db, parent.id, `parent\n-^${child.id}`);
+
+    // Child should now have parent set
+    const updatedChild = getTaskById(db, child.id)!;
+    expect(updatedChild.parentId).toBe(parent.id);
+
+    // Child description should have ^parentId marker
+    expect(updatedChild.description).toContain(`^${parent.id}`);
+  });
+
+  it('adding -! inverse marker creates blocking relationship and forward marker', () => {
+    const { task: blocker } = addTask(db, 'blocker', 'tasks');
+    const { task: blocked } = addTask(db, 'blocked', 'tasks');
+
+    // Rename blocked to add -!blockerId (means "blocked is blocked by blocker")
+    renameTask(db, blocked.id, `blocked\n-!${blocker.id}`);
+
+    // DB relationship should exist
+    expect(getBlockedByIds(db, blocked.id)).toContain(blocker.id);
+    expect(getBlocksIds(db, blocker.id)).toContain(blocked.id);
+
+    // Blocker should have forward !blockedId marker
+    const updatedBlocker = getTaskById(db, blocker.id)!;
+    expect(updatedBlocker.description).toContain(`!${blocked.id}`);
+  });
+
   it('removing -! inverse marker removes blocking relationship and forward marker', () => {
     // Setup: create tasks "123" and "abc"
     const { task: task123 } = addTask(db, '123', 'tasks');

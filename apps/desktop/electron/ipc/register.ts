@@ -6,13 +6,14 @@ import { undoRegister } from './undo/main.js';
 import { windowRegister } from './window/main.js';
 import { reminderRegister } from './reminder/main.js';
 import { logsRegister } from './logs/main.js';
+import { clipboardRegister } from './clipboard/main.js';
 
 export default function registerIPCs(
   ipcMain: Electron.IpcMain,
   widget: BrowserWindow | null,
   ctx: IPCContext,
 ): void {
-  [tasksRegister, listsRegister, undoRegister, windowRegister, reminderRegister, logsRegister].forEach(
+  [tasksRegister, listsRegister, undoRegister, windowRegister, reminderRegister, logsRegister, clipboardRegister].forEach(
     (fn) => fn(ipcMain, widget, ctx),
   );
 }

@@ -118,6 +118,8 @@ export default function App() {
 
   const startCreateList = () => {
     setCreatingList(true);
+    setShowHelp(false);
+    setShowLogs(false);
     setNewListName('');
     setTimeout(() => listInputRef.current?.focus(), 0);
   };
