@@ -31,3 +31,7 @@ dist
 tsconfig.tsbuildinfo
 dist-electron
 dist-release
+
+# Playwright
+playwright-report/
+test-results/
