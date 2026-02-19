@@ -19,7 +19,8 @@ Design docs, brainstorms, and plans live in `docs/`.
 
 ```bash
 pnpm build               # Build all packages
-pnpm test                 # Run all tests
+pnpm test                 # Run all unit tests
+pnpm test:e2e            # Run Playwright E2E tests (desktop)
 pnpm typecheck            # Typecheck all packages
 pnpm dev:desktop          # Run desktop app in dev mode
 
@@ -30,7 +31,7 @@ pnpm --filter @tasker/desktop run build # Build desktop
 pnpm --filter @tasker/cli run build     # Build CLI
 ```
 
-**Important:** When verifying new functionality, write tests instead of manual testing. Tests are repeatable, don't affect real data, and serve as documentation.
+**Important:** When verifying new functionality, write tests instead of manual testing. Tests are repeatable, don't affect real data, and serve as documentation. For desktop UI features, write Playwright E2E tests (see below).
 
 **Important:** After changing `@tasker/core` source, rebuild it (`pnpm --filter @tasker/core run build`) before the desktop or CLI can pick up the changes. The desktop dev server (`pnpm dev:desktop`) must be restarted to pick up core changes.
 
@@ -99,6 +100,48 @@ Operations like `renameTask`, `setTaskDueDate`, `setTaskPriority` must NOT call 
 Main process (Node.js) → preload (contextBridge) → renderer services → React store (`useReducer`).
 
 Status changes use optimistic local updates (no `refresh()` call) to avoid re-sorting. Relationship status badges are updated locally in the `UPDATE_TASK_STATUS` reducer. Full `refresh()` happens on `popup:hidden` so re-sorting occurs while invisible.
+
+## E2E Tests (Desktop)
+
+When adding or changing desktop UI features, write Playwright E2E tests in `apps/desktop/e2e/`. These tests launch a real Electron process with an isolated temp database — they never touch production data.
+
+### Running E2E tests
+
+```bash
+pnpm --filter @tasker/desktop run build   # Must build first
+pnpm test:e2e                              # Run all E2E tests
+pnpm --filter @tasker/desktop exec playwright test --config playwright.config.ts e2e/task-crud.spec.ts  # Run a single spec
+```
+
+### Writing E2E tests
+
+- Import `test` and `expect` from `./fixtures.js` (not from `@playwright/test`)
+- Import helpers (`addTask`, `dragTaskVertical`, `waitForSearchDebounce`) from `./helpers.js`
+- Each test gets a fresh Electron app + empty database via the `page` fixture
+- Use `data-testid` attributes for stable selectors (e.g. `[data-testid^="task-item-"]`)
+- Add `data-testid` to new React components when writing tests for them
+
+### Key gotchas
+
+- **Build before testing:** E2E tests run against `dist-electron/main.js`, not source. The fixture throws if the build is stale.
+- **Radix context menus** render in portals on `document.body` — use `page.getByRole('menu')` or `page.waitForSelector('[role="menu"]')`, not scoped locators. For submenus, use `dispatchEvent` instead of `.click()` due to Radix pointer-event interception.
+- **dnd-kit drag** requires manual pointer events (`mouse.down` → `mouse.move({ steps: 20 })` → `mouse.up`). Playwright's `dragTo()` does not work. Use the `dragTaskVertical()` helper.
+- **Search debounce:** The search input has a 200ms debounce. Call `waitForSearchDebounce()` after filling the search input.
+- **Inline metadata** must be on a separate last line using `p1`/`p2`/`p3`, `@date`, `#tag` format.
+- **Markdown checkboxes** render as lucide SVG icons (`CheckSquare`/`Square`), not HTML `<input>` elements.
+- **Status bar messages** clear after 3 seconds — assert immediately after triggering.
+
+### Existing specs (31 tests)
+
+| Spec | Tests | Covers |
+|------|-------|--------|
+| `task-crud.spec.ts` | 7 | Add, edit, delete, complete, inline metadata |
+| `drag-and-drop.spec.ts` | 2 | Pointer drag reorder, undo reorder |
+| `context-menus.spec.ts` | 5 | Right-click menu, status submenu, move to list |
+| `markdown.spec.ts` | 4 | Bold/italic, code blocks, links, checkboxes |
+| `undo-redo.spec.ts` | 5 | Undo/redo create, status, empty stack, redo clear |
+| `lists.spec.ts` | 4 | Create list, multi-list tasks, collapse, hide completed |
+| `search.spec.ts` | 4 | Text search, tag search, clear, empty state |
 
 ## Maintaining This File
 

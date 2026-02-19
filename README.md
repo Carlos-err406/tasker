@@ -32,7 +32,7 @@ A lightweight task manager with two interfaces: a CLI (`tasker` command) and a m
 | **Database** | SQLite (Drizzle ORM + libsql) |
 | **CLI** | Commander.js + Chalk |
 | **Desktop** | Electron + React + Tailwind CSS |
-| **Testing** | Vitest |
+| **Testing** | Vitest + Playwright (E2E) |
 
 ## Requirements
 
@@ -206,7 +206,8 @@ All data stored in SQLite with WAL mode for concurrent CLI + desktop access:
 ```bash
 pnpm install
 pnpm build                # Build all packages
-pnpm test                 # Run all tests
+pnpm test                 # Run all unit tests
+pnpm test:e2e             # Run Playwright E2E tests (desktop)
 pnpm typecheck            # Typecheck all packages
 pnpm dev:desktop          # Run desktop app in dev mode
 ```
