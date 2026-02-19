@@ -265,7 +265,7 @@ export function TaskItem({
               <div className={cn(done && 'opacity-60')}>
                 <div className="flex items-start gap-1.5">
                   {priorityIndicator && (
-                    <span className={cn('text-xs font-bold mt-0.5', priorityColor)}>
+                    <span className={cn('text-xs font-mono font-bold mt-0.5', priorityColor)}>
                       {priorityIndicator}
                     </span>
                   )}
@@ -285,54 +285,54 @@ export function TaskItem({
 
                 {/* Relationship lines */}
                 {relDetails?.parent && (
-                  <button onClick={() => onNavigateToTask(relDetails.parent!.id)} className="flex items-start gap-1 text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button onClick={() => onNavigateToTask(relDetails.parent!.id)} className="flex items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
                     <CornerLeftUp className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    Subtask of ({relDetails.parent.id}) {relDetails.parent.title}
+                    <span className="flex-1 min-w-0">Subtask of ({relDetails.parent.id}) {relDetails.parent.title}</span>
                     {getLinkedStatusLabel(relDetails.parent.status) && (
-                      <span className={getLinkedStatusColor(relDetails.parent.status)}>{getLinkedStatusLabel(relDetails.parent.status)}</span>
+                      <span className={cn('flex-shrink-0', getLinkedStatusColor(relDetails.parent.status))}>{getLinkedStatusLabel(relDetails.parent.status)}</span>
                     )}
                   </button>
                 )}
                 {relDetails?.subtasks.map((s) => (
-                  <button key={s.id} onClick={() => onNavigateToTask(s.id)} className="flex items-start gap-1 text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={s.id} onClick={() => onNavigateToTask(s.id)} className="flex items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
                     <CornerRightDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    Subtask ({s.id}) {s.title}
+                    <span className="flex-1 min-w-0">Subtask ({s.id}) {s.title}</span>
                     {getLinkedStatusLabel(s.status) && (
-                      <span className={getLinkedStatusColor(s.status)}>{getLinkedStatusLabel(s.status)}</span>
+                      <span className={cn('flex-shrink-0', getLinkedStatusColor(s.status))}>{getLinkedStatusLabel(s.status)}</span>
                     )}
                   </button>
                 ))}
                 {relDetails?.blocks.map((b) => (
-                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    Blocks ({b.id}) {b.title}
+                    <span className="flex-1 min-w-0">Blocks ({b.id}) {b.title}</span>
                     {getLinkedStatusLabel(b.status) && (
-                      <span className={getLinkedStatusColor(b.status)}>{getLinkedStatusLabel(b.status)}</span>
+                      <span className={cn('flex-shrink-0', getLinkedStatusColor(b.status))}>{getLinkedStatusLabel(b.status)}</span>
                     )}
                   </button>
                 ))}
                 {relDetails?.blockedBy.map((b) => (
-                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    Blocked by ({b.id}) {b.title}
+                    <span className="flex-1 min-w-0">Blocked by ({b.id}) {b.title}</span>
                     {getLinkedStatusLabel(b.status) && (
-                      <span className={getLinkedStatusColor(b.status)}>{getLinkedStatusLabel(b.status)}</span>
+                      <span className={cn('flex-shrink-0', getLinkedStatusColor(b.status))}>{getLinkedStatusLabel(b.status)}</span>
                     )}
                   </button>
                 ))}
                 {relDetails?.related.map((r) => (
-                  <button key={r.id} onClick={() => onNavigateToTask(r.id)} className="flex items-start gap-1 text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={r.id} onClick={() => onNavigateToTask(r.id)} className="flex items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Link2 className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    Related to ({r.id}) {r.title}
+                    <span className="flex-1 min-w-0">Related to ({r.id}) {r.title}</span>
                     {getLinkedStatusLabel(r.status) && (
-                      <span className={getLinkedStatusColor(r.status)}>{getLinkedStatusLabel(r.status)}</span>
+                      <span className={cn('flex-shrink-0', getLinkedStatusColor(r.status))}>{getLinkedStatusLabel(r.status)}</span>
                     )}
                   </button>
                 ))}
 
                 {/* Due date */}
                 {dueDateLabel && (
-                  <div className={cn('flex items-center gap-1 text-[10px] mt-0.5', dueDateColor)}>
+                  <div className={cn('flex items-center gap-1 font-mono text-[10px] mt-0.5', dueDateColor)}>
                     <Calendar className="h-3 w-3 flex-shrink-0" />
                     {dueDateLabel.charAt(0).toUpperCase() + dueDateLabel.slice(1)}
                   </div>
@@ -349,7 +349,7 @@ export function TaskItem({
                           onTagClick?.(tag);
                         }}
                         className={cn(
-                          'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 rounded-full hover:brightness-125 transition-all',
+                          'inline-flex items-center gap-0.5 font-mono text-[10px] px-1.5 py-0 rounded-full hover:brightness-125 transition-all',
                           getTagColor(tag),
                         )}
                       >
