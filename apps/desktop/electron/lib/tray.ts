@@ -100,11 +100,13 @@ function ensurePopup(onReady: () => void): void {
     popup = null;
   });
 
-  popup.on('blur', () => {
-    if (popup && !popup.isDestroyed() && popup.isVisible()) {
-      hidePopup();
-    }
-  });
+  if (process.env['TASKER_TEST_MODE'] !== '1') {
+    popup.on('blur', () => {
+      if (popup && !popup.isDestroyed() && popup.isVisible()) {
+        hidePopup();
+      }
+    });
+  }
 
   popup.once('ready-to-show', () => {
     onReady();
@@ -160,6 +162,14 @@ function hidePopup(): void {
   popup.hide();
   popup.webContents.send('popup:hidden');
   lastHideTime = Date.now();
+}
+
+/**
+ * Open the popup window for test mode (bypasses tray toggle).
+ * Used by Playwright E2E tests to get a visible, interactable window.
+ */
+export function openPopupForTest(): void {
+  ensurePopup(() => showPopup());
 }
 
 export function getPopupWindow(): BrowserWindow | null {

@@ -11,6 +11,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
   ({ value, onChange, className }, ref) => {
     return (
       <input
+        data-testid="search-input"
         ref={ref}
         type="text"
         value={value}

@@ -150,10 +150,11 @@ export function ListSection({
   };
 
   return (
-    <div className="border-b border-border/50">
+    <div data-testid={`list-section-${listName}`} className="border-b border-border/50">
       {/* List header */}
-      <div className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary/80 backdrop-blur-sm hover:bg-secondary/90 transition-colors">
+      <div data-testid={`list-header-${listName}`} className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary/80 backdrop-blur-sm hover:bg-secondary/90 transition-colors">
         <button
+          data-testid={`list-collapse-${listName}`}
           onClick={onToggleCollapsed}
           className="text-muted-foreground hover:text-foreground transition-transform flex-shrink-0"
           style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
@@ -252,6 +253,7 @@ export function ListSection({
             <div className="px-3 py-2 border-b border-border/30">
               <div className="relative">
                 <textarea
+                  data-testid={`add-task-input-${listName}`}
                   ref={addInputRef}
                   value={addValue}
                   onChange={(e) => {

@@ -218,7 +218,7 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={300}>
     <div className="dark h-screen w-screen p-1">
-    <div className="h-full flex flex-col bg-background text-foreground rounded-xl overflow-hidden border border-border/60 popup-glass">
+    <div data-testid="app-ready" className="h-full flex flex-col bg-background text-foreground rounded-xl overflow-hidden border border-border/60 popup-glass">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-secondary/20 border-b border-border/50">
         <span className="text-sm font-semibold flex-shrink-0">Tasker</span>
@@ -268,6 +268,7 @@ export default function App() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              data-testid="new-list-button"
               onClick={startCreateList}
               className="text-muted-foreground hover:text-foreground p-0.5"
             >
@@ -344,7 +345,7 @@ export default function App() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto relative">
+      <div data-testid="app-content" className="flex-1 overflow-auto relative">
         {showHelp ? (
           <HelpPanel onClose={() => setShowHelp(false)} />
         ) : showLogs ? (

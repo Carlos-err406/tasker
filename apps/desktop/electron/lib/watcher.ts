@@ -1,13 +1,10 @@
 import { BrowserWindow } from 'electron';
 import { watch } from 'chokidar';
-import { getDefaultDbPath } from '@tasker/core';
 import { triggerSync } from './reminder-sync/index.js';
 
 let watcher: ReturnType<typeof watch> | null = null;
 
-export function startDbWatcher(getWindow: () => BrowserWindow | null): void {
-  const dbPath = getDefaultDbPath();
-
+export function startDbWatcher(dbPath: string, getWindow: () => BrowserWindow | null): void {
   watcher = watch(dbPath, {
     persistent: true,
     ignoreInitial: true,

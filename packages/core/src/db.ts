@@ -9,6 +9,13 @@ export type TaskerDb = ReturnType<typeof drizzle<typeof schema>>;
 
 /** Returns the platform-appropriate default database path */
 export function getDefaultDbPath(): string {
+  if (process.env['TASKER_DB_PATH']) {
+    return process.env['TASKER_DB_PATH'];
+  }
+  if (process.env['TASKER_TEST_MODE'] === '1') {
+    throw new Error('TASKER_DB_PATH must be set when TASKER_TEST_MODE=1');
+  }
+
   const platform = process.platform;
   let dir: string;
 

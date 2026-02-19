@@ -192,6 +192,7 @@ export function TaskItem({
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
         <div
+          data-testid={`task-item-${shortId}`}
           className={cn(
             'group flex items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50',
           )}
@@ -199,6 +200,7 @@ export function TaskItem({
           {/* Checkbox + ID column */}
           <div className={cn('flex flex-col items-center mt-0.5', done && 'opacity-60')}>
             <button
+              data-testid={`task-checkbox-${shortId}`}
               onClick={handleCheckboxClick}
               onContextMenu={handleCheckboxContextMenu}
               className={cn(
@@ -231,6 +233,7 @@ export function TaskItem({
             {editing ? (
               <div className="relative">
                 <textarea
+                  data-testid="task-edit-input"
                   ref={inputRef}
                   value={editValue}
                   onChange={(e) => {
@@ -267,6 +270,7 @@ export function TaskItem({
                     </span>
                   )}
                   <span
+                    data-testid={`task-name-${shortId}`}
                     className={cn(
                       'text-sm leading-tight',
                       done && 'line-through text-muted-foreground',
