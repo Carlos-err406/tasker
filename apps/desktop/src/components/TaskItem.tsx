@@ -76,6 +76,28 @@ export function TaskItem({
   const dueDateLabel = formatDueDate(task.dueDate);
   const dueDateColor = getDueDateColor(task.dueDate);
 
+  const handleToggleCheckbox = useCallback((contentLineNumber: number) => {
+    // descPreview (content) corresponds to lines after the title in task.description,
+    // offset by any leading blank lines that getDescriptionPreview trims.
+    const descLines = task.description.split('\n');
+    let bodyStart = 1; // skip title (line 0)
+    while (bodyStart < descLines.length && descLines[bodyStart]!.trim() === '') bodyStart++;
+
+    const targetLine = bodyStart + contentLineNumber;
+    if (targetLine >= descLines.length) return;
+
+    // Toggle the first checkbox pattern on this line
+    descLines[targetLine] = descLines[targetLine]!.replace(
+      /\[[ xX]\]/,
+      (match) => (match === '[ ]' ? '[x]' : '[ ]'),
+    );
+
+    const newDescription = descLines.join('\n');
+    if (newDescription !== task.description) {
+      onRename(task.id, newDescription);
+    }
+  }, [task.description, task.id, onRename]);
+
   const startEdit = () => {
     setEditValue(task.description);
     setEditing(true);
@@ -255,7 +277,7 @@ export function TaskItem({
                 </div>
 
                 {/* Description preview */}
-                {descPreview && <MarkdownContent content={descPreview} />}
+                {descPreview && <MarkdownContent content={descPreview} onToggleCheckbox={handleToggleCheckbox} />}
 
                 {/* Relationship lines */}
                 {relDetails?.parent && (
