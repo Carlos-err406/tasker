@@ -285,7 +285,7 @@ export function TaskItem({
 
                 {/* Relationship lines */}
                 {relDetails?.parent && (
-                  <button onClick={() => onNavigateToTask(relDetails.parent!.id)} className="flex items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button onClick={() => onNavigateToTask(relDetails.parent!.id)} className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
                     <CornerLeftUp className="h-3 w-3 flex-shrink-0 mt-0.5" />
                     <span className="flex-1 min-w-0">Subtask of ({relDetails.parent.id}) {relDetails.parent.title}</span>
                     {getLinkedStatusLabel(relDetails.parent.status) && (
@@ -294,7 +294,7 @@ export function TaskItem({
                   </button>
                 )}
                 {relDetails?.subtasks.map((s) => (
-                  <button key={s.id} onClick={() => onNavigateToTask(s.id)} className="flex items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={s.id} onClick={() => onNavigateToTask(s.id)} className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left">
                     <CornerRightDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
                     <span className="flex-1 min-w-0">Subtask ({s.id}) {s.title}</span>
                     {getLinkedStatusLabel(s.status) && (
@@ -303,7 +303,7 @@ export function TaskItem({
                   </button>
                 ))}
                 {relDetails?.blocks.map((b) => (
-                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
                     <span className="flex-1 min-w-0">Blocks ({b.id}) {b.title}</span>
                     {getLinkedStatusLabel(b.status) && (
@@ -312,7 +312,7 @@ export function TaskItem({
                   </button>
                 ))}
                 {relDetails?.blockedBy.map((b) => (
-                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={b.id} onClick={() => onNavigateToTask(b.id)} className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
                     <span className="flex-1 min-w-0">Blocked by ({b.id}) {b.title}</span>
                     {getLinkedStatusLabel(b.status) && (
@@ -321,7 +321,7 @@ export function TaskItem({
                   </button>
                 ))}
                 {relDetails?.related.map((r) => (
-                  <button key={r.id} onClick={() => onNavigateToTask(r.id)} className="flex items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
+                  <button key={r.id} onClick={() => onNavigateToTask(r.id)} className="flex w-full items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left">
                     <Link2 className="h-3 w-3 flex-shrink-0 mt-0.5" />
                     <span className="flex-1 min-w-0">Related to ({r.id}) {r.title}</span>
                     {getLinkedStatusLabel(r.status) && (
