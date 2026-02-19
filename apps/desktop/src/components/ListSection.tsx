@@ -8,6 +8,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ChevronDown, Plus, Ellipsis, Eye, EyeOff } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { SortableTaskItem } from './SortableTaskItem.js';
 
@@ -184,21 +185,29 @@ export function ListSection({
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {doneCount > 0 && (
-            <button
-              onClick={onToggleHideCompleted}
-              className="text-muted-foreground hover:text-foreground p-0.5"
-              title={hideCompleted ? 'Show completed tasks' : 'Hide completed tasks'}
-            >
-              {hideCompleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onToggleHideCompleted}
+                  className="text-muted-foreground hover:text-foreground p-0.5"
+                >
+                  {hideCompleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{hideCompleted ? 'Show completed tasks' : 'Hide completed tasks'}</TooltipContent>
+            </Tooltip>
           )}
-          <button
-            onClick={() => startAdd()}
-            className="text-muted-foreground hover:text-foreground p-0.5"
-            title="Add task"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => startAdd()}
+                className="text-muted-foreground hover:text-foreground p-0.5"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Add task</TooltipContent>
+          </Tooltip>
 
           {!isDefault && (
             <DropdownMenu.Root>

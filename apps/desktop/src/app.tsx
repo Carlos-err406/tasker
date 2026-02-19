@@ -23,6 +23,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal } from 'lucide-react';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
+import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
 import { SortableListSection } from '@/components/SortableListSection.js';
 import { TaskItem } from '@/components/TaskItem.js';
 import { SearchBar } from '@/components/SearchBar.js';
@@ -214,6 +216,7 @@ export default function App() {
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="dark h-screen w-screen p-1">
     <div className="h-full flex flex-col bg-background text-foreground rounded-xl overflow-hidden border border-border/60 popup-glass">
       {/* Header */}
@@ -262,45 +265,73 @@ export default function App() {
           )}
         </div>
 
-        <button
-          onClick={startCreateList}
-          className="text-muted-foreground hover:text-foreground p-0.5"
-          title="Create list"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={startCreateList}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Create list</TooltipContent>
+        </Tooltip>
 
-        <button
-          onClick={store.toggleCollapseAll}
-          className="text-muted-foreground hover:text-foreground p-0.5"
-          title="Collapse/expand all (⌘E)"
-        >
-          <ChevronsDownUp className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={store.toggleCollapseAll}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <ChevronsDownUp className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span className="flex items-center gap-1.5">Collapse/expand all <KbdGroup><Kbd>⌘</Kbd><Kbd>E</Kbd></KbdGroup></span>
+          </TooltipContent>
+        </Tooltip>
 
-        <button
-          onClick={store.applySystemSort}
-          className="text-muted-foreground hover:text-foreground p-0.5"
-          title="System sort (⌘J)"
-        >
-          <ArrowUpDown className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={store.applySystemSort}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span className="flex items-center gap-1.5">System sort <KbdGroup><Kbd>⌘</Kbd><Kbd>J</Kbd></KbdGroup></span>
+          </TooltipContent>
+        </Tooltip>
 
-        <button
-          onClick={handleToggleLogs}
-          className="text-muted-foreground hover:text-foreground p-0.5"
-          title="Logs (⌘L)"
-        >
-          <Terminal className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleToggleLogs}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <Terminal className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span className="flex items-center gap-1.5">Logs <KbdGroup><Kbd>⌘</Kbd><Kbd>L</Kbd></KbdGroup></span>
+          </TooltipContent>
+        </Tooltip>
 
-        <button
-          onClick={handleToggleHelp}
-          className="text-muted-foreground hover:text-foreground p-0.5"
-          title="Help (&#8984;/)"
-        >
-          <CircleHelp className="h-4 w-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleToggleHelp}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <CircleHelp className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span className="flex items-center gap-1.5">Help <KbdGroup><Kbd>⌘</Kbd><Kbd>/</Kbd></KbdGroup></span>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Search */}
@@ -441,5 +472,6 @@ export default function App() {
       </div>
     </div>
     </div>
+    </TooltipProvider>
   );
 }

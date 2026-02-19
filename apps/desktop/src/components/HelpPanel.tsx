@@ -1,3 +1,5 @@
+import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
+
 interface HelpPanelProps {
   onClose: () => void;
 }
@@ -78,48 +80,48 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
 
         <section>
           <h3 className="font-medium text-sm mb-1.5">Keyboard Shortcuts</h3>
-          <div className="grid grid-cols-2 gap-1 text-muted-foreground">
-            <span className="font-mono">&#8984;K</span>
+          <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>K</Kbd></KbdGroup>
             <span>Focus search</span>
-            <span className="font-mono">&#8984;R</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>R</Kbd></KbdGroup>
             <span>Refresh</span>
-            <span className="font-mono">&#8984;Z</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>Z</Kbd></KbdGroup>
             <span>Undo</span>
-            <span className="font-mono">&#8984;&#8679;Z</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>Z</Kbd></KbdGroup>
             <span>Redo</span>
-            <span className="font-mono">&#8984;E</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>E</Kbd></KbdGroup>
             <span>Collapse/expand all</span>
-            <span className="font-mono">&#8984;J</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>J</Kbd></KbdGroup>
             <span>Apply system sort</span>
-            <span className="font-mono">&#8984;W</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>W</Kbd></KbdGroup>
             <span>Close popup</span>
-            <span className="font-mono">&#8984;L</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>L</Kbd></KbdGroup>
             <span>Toggle logs</span>
-            <span className="font-mono">&#8984;/</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>/</Kbd></KbdGroup>
             <span>Toggle help</span>
-            <span className="font-mono">Esc</span>
+            <Kbd>Esc</Kbd>
             <span>Close / Cancel</span>
           </div>
         </section>
 
         <section>
           <h3 className="font-medium text-sm mb-1.5">Editing Shortcuts</h3>
-          <div className="grid grid-cols-2 gap-1 text-muted-foreground">
-            <span className="font-mono">&#8984;B</span>
+          <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>B</Kbd></KbdGroup>
             <span>Bold</span>
-            <span className="font-mono">&#8984;I</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>I</Kbd></KbdGroup>
             <span>Italic</span>
-            <span className="font-mono">&#8984;U</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>U</Kbd></KbdGroup>
             <span>Underline</span>
-            <span className="font-mono">&#8984;&#8679;X</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>X</Kbd></KbdGroup>
             <span>Strikethrough</span>
-            <span className="font-mono">&#8984;K</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>K</Kbd></KbdGroup>
             <span>Insert link</span>
-            <span className="font-mono">&#8984;&#8679;I</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>I</Kbd></KbdGroup>
             <span>Insert image</span>
-            <span className="font-mono">Tab</span>
+            <Kbd>Tab</Kbd>
             <span>Next placeholder</span>
-            <span className="font-mono">&#8984;V</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>V</Kbd></KbdGroup>
             <span>Paste image from clipboard</span>
           </div>
         </section>

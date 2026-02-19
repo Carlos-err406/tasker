@@ -9,6 +9,7 @@ import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
 import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import {
   getDisplayTitle,
   getDescriptionPreview,
@@ -190,13 +191,17 @@ export function TaskItem({
               {done && <Check className="h-3 w-3" />}
               {inProg && <Minus className="h-3 w-3" />}
             </button>
-            <button
-              onClick={copyId}
-              className="mt-0.5 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground"
-              title="Copy ID"
-            >
-              {shortId}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={copyId}
+                  className="mt-0.5 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground"
+                >
+                  {shortId}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Copy ID</TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Content column */}
