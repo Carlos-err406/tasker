@@ -1,8 +1,9 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
-import { CheckSquare, Square } from "lucide-react";
+import { CheckSquare, Square, Loader2 } from "lucide-react";
 import { openExternal } from "@/lib/services/window";
 
 function resolveImageSrc(src: string | undefined): string | undefined {
@@ -14,23 +15,41 @@ function resolveImageSrc(src: string | undefined): string | undefined {
   return src;
 }
 
-const components: Components = {
-  img: ({ src, alt }) => {
-    const resolvedSrc = resolveImageSrc(src);
-    return (
-      <span className="block w-full my-1">
+function ImageWithLoading({ src, alt }: { src?: string; alt?: string }) {
+  const resolvedSrc = resolveImageSrc(src);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  return (
+    <span className="block w-full my-1">
+      {loading && !error && (
+        <span className="flex items-center justify-center py-3 text-muted-foreground/50">
+          <Loader2 className="size-4 animate-spin" />
+        </span>
+      )}
+      {error ? (
+        <span className="flex items-center justify-center py-2 text-muted-foreground/40 text-[10px]">
+          Failed to load image
+        </span>
+      ) : (
         <img
           src={resolvedSrc}
           alt={alt ?? ""}
+          onLoad={() => setLoading(false)}
+          onError={() => { setLoading(false); setError(true); }}
           onClick={(e) => {
             e.stopPropagation();
             if (src) openExternal(src);
           }}
-          className="max-w-full h-auto mx-auto block rounded cursor-pointer"
+          className={`max-w-full h-auto mx-auto block rounded cursor-pointer ${loading ? "hidden" : ""}`}
         />
-      </span>
-    );
-  },
+      )}
+    </span>
+  );
+}
+
+const components: Components = {
+  img: ({ src, alt }) => <ImageWithLoading src={src} alt={alt} />,
   table: ({ children }) => <table className="w-full">{children}</table>,
   th: ({ children }) => (
     <th className="border p-1 border-border">{children}</th>

@@ -66,14 +66,14 @@ export function LogsPanel({ onClose }: LogsPanelProps) {
         </div>
       </div>
 
-      <div className="font-mono text-[11px] leading-relaxed space-y-px">
+      <div className="font-mono text-[11px] leading-relaxed">
         {logs.length === 0 && (
           <div className="text-muted-foreground text-center py-8 text-xs">No logs yet</div>
         )}
         {logs.map((entry, i) => (
-          <div key={i} className="flex gap-2">
+          <div key={i} className={`flex gap-2 py-1 ${i > 0 ? "border-t border-border/30" : ""}`}>
             <span className="text-muted-foreground/60 flex-shrink-0">{formatTime(entry.timestamp)}</span>
-            <span className={levelColors[entry.level]}>{entry.message}</span>
+            <span className={`${levelColors[entry.level]} break-all min-w-0`}>{entry.message}</span>
           </div>
         ))}
         <div ref={bottomRef} />
