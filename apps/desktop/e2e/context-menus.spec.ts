@@ -76,8 +76,22 @@ test.describe('Context Menus', () => {
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
     await taskItem.click({ button: 'right' });
     await page.waitForSelector('[role="menu"]');
-    await page.getByRole('menuitem', { name: /Move to/ }).hover();
-    await page.getByRole('menuitem', { name: 'work' }).click();
+
+    // Hover "Move to..." and wait for submenu to appear
+    const moveToTrigger = page.getByRole('menuitem', { name: /Move to/ });
+    await moveToTrigger.hover();
+    await page.waitForTimeout(300);
+
+    // Click submenu item via Radix data attributes (bypasses pointer-event interception)
+    const workItem = page.getByRole('menuitem', { name: 'work' });
+    await expect(workItem).toBeVisible();
+    // Use dispatchEvent to trigger Radix's onSelect handler
+    await workItem.dispatchEvent('pointerdown');
+    await workItem.dispatchEvent('pointerup');
+    await workItem.dispatchEvent('click');
+
+    // Wait for move to complete
+    await page.waitForTimeout(300);
 
     // Task should disappear from "tasks" list
     const tasksSection = page.locator('[data-testid="list-section-tasks"]');

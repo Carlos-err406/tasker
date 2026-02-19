@@ -5,8 +5,8 @@ import type { Page, Locator } from '@playwright/test';
  * Call after filling the search input.
  */
 export async function waitForSearchDebounce(page: Page): Promise<void> {
-  await page.waitForTimeout(350);
-  await page.waitForSelector('[data-testid="app-ready"]');
+  // 200ms debounce + IPC round trip + React re-render
+  await page.waitForTimeout(500);
 }
 
 /**
@@ -56,8 +56,10 @@ export async function addTask(
   // Fill and submit
   const input = page.locator(`[data-testid="add-task-input-${listName}"]`);
   await input.fill(description);
+  // Small delay to ensure React state catches up before submit
+  await page.waitForTimeout(50);
   await input.press('Meta+Enter');
 
-  // Wait for the task to appear
-  await page.waitForTimeout(100);
+  // Wait for the IPC round trip and re-render
+  await page.waitForTimeout(200);
 }

@@ -13,7 +13,7 @@ test.describe('Undo/Redo', () => {
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(0);
 
     // Status bar should show undo message (check immediately — 3s timeout clears it)
-    const statusBar = page.locator('.text-\\[10px\\]').first();
+    const statusBar = page.locator('[data-testid="status-bar"]');
     await expect(statusBar).toContainText(/[Uu]ndo/);
   });
 
@@ -50,7 +50,7 @@ test.describe('Undo/Redo', () => {
     // Press Cmd+Z with nothing to undo
     await page.keyboard.press('Meta+z');
 
-    const statusBar = page.locator('.text-\\[10px\\]').first();
+    const statusBar = page.locator('[data-testid="status-bar"]');
     await expect(statusBar).toContainText(/[Nn]othing to undo/);
   });
 

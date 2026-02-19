@@ -16,13 +16,18 @@ test.describe('Search', () => {
   });
 
   test('search by tag', async ({ page }) => {
-    await addTask(page, 'Buy milk #shopping');
-    await addTask(page, 'Read a book #learning');
+    // Tags must be on a separate last line for the parser to extract them
+    await addTask(page, 'Buy milk\n#shopping');
+    await addTask(page, 'Read a book\n#learning');
+
+    // Verify both tasks exist before searching
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
 
     const searchInput = page.locator('[data-testid="search-input"]');
     await searchInput.fill('tag:shopping');
     await waitForSearchDebounce(page);
 
+    // Only the shopping-tagged task should appear
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
     await expect(page.locator('[data-testid^="task-name-"]').first()).toHaveText(
       'Buy milk',

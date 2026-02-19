@@ -463,7 +463,7 @@ export default function App() {
 
       {/* Footer */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/20 border-t border-border/50 text-[10px] text-muted-foreground">
-        <span>{statusText}</span>
+        <span data-testid="status-bar">{statusText}</span>
         <button
           onClick={() => quitApp()}
           className="hover:text-foreground"
