@@ -63,6 +63,34 @@ test.describe('Context Menus', () => {
     await expect(page.getByRole('menuitem', { name: 'work' })).toBeVisible();
   });
 
+  test('Create subtask stays in editing mode', async ({ page }) => {
+    await addTask(page, 'Parent task');
+
+    // Right-click → Create subtask
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await taskItem.click({ button: 'right' });
+    await page.waitForSelector('[role="menu"]');
+    await page.getByRole('menuitem', { name: 'Create subtask' }).click();
+
+    // The add input should be visible and editable (not auto-submitted)
+    const addInput = page.locator('[data-testid="add-task-input-tasks"]');
+    await expect(addInput).toBeVisible();
+    await expect(addInput).toBeFocused();
+
+    // Type a subtask name and submit
+    // Cursor should be at position 0 (before the metadata line)
+    await addInput.pressSequentially('Child task');
+    await page.waitForTimeout(50);
+    await addInput.press('Meta+Enter');
+    await page.waitForTimeout(200);
+
+    // Should now have 2 tasks: parent and child subtask
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
+    // The child task should be visible
+    const taskNames = page.locator('[data-testid^="task-name-"]');
+    await expect(taskNames.filter({ hasText: 'Child task' })).toHaveCount(1);
+  });
+
   test('move task to another list', async ({ page }) => {
     // Create second list
     await page.locator('[data-testid="new-list-button"]').click();

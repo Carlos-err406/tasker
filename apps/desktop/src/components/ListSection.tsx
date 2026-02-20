@@ -93,6 +93,9 @@ export function ListSection({
     setAddValue(initialValue ?? '');
     // Expand if collapsed
     if (collapsed) onToggleCollapsed();
+    // Delay focus to let Radix ContextMenu finish closing and restoring focus.
+    // Without this, the blur handler fires before the input is focused and
+    // auto-submits the pre-filled metadata (e.g. subtask parent link).
     setTimeout(() => {
       const el = addInputRef.current;
       if (el) {
@@ -103,7 +106,7 @@ export function ListSection({
         el.style.height = 'auto';
         el.style.height = el.scrollHeight + 'px';
       }
-    }, 0);
+    }, 50);
   };
 
   const submitAdd = () => {
