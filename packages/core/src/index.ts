@@ -26,3 +26,6 @@ export type { UndoCommand } from './undo/index.js';
 // Backup
 export { BackupManager } from './backup/index.js';
 export type { BackupInfo } from './backup/index.js';
+
+// AI
+export * from './ai/index.js';

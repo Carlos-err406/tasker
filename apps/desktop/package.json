@@ -21,6 +21,7 @@
     "@radix-ui/react-context-menu": "^2.2.16",
     "@tasker/core": "workspace:*",
     "chokidar": "^4.0.0",
+    "cmdk": "^1.1.1",
     "electron-traywindow-positioner": "^1.2.0",
     "radix-ui": "^1.4.3",
     "react-markdown": "^10.1.0",
