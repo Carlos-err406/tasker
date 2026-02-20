@@ -15,30 +15,14 @@ import { parseTaskDescription, syncMetadataToDescription } from '@tasker/core/pa
 import { Priority, TaskStatus } from '@tasker/core';
 import type { Task } from '@tasker/core';
 import { getDisplayTitle } from '@/lib/task-display.js';
+import {
+  isCommandMode,
+  getCommandQuery,
+  filterTasks,
+  filterByLabel,
+} from '@/lib/command-panel-utils.js';
 
-// ---- Pure utility helpers (exported for unit testing) ----
-
-export function isCommandMode(inputValue: string): boolean {
-  return inputValue.startsWith('>');
-}
-
-export function getCommandQuery(inputValue: string): string {
-  return inputValue.startsWith('>') ? inputValue.slice(1).trimStart() : inputValue;
-}
-
-export function filterTasks(tasks: Task[], query: string): Task[] {
-  if (!query.trim()) return tasks;
-  const q = query.trim().toLowerCase();
-  return tasks.filter(
-    (t) => t.description.toLowerCase().includes(q) || t.id.toLowerCase().includes(q),
-  );
-}
-
-export function filterByLabel<T extends { label: string }>(items: T[], query: string): T[] {
-  if (!query.trim()) return items;
-  const q = query.trim().toLowerCase();
-  return items.filter((item) => item.label.toLowerCase().includes(q));
-}
+export { isCommandMode, getCommandQuery, filterTasks, filterByLabel };
 
 // ---- Types ----
 
