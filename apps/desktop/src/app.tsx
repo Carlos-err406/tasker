@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo, createRef } from 'react';
 import { cn } from '@/lib/utils.js';
 import { useTaskerStore } from '@/hooks/use-tasker-store.js';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts.js';
@@ -25,7 +25,7 @@ import {
 import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
-import { SortableListSection } from '@/components/SortableListSection.js';
+import { SortableListSection, type SortableListSectionHandle } from '@/components/SortableListSection.js';
 import { TaskItem } from '@/components/TaskItem.js';
 import { SearchBar } from '@/components/SearchBar.js';
 import { HelpPanel } from '@/components/HelpPanel.js';
@@ -52,6 +52,7 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const listSectionRefs = useRef<Record<string, React.RefObject<SortableListSectionHandle | null>>>({});
 
   const sensors = useSensors(
     useSensor(VerticalPointerSensor, { activationConstraint: { distance: 5 } }),
@@ -77,6 +78,10 @@ export default function App() {
       store.setSearch(query);
     });
   }, [store.setSearch]);
+
+  const handleAddTaskToList = useCallback((listName: string) => {
+    listSectionRefs.current[listName]?.current?.startAdding();
+  }, []);
 
   const handleOpenTaskPanel = useCallback(() => {
     setCommandPanelMode('tasks');
@@ -408,9 +413,14 @@ export default function App() {
                   const tasks = store.tasksByList[listName] ?? [];
                   const collapsed = store.collapsedLists.has(listName);
 
+                  if (!listSectionRefs.current[listName]) {
+                    listSectionRefs.current[listName] = createRef<SortableListSectionHandle | null>();
+                  }
+
                   return (
                     <SortableListSection
                       key={listName}
+                      ref={listSectionRefs.current[listName]}
                       listName={listName}
                       tasks={tasks}
                       lists={store.lists}
@@ -495,7 +505,7 @@ export default function App() {
       onClose={() => setCommandPanelOpen(false)}
       onToggleHelp={handleToggleHelp}
       onToggleLogs={handleToggleLogs}
-      onAddTaskToList={() => {/* Phase 4: imperative SortableListSection.startAdding */}}
+      onAddTaskToList={handleAddTaskToList}
       store={{
         tasks: store.tasks,
         lists: store.lists,
