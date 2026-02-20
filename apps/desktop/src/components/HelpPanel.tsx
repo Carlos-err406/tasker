@@ -81,6 +81,10 @@ export function HelpPanel({ onClose }: HelpPanelProps) {
         <section>
           <h3 className="font-medium text-sm mb-1.5">Keyboard Shortcuts</h3>
           <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>P</Kbd></KbdGroup>
+            <span>Go to task</span>
+            <KbdGroup><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>P</Kbd></KbdGroup>
+            <span>Command palette</span>
             <KbdGroup><Kbd>⌘</Kbd><Kbd>K</Kbd></KbdGroup>
             <span>Focus search</span>
             <KbdGroup><Kbd>⌘</Kbd><Kbd>R</Kbd></KbdGroup>

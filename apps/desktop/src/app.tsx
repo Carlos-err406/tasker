@@ -30,6 +30,7 @@ import { TaskItem } from '@/components/TaskItem.js';
 import { SearchBar } from '@/components/SearchBar.js';
 import { HelpPanel } from '@/components/HelpPanel.js';
 import { LogsPanel } from '@/components/LogsPanel.js';
+import { CommandPanel } from '@/components/CommandPanel.js';
 
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
@@ -40,6 +41,8 @@ export default function App() {
   const store = useTaskerStore();
   const [showHelp, setShowHelp] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [commandPanelOpen, setCommandPanelOpen] = useState(false);
+  const [commandPanelMode, setCommandPanelMode] = useState<'tasks' | 'commands'>('tasks');
   const [searchInput, setSearchInput] = useState('');
   const [creatingList, setCreatingList] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -74,6 +77,16 @@ export default function App() {
       store.setSearch(query);
     });
   }, [store.setSearch]);
+
+  const handleOpenTaskPanel = useCallback(() => {
+    setCommandPanelMode('tasks');
+    setCommandPanelOpen(true);
+  }, []);
+
+  const handleOpenCommandPanel = useCallback(() => {
+    setCommandPanelMode('commands');
+    setCommandPanelOpen(true);
+  }, []);
 
   const handleToggleHelp = useCallback(() => {
     setShowHelp((v) => {
@@ -114,6 +127,8 @@ export default function App() {
     onApplySort: store.applySystemSort,
     onToggleCollapseAll: store.toggleCollapseAll,
     onEscape: handleEscape,
+    onOpenTaskPanel: handleOpenTaskPanel,
+    onOpenCommandPanel: handleOpenCommandPanel,
   });
 
   useClickOutside(filterMenuRef, useCallback(() => setShowFilterMenu(false), []));
@@ -473,6 +488,33 @@ export default function App() {
       </div>
     </div>
     </div>
+
+    <CommandPanel
+      open={commandPanelOpen}
+      initialMode={commandPanelMode}
+      onClose={() => setCommandPanelOpen(false)}
+      onToggleHelp={handleToggleHelp}
+      onToggleLogs={handleToggleLogs}
+      onAddTaskToList={() => {/* Phase 4: imperative SortableListSection.startAdding */}}
+      store={{
+        tasks: store.tasks,
+        lists: store.lists,
+        undo: store.undo,
+        redo: store.redo,
+        refresh: store.refresh,
+        applySystemSort: store.applySystemSort,
+        toggleCollapseAll: store.toggleCollapseAll,
+        toggleCollapsed: store.toggleCollapsed,
+        toggleHideCompleted: store.toggleHideCompleted,
+        setStatusTo: store.setStatusTo,
+        rename: store.rename,
+        deleteTask: store.deleteTask,
+        moveTask: store.moveTask,
+        navigateToTask: store.navigateToTask,
+        setFilterList: store.setFilterList,
+        showStatus: store.showStatus,
+      }}
+    />
     </TooltipProvider>
   );
 }
