@@ -1,4 +1,4 @@
-import type { Task } from '@tasker/core';
+import type { Task } from '@tasker/core/types';
 
 /** Returns true if the input value is in command mode (starts with '>') */
 export function isCommandMode(inputValue: string): boolean {

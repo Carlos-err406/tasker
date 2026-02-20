@@ -1,7 +1,7 @@
 ---
 title: "feat: Command Panel (VSCode-style Cmd+P / Cmd+Shift+P)"
 type: feat
-status: active
+status: completed
 date: 2026-02-20
 brainstorm: docs/brainstorms/2026-02-20-command-panel-brainstorm.md
 task: u4s
@@ -492,27 +492,27 @@ await expect(page.getByTestId('command-panel')).not.toBeVisible()
 
 ### Functional
 
-- [ ] `Cmd+P` opens the panel in task mode (empty input)
-- [ ] `Cmd+Shift+P` opens the panel with `>` pre-filled (command mode)
-- [ ] Typing `>` in task mode switches to command mode; deleting `>` returns to task mode
-- [ ] Task mode: in-memory filter of all tasks by substring; selecting a task calls `navigateToTask()` and closes
-- [ ] Task mode: does not affect the search bar or `store.searchQuery`
-- [ ] Command mode: all immediate commands execute correctly and close the panel
-- [ ] Command mode: two-step commands transition to task-select step
-- [ ] Sub-pick step: shows correct options for Set status, Set priority, Set due date, Move to list
-- [ ] List-targeting "Add task to list": opens the add-input in the correct list
-- [ ] List-targeting "Switch to list": scrolls/focuses the correct list
-- [ ] Escape always closes the panel (no back navigation)
-- [ ] `Cmd+K` is removed; HelpPanel keyboard reference updated
-- [ ] Search bar continues to work independently for persistent filtering
-- [ ] `Toggle hide completed — [list]` and `Toggle expand — [list]` appear for each list
+- [x] `Cmd+P` opens the panel in task mode (empty input)
+- [x] `Cmd+Shift+P` opens the panel with `>` pre-filled (command mode)
+- [x] Typing `>` in task mode switches to command mode; deleting `>` returns to task mode
+- [x] Task mode: in-memory filter of all tasks by substring; selecting a task calls `navigateToTask()` and closes
+- [x] Task mode: does not affect the search bar or `store.searchQuery`
+- [x] Command mode: all immediate commands execute correctly and close the panel
+- [x] Command mode: two-step commands transition to task-select step
+- [x] Sub-pick step: shows correct options for Set status, Set priority, Set due date, Move to list
+- [x] List-targeting "Add task to list": opens the add-input in the correct list
+- [x] List-targeting "Switch to list": scrolls/focuses the correct list
+- [x] Escape always closes the panel (no back navigation)
+- [x] `Cmd+K` is removed; HelpPanel keyboard reference updated
+- [x] Search bar continues to work independently for persistent filtering
+- [x] `Toggle hide completed — [list]` and `Toggle expand — [list]` appear for each list
 
 ### Quality
 
-- [ ] All unit tests pass (`vitest`)
-- [ ] All E2E tests pass (`pnpm test:e2e`)
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm --filter @tasker/desktop run build` passes
+- [x] All unit tests pass (`vitest`)
+- [x] All E2E tests pass (`pnpm test:e2e`)
+- [x] `pnpm typecheck` passes
+- [x] `pnpm --filter @tasker/desktop run build` passes
 
 ---
 

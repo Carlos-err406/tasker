@@ -28,4 +28,6 @@ export { BackupManager } from './backup/index.js';
 export type { BackupInfo } from './backup/index.js';
 
 // AI
-export * from './ai/index.js';
+// Note: AI module is available via @tasker/core/ai subpath export only.
+// Do NOT re-export here — AI packages (Vercel AI SDK, LM Studio client)
+// use Node.js APIs and must not be bundled into the Electron renderer.

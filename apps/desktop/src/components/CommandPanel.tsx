@@ -12,8 +12,8 @@ import {
   CommandShortcut,
 } from '@/components/ui/command.js';
 import { parseTaskDescription, syncMetadataToDescription } from '@tasker/core/parsers';
-import { Priority, TaskStatus } from '@tasker/core';
-import type { Task } from '@tasker/core';
+import { Priority, TaskStatus } from '@tasker/core/types';
+import type { Task } from '@tasker/core/types';
 import { getDisplayTitle } from '@/lib/task-display.js';
 import {
   isCommandMode,
@@ -359,7 +359,7 @@ export function CommandPanel({
   // ---- Step: root — task mode ----
   const renderTaskMode = () => (
     <>
-      <CommandGroup heading="Tasks" data-testid="command-panel-task-group">
+      <CommandGroup heading="Tasks" data-testid="command-panel-tasks-group">
         {filteredTasks.map((task) =>
           renderTaskItem(task, (t) => {
             store.navigateToTask(t.id);
