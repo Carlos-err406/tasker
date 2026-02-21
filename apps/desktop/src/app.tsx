@@ -267,7 +267,9 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className="dark h-screen w-screen p-1">
+    {/* Transparent overflow area for submenus — clicks here close the popup */}
+    <div className="fixed inset-y-0 right-0 w-[200px]" style={{ zIndex: 1 }} onClick={hideWindow} />
+    <div className="dark h-screen w-[400px] p-1">
     <div data-testid="app-ready" className="h-full flex flex-col bg-background text-foreground rounded-xl overflow-hidden border border-border/60 popup-glass">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-secondary/20 border-b border-border/50">

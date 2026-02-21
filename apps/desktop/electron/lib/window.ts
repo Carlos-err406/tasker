@@ -12,7 +12,9 @@ function getRendererDist(): string {
   return path.join(appRoot, 'dist');
 }
 
-const POPUP_WIDTH = 400;
+const VISIBLE_WIDTH = 400;
+const OVERFLOW_WIDTH = 200; // extra transparent space for submenus to render into
+const POPUP_WIDTH = VISIBLE_WIDTH + OVERFLOW_WIDTH;
 const POPUP_HEIGHT = 600;
 
 export function createPopupWindow(
@@ -63,13 +65,13 @@ function calculatePopupPosition(trayBounds?: Electron.Rectangle): {
     };
   }
 
-  // Center popup below tray icon
-  let x = Math.round(trayBounds.x + trayBounds.width / 2 - POPUP_WIDTH / 2);
+  // Center visible content below tray icon (overflow extends to the right)
+  let x = Math.round(trayBounds.x + trayBounds.width / 2 - VISIBLE_WIDTH / 2);
   let y = trayBounds.y + trayBounds.height + 5;
 
-  // Clamp to screen bounds
-  if (x + POPUP_WIDTH > workArea.x + workArea.width) {
-    x = workArea.x + workArea.width - POPUP_WIDTH - 10;
+  // Clamp so visible content stays on screen (overflow may extend beyond right edge)
+  if (x + VISIBLE_WIDTH > workArea.x + workArea.width) {
+    x = workArea.x + workArea.width - VISIBLE_WIDTH - 10;
   }
   if (x < workArea.x) {
     x = workArea.x + 10;
