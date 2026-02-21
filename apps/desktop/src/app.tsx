@@ -106,11 +106,19 @@ export default function App() {
     });
   }, []);
 
-  // Toggle click-through for the transparent 200px overflow zone on the right
+  // Toggle click-through for the transparent 200px overflow zone on the right.
+  // Only ignore mouse events when the cursor is over empty space — if a submenu
+  // or other portal has rendered content there, keep events enabled.
   useEffect(() => {
     const VISIBLE_WIDTH = 400;
     const onMouseMove = (e: MouseEvent) => {
-      window.ipc['window:setIgnoreMouseEvents'](e.clientX > VISIBLE_WIDTH);
+      if (e.clientX <= VISIBLE_WIDTH) {
+        window.ipc['window:setIgnoreMouseEvents'](false);
+        return;
+      }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const hasContent = !!el && el !== document.documentElement && el !== document.body;
+      window.ipc['window:setIgnoreMouseEvents'](!hasContent);
     };
     window.addEventListener('mousemove', onMouseMove);
     return () => {
