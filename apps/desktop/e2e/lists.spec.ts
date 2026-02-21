@@ -43,8 +43,6 @@ test.describe('Lists', () => {
 
     // Click collapse toggle
     await page.locator('[data-testid="list-collapse-tasks"]').click();
-    // Wait for CSS transition (200ms duration)
-    await page.waitForTimeout(300);
 
     // The task is inside an overflow-hidden container with grid-template-rows: 0fr
     // Browser computes 0fr as 0px
@@ -53,7 +51,6 @@ test.describe('Lists', () => {
 
     // Click again to expand
     await page.locator('[data-testid="list-collapse-tasks"]').click();
-    await page.waitForTimeout(300);
 
     // After expand, grid-template-rows should be 1fr (or a specific pixel value)
     const taskItem = page.locator('[data-testid^="task-item-"]').first();

@@ -17,6 +17,7 @@ import {
   applySystemSort,
   getSubtasks,
   unsetParent,
+  getRawDb,
 } from '@tasker/core';
 import type { TaskStatus, Priority } from '@tasker/core';
 import $try from '@utils/try.js';
@@ -276,4 +277,15 @@ export const tasksRegister: IPCRegisterFunction = (ipcMain, _widget, { db, undo 
     log('applySystemSort', listName ?? 'all');
     return $try(() => applySystemSort(db, listName));
   });
+
+  if (process.env['TASKER_TEST_MODE'] === '1') {
+    ipcMain.handle('tasker:resetForTest', () => {
+      const raw = getRawDb(db);
+      raw.exec('DELETE FROM tasks');
+      raw.exec("DELETE FROM lists WHERE name != 'tasks'");
+      raw.exec('UPDATE lists SET is_collapsed=0, hide_completed=0, sort_order=0');
+      raw.exec('DELETE FROM undo_history');
+      undo.clearHistory();
+    });
+  }
 };

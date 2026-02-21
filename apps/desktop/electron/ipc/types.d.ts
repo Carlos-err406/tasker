@@ -35,4 +35,5 @@ export type IPC = ReturnType<typeof tasksInvokerFactory> &
     onPopupHidden: (callback: () => void) => () => void;
     onPopupShown: (callback: () => void) => () => void;
     onSetSearch: (callback: (query: string) => void) => () => void;
+    'tasker:resetForTest': () => Promise<void>;
   };

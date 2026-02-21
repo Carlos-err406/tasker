@@ -51,4 +51,5 @@ contextBridge.exposeInMainWorld('ipc', {
       ipcRenderer.removeListener('set-search', handler);
     };
   },
+  'tasker:resetForTest': () => ipcRenderer.invoke('tasker:resetForTest'),
 });

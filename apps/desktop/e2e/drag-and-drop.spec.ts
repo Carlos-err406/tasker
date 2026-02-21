@@ -9,13 +9,10 @@ test.describe('Drag and Drop', () => {
     await addTask(page, 'Task C');
 
     // Verify initial order: C (top), B, A (bottom)
-    const getTaskNames = () =>
-      page.$$eval('[data-testid^="task-name-"]', (els) =>
-        els.map((el) => el.textContent?.trim()),
-      );
-
-    let names = await getTaskNames();
-    expect(names).toEqual(['Task C', 'Task B', 'Task A']);
+    const taskNames = page.locator('[data-testid^="task-name-"]');
+    await expect(taskNames.nth(0)).toHaveText('Task C');
+    await expect(taskNames.nth(1)).toHaveText('Task B');
+    await expect(taskNames.nth(2)).toHaveText('Task A');
 
     // Drag Task A (bottom) above Task C (top)
     const taskItems = page.locator('[data-task-id]');
@@ -23,10 +20,9 @@ test.describe('Drag and Drop', () => {
     const taskC = taskItems.nth(0); // Task C is at top (index 0)
 
     await dragTaskVertical(page, taskA, taskC);
-    await page.waitForTimeout(200); // wait for reorder to settle
 
-    names = await getTaskNames();
-    expect(names[0]).toBe('Task A');
+    // Wait for reorder to settle by asserting the new first item
+    await expect(taskNames.nth(0)).toHaveText('Task A');
   });
 
   test('undo a reorder', async ({ page }) => {
@@ -34,27 +30,22 @@ test.describe('Drag and Drop', () => {
     await addTask(page, 'Second');
     await addTask(page, 'Third');
 
-    const getTaskNames = () =>
-      page.$$eval('[data-testid^="task-name-"]', (els) =>
-        els.map((el) => el.textContent?.trim()),
-      );
+    const taskNames = page.locator('[data-testid^="task-name-"]');
 
-    const originalOrder = await getTaskNames();
+    // Initial order: Third (top), Second, First (bottom)
+    await expect(taskNames.nth(0)).toHaveText('Third');
 
     // Drag Third (top) to bottom
     const taskItems = page.locator('[data-task-id]');
     await dragTaskVertical(page, taskItems.nth(0), taskItems.nth(2));
-    await page.waitForTimeout(200);
 
-    // Verify order changed
-    const newOrder = await getTaskNames();
-    expect(newOrder).not.toEqual(originalOrder);
+    // Verify order changed: Third moved to bottom
+    await expect(taskNames.nth(2)).toHaveText('Third');
 
     // Undo
     await page.keyboard.press('Meta+z');
-    await page.waitForTimeout(200);
 
-    const undoneOrder = await getTaskNames();
-    expect(undoneOrder).toEqual(originalOrder);
+    // Third should be back at top
+    await expect(taskNames.nth(0)).toHaveText('Third');
   });
 });

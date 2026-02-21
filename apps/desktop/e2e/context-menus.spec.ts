@@ -80,9 +80,8 @@ test.describe('Context Menus', () => {
     // Type a subtask name and submit
     // Cursor should be at position 0 (before the metadata line)
     await addInput.pressSequentially('Child task');
-    await page.waitForTimeout(50);
     await addInput.press('Meta+Enter');
-    await page.waitForTimeout(200);
+    await addInput.waitFor({ state: 'hidden' });
 
     // Should now have 2 tasks: parent and child subtask
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
@@ -108,7 +107,6 @@ test.describe('Context Menus', () => {
     // Hover "Move to..." and wait for submenu to appear
     const moveToTrigger = page.getByRole('menuitem', { name: /Move to/ });
     await moveToTrigger.hover();
-    await page.waitForTimeout(300);
 
     // Click submenu item via Radix data attributes (bypasses pointer-event interception)
     const workItem = page.getByRole('menuitem', { name: 'work' });
@@ -117,9 +115,6 @@ test.describe('Context Menus', () => {
     await workItem.dispatchEvent('pointerdown');
     await workItem.dispatchEvent('pointerup');
     await workItem.dispatchEvent('click');
-
-    // Wait for move to complete
-    await page.waitForTimeout(300);
 
     // Task should disappear from "tasks" list
     const tasksSection = page.locator('[data-testid="list-section-tasks"]');

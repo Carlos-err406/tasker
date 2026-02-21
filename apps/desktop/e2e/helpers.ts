@@ -2,11 +2,11 @@ import type { Page, Locator } from '@playwright/test';
 
 /**
  * Wait for the 200ms search debounce + IPC round trip to complete.
- * Call after filling the search input.
+ * Playwright's expect assertions retry automatically, so explicit waits
+ * are not needed — this function is kept as a no-op for call-site compatibility.
  */
-export async function waitForSearchDebounce(page: Page): Promise<void> {
-  // 200ms debounce + IPC round trip + React re-render
-  await page.waitForTimeout(500);
+export async function waitForSearchDebounce(_page: Page): Promise<void> {
+  // no-op: Playwright retries assertions within the configured expect.timeout
 }
 
 /**
@@ -56,10 +56,8 @@ export async function addTask(
   // Fill and submit
   const input = page.locator(`[data-testid="add-task-input-${listName}"]`);
   await input.fill(description);
-  // Small delay to ensure React state catches up before submit
-  await page.waitForTimeout(50);
   await input.press('Meta+Enter');
 
-  // Wait for the IPC round trip and re-render
-  await page.waitForTimeout(200);
+  // Wait for the form to close (IPC round trip + re-render complete)
+  await input.waitFor({ state: 'hidden' });
 }

@@ -8,7 +8,6 @@ test.describe('Undo/Redo', () => {
 
     // Undo
     await page.keyboard.press('Meta+z');
-    await page.waitForTimeout(200);
 
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(0);
 
@@ -23,12 +22,10 @@ test.describe('Undo/Redo', () => {
 
     // Undo
     await page.keyboard.press('Meta+z');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(0);
 
     // Redo
     await page.keyboard.press('Meta+Shift+z');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
   });
 
@@ -42,7 +39,6 @@ test.describe('Undo/Redo', () => {
 
     // Undo should revert to pending
     await page.keyboard.press('Meta+z');
-    await page.waitForTimeout(200);
     await expect(checkbox.locator('svg.lucide-check')).not.toBeVisible();
   });
 
@@ -59,7 +55,6 @@ test.describe('Undo/Redo', () => {
 
     // Undo
     await page.keyboard.press('Meta+z');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(0);
 
     // New action (add another task) should clear the redo stack
@@ -67,7 +62,6 @@ test.describe('Undo/Redo', () => {
 
     // Redo should do nothing (stack was cleared)
     await page.keyboard.press('Meta+Shift+z');
-    await page.waitForTimeout(200);
 
     // Should only have the second task
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);

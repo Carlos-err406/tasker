@@ -40,7 +40,6 @@ test.describe('Command Panel', () => {
     await expect(page.locator('[data-testid="command-panel"]')).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
 
     await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
   });
@@ -59,7 +58,6 @@ test.describe('Command Panel', () => {
 
     // Filter by 'Buy'
     await input.fill('Buy');
-    await page.waitForTimeout(100);
 
     const taskItems = page.locator('[data-testid^="command-panel-task-"]');
     await expect(taskItems).toHaveCount(2);
@@ -73,7 +71,6 @@ test.describe('Command Panel', () => {
     // Click the task in the panel
     const taskItem = page.locator('[data-testid^="command-panel-task-"]').first();
     await taskItem.click();
-    await page.waitForTimeout(300);
 
     // Panel should close
     await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
@@ -84,7 +81,6 @@ test.describe('Command Panel', () => {
 
     const input = page.locator('[data-testid="command-panel-input"]');
     await input.fill('>');
-    await page.waitForTimeout(100);
 
     // Command mode commands should now be visible
     const undoCmd = page.locator('[data-testid="command-panel-cmd-undo"]');
@@ -105,7 +101,6 @@ test.describe('Command Panel', () => {
 
     const input = page.locator('[data-testid="command-panel-input"]');
     await input.fill('> undo');
-    await page.waitForTimeout(100);
 
     // Only undo should be visible (redo doesn't match 'undo')
     await expect(page.locator('[data-testid="command-panel-cmd-undo"]')).toBeVisible();
@@ -119,7 +114,6 @@ test.describe('Command Panel', () => {
     // Click 'Set status'
     const setStatus = page.locator('[data-testid="command-panel-cmd-set-status"]');
     await setStatus.click();
-    await page.waitForTimeout(100);
 
     // Should now show task select step
     const taskSelect = page.locator('[data-testid="command-panel-step-task-select"]');
@@ -128,7 +122,6 @@ test.describe('Command Panel', () => {
     // Select the task
     const taskItem = page.locator('[data-testid^="command-panel-task-"]').first();
     await taskItem.click();
-    await page.waitForTimeout(100);
 
     // Should now show sub-pick (status options)
     const subPick = page.locator('[data-testid="command-panel-step-sub-pick"]');
@@ -169,7 +162,6 @@ test.describe('Command Panel', () => {
     const input = page.locator('[data-testid="command-panel-input"]');
 
     await input.fill('tag:shopping');
-    await page.waitForTimeout(100);
 
     const taskItems = page.locator('[data-testid^="command-panel-task-"]');
     await expect(taskItems).toHaveCount(1);
@@ -183,7 +175,6 @@ test.describe('Command Panel', () => {
     const input = page.locator('[data-testid="command-panel-input"]');
 
     await input.fill('has:tags');
-    await page.waitForTimeout(100);
 
     // Only the tagged task should appear
     const taskItems = page.locator('[data-testid^="command-panel-task-"]');
@@ -197,13 +188,11 @@ test.describe('Command Panel', () => {
     // Complete the first task via checkbox click
     const checkbox = page.locator('[data-testid^="task-checkbox-"]').first();
     await checkbox.click();
-    await page.waitForTimeout(200);
 
     await openTaskPanel(page);
     const input = page.locator('[data-testid="command-panel-input"]');
 
     await input.fill('status:done');
-    await page.waitForTimeout(100);
 
     const panelItems = page.locator('[data-testid^="command-panel-task-"]');
     await expect(panelItems).toHaveCount(1);
@@ -215,7 +204,6 @@ test.describe('Command Panel', () => {
 
     await openCommandPanel(page);
     await page.locator('[data-testid="command-panel-cmd-undo"]').click();
-    await page.waitForTimeout(300);
 
     // Panel should close
     await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
