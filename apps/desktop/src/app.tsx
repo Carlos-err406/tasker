@@ -99,6 +99,26 @@ export default function App() {
     });
   }, []);
 
+  // Ensure mouse events are re-enabled when popup shows (in case they were left ignored)
+  useEffect(() => {
+    return window.ipc.onPopupShown(() => {
+      window.ipc['window:setIgnoreMouseEvents'](false);
+    });
+  }, []);
+
+  // Toggle click-through for the transparent 200px overflow zone on the right
+  useEffect(() => {
+    const VISIBLE_WIDTH = 400;
+    const onMouseMove = (e: MouseEvent) => {
+      window.ipc['window:setIgnoreMouseEvents'](e.clientX > VISIBLE_WIDTH);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.ipc['window:setIgnoreMouseEvents'](false);
+    };
+  }, []);
+
   const handleDecompose = useCallback(async (taskId: string) => {
     setDecomposeTaskId(taskId);
     setShowHelp(false);
@@ -267,8 +287,6 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-    {/* Transparent overflow area for submenus — clicks here close the popup */}
-    <div className="fixed inset-y-0 right-0 w-[200px]" style={{ zIndex: 1 }} onClick={hideWindow} />
     <div className="dark h-screen w-[400px] p-1">
     <div data-testid="app-ready" className="h-full flex flex-col bg-background text-foreground rounded-xl overflow-hidden border border-border/60 popup-glass">
       {/* Header */}

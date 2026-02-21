@@ -4,6 +4,7 @@ import {
   WINDOW_HIDE,
   WINDOW_SHOW,
   WINDOW_TOGGLE_DEV_TOOLS,
+  WINDOW_SET_IGNORE_MOUSE_EVENTS,
   APP_QUIT,
   SHELL_OPEN_EXTERNAL,
 } from './channels.js';
@@ -29,6 +30,11 @@ export const windowRegister: IPCRegisterFunction = (ipcMain, _widget, _ctx) => {
     log('toggleDevTools');
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.webContents.toggleDevTools();
+  });
+
+  ipcMain.on(WINDOW_SET_IGNORE_MOUSE_EVENTS, (event, ignore: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.setIgnoreMouseEvents(ignore, { forward: true });
   });
 
   ipcMain.handle(APP_QUIT, () => {
