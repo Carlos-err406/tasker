@@ -91,6 +91,14 @@ export default function App() {
     return window.ipc.onPopupShown(check);
   }, []);
 
+  // Close any open tooltips, dropdowns, or menus when the tray popup hides
+  useEffect(() => {
+    return window.ipc.onPopupHidden(() => {
+      document.activeElement instanceof HTMLElement && document.activeElement.blur();
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+  }, []);
+
   const handleDecompose = useCallback(async (taskId: string) => {
     setDecomposeTaskId(taskId);
     setShowHelp(false);

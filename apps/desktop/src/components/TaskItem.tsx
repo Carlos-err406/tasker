@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
-import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles } from 'lucide-react';
+import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import {
@@ -381,9 +381,11 @@ export function TaskItem({
 
       <ContextMenuContent collisionPadding={8} onCloseAutoFocus={(e) => e.preventDefault()}>
         <ContextMenuItem onSelect={startEdit}>
+          <Pencil className="h-3.5 w-3.5" />
           Edit
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
+          <CornerRightDown className="h-3.5 w-3.5" />
           Create subtask
         </ContextMenuItem>
         {lmStudioAvailable ? (
@@ -404,7 +406,10 @@ export function TaskItem({
         )}
 
         <ContextMenuSub>
-          <ContextMenuSubTrigger>Move to...</ContextMenuSubTrigger>
+          <ContextMenuSubTrigger>
+            <FolderInput className="h-3.5 w-3.5" />
+            Move to...
+          </ContextMenuSubTrigger>
           <ContextMenuSubContent collisionPadding={8}>
             {lists
               .filter((l) => l !== task.listName)
@@ -420,16 +425,16 @@ export function TaskItem({
           <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
           <ContextMenuSubContent collisionPadding={8}>
             {[
-              { label: 'Pending', status: TS.Pending },
-              { label: 'In Progress', status: TS.InProgress },
-              { label: 'Done', status: TS.Done },
-            ].map(({ label, status }) => (
+              { label: 'Pending', status: TS.Pending, icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
+              { label: 'In Progress', status: TS.InProgress, icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" /> },
+              { label: 'Done', status: TS.Done, icon: <CircleCheck className="h-3.5 w-3.5 text-green-400" /> },
+            ].map(({ label, status, icon }) => (
               <ContextMenuItem
                 key={label}
                 onSelect={() => onSetStatus(task.id, status)}
-                className={cn(task.status === status && 'text-primary font-medium')}
+                className={cn(task.status === status && 'font-medium')}
               >
-                {task.status === status && '~ '}
+                {icon}
                 {label}
               </ContextMenuItem>
             ))}
@@ -439,7 +444,10 @@ export function TaskItem({
         <ContextMenuSeparator />
         {relDetails && relDetails.subtasks.length > 0 ? (
           <ContextMenuSub>
-            <ContextMenuSubTrigger className="text-destructive">Delete...</ContextMenuSubTrigger>
+            <ContextMenuSubTrigger className="text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete...
+            </ContextMenuSubTrigger>
             <ContextMenuSubContent collisionPadding={8}>
               <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id, false)}>
                 This task only
@@ -451,6 +459,7 @@ export function TaskItem({
           </ContextMenuSub>
         ) : (
           <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
             Delete
           </ContextMenuItem>
         )}

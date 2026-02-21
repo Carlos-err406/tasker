@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
-import { ArrowLeft, Circle, CircleDot, CircleCheck } from 'lucide-react';
+import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog.js';
 import {
   Command,
@@ -26,7 +26,7 @@ export { isCommandMode, getCommandQuery, filterTasks, filterByLabel };
 
 // ---- Types ----
 
-type SubPickOption = { label: string; value: string };
+type SubPickOption = { label: string; value: string; icon?: ReactElement };
 
 type TwoStepCommand = {
   id: string;
@@ -178,6 +178,7 @@ export function CommandPalette({
         parsed.relatedIds,
       );
       store.rename(task.id, newDesc);
+      handleClose();
     };
 
     return [
@@ -223,10 +224,10 @@ export function CommandPalette({
         group: 'Tasks',
         needsSubPick: true,
         getSubOptions: () => [
-          { label: '🔴 High', value: String(Priority.High) },
-          { label: '🟡 Medium', value: String(Priority.Medium) },
-          { label: '🟢 Low', value: String(Priority.Low) },
-          { label: '— None', value: 'none' },
+          { label: 'High', value: String(Priority.High), icon: <ChevronsUp className="h-3.5 w-3.5 text-red-500" /> },
+          { label: 'Medium', value: String(Priority.Medium), icon: <ChevronUp className="h-3.5 w-3.5 text-orange-400" /> },
+          { label: 'Low', value: String(Priority.Low), icon: <ChevronDown className="h-3.5 w-3.5 text-blue-400" /> },
+          { label: 'None', value: 'none', icon: <Minus className="h-3.5 w-3.5 text-muted-foreground" /> },
         ],
         execute: setPriorityWithOption,
       },
@@ -506,6 +507,7 @@ export function CommandPalette({
               data-testid={`command-panel-subopt-${opt.value}`}
               onSelect={() => cmd.execute(task, opt)}
             >
+              {opt.icon}
               {opt.label}
             </CommandItem>
           ))}
