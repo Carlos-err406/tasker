@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
 import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog.js';
 import {
-  Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -577,36 +576,34 @@ export function CommandPalette({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent
-        className="overflow-hidden p-0 top-8 translate-y-0 left-[200px] max-w-[368px]"
-        overlayClassName="inset-y-1 left-1 right-[201px] rounded-xl"
-        showCloseButton={false}
-        aria-describedby={undefined}
-      >
-        <div data-testid="command-panel">
-          {renderHeader()}
-          <Command shouldFilter={false} className="[&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-item]]:py-1 [&_[cmdk-item]]:text-xs [&_[cmdk-group-heading]]:text-xs">
-            <CommandInput
-              data-testid="command-panel-input"
-              placeholder={placeholder}
-              value={inputValue}
-              onValueChange={(v) => {
-                setInputValue(v);
-                // If we're in a non-root step and user clears input, allow filtering
-                // Reset to root if user starts typing '>' or removes '>'
-              }}
-            />
-            <CommandList className="max-h-[260px]">
-              {step.type === 'root' && !cmdMode && renderTaskMode()}
-              {step.type === 'root' && cmdMode && renderCommandMode()}
-              {step.type === 'task-select' && renderTaskSelect(step.command)}
-              {step.type === 'sub-pick' && renderSubPick(step.command, step.task, step.options)}
-              {step.type === 'list-select' && renderListSelect(step.command)}
-            </CommandList>
-          </Command>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <CommandDialog
+      open={open}
+      onOpenChange={(o) => !o && handleClose()}
+      className="top-8 translate-y-0 left-[200px] max-w-[368px]"
+      overlayClassName="inset-y-1 left-1 right-[201px] rounded-xl"
+      showCloseButton={false}
+      shouldFilter={false}
+      commandClassName="[&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-item]]:py-1 [&_[cmdk-item]]:text-xs [&_[cmdk-group-heading]]:text-xs"
+      aria-describedby={undefined}
+    >
+      <div data-testid="command-panel">
+        {renderHeader()}
+        <CommandInput
+          data-testid="command-panel-input"
+          placeholder={placeholder}
+          value={inputValue}
+          onValueChange={(v) => {
+            setInputValue(v);
+          }}
+        />
+        <CommandList className="max-h-[260px]">
+          {step.type === 'root' && !cmdMode && renderTaskMode()}
+          {step.type === 'root' && cmdMode && renderCommandMode()}
+          {step.type === 'task-select' && renderTaskSelect(step.command)}
+          {step.type === 'sub-pick' && renderSubPick(step.command, step.task, step.options)}
+          {step.type === 'list-select' && renderListSelect(step.command)}
+        </CommandList>
+      </div>
+    </CommandDialog>
   );
 }
