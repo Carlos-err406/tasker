@@ -74,6 +74,25 @@ How `TaskDescriptionParser` parses priority, due dates, tags, and relationships 
 Task ordering, display formatting, cascade operations, undo system, sort order, and default list protection.
 → `docs/reference/conventions.md`
 
+## Desktop UI Components (shadcn/ui)
+
+The desktop app uses [shadcn/ui](https://ui.shadcn.com) components. **Always use shadcn components** — never import directly from `@radix-ui/*` packages in renderer code.
+
+Available components in `apps/desktop/src/components/ui/`:
+- `badge` — Inline labels/tags (`Badge`, variants: default/secondary/destructive/outline/ghost)
+- `button` — Action buttons (`Button`, variants: default/destructive/outline/secondary/ghost/link, sizes: default/xs/sm/lg/icon/icon-xs/icon-sm)
+- `command` — Command palette (wraps `cmdk`)
+- `context-menu` — Right-click menus (`ContextMenu`, `ContextMenuContent`, `ContextMenuItem`, `ContextMenuSub`, etc.)
+- `dialog` — Modal dialogs
+- `dropdown-menu` — Dropdown menus (`DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, etc.)
+- `input` — Text input fields (`Input`)
+- `kbd` — Keyboard key display
+- `sheet` — Slide-out panels
+- `textarea` — Multi-line text inputs (`Textarea`)
+- `tooltip` — Tooltips
+
+To add a new component: `pnpm dlx shadcn@latest add <component>` from `apps/desktop/`.
+
 ## Key Dependencies
 
 | Package | Where | Purpose |

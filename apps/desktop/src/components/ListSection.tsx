@@ -9,7 +9,14 @@ import {
 } from '@dnd-kit/sortable';
 import { ChevronDown, Plus, Ellipsis, Eye, EyeOff } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu.js';
+import { Input } from '@/components/ui/input.js';
+import { Textarea } from '@/components/ui/textarea.js';
 import { SortableTaskItem } from './SortableTaskItem.js';
 
 interface ListSectionProps {
@@ -30,6 +37,8 @@ interface ListSectionProps {
   onDeleteList: (name: string) => void;
   onShowStatus: (message: string) => void;
   onNavigateToTask: (taskId: string) => void;
+  onDecompose?: (taskId: string) => void;
+  lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
@@ -57,6 +66,8 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   onDeleteList,
   onShowStatus,
   onNavigateToTask,
+  onDecompose,
+  lmStudioAvailable,
   onTagClick,
   hideCompleted,
   onToggleHideCompleted,
@@ -173,7 +184,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
 
         <div className="flex-1 min-w-0">
           {editingName ? (
-            <input
+            <Input
               ref={nameInputRef}
               value={nameValue}
               onChange={(e) => setNameValue(e.target.value)}
@@ -183,7 +194,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 if (e.key === 'Escape') setEditingName(false);
               }}
               onBlur={submitNameEdit}
-              className="bg-background border border-border rounded px-1 py-0 text-sm w-full"
+              className="h-auto bg-background py-0 text-sm"
             />
           ) : (
             <div className="flex items-baseline gap-2">
@@ -220,34 +231,21 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
           </Tooltip>
 
           {!isDefault && (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button className="text-muted-foreground hover:text-foreground p-0.5">
                   <Ellipsis className="h-4 w-4" />
                 </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  side="bottom"
-                  align="end"
-                  collisionPadding={8}
-                  className="z-50 min-w-[120px] bg-popover border border-border rounded-md shadow-lg py-1 text-sm"
-                >
-                  <DropdownMenu.Item
-                    onSelect={startEditName}
-                    className="px-3 py-1.5 hover:bg-accent outline-none cursor-default"
-                  >
-                    Rename
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => onDeleteList(listName)}
-                    className="px-3 py-1.5 hover:bg-accent outline-none cursor-default text-red-400"
-                  >
-                    Delete
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" collisionPadding={8}>
+                <DropdownMenuItem onSelect={startEditName}>
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" onSelect={() => onDeleteList(listName)}>
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -261,7 +259,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
           {adding && (
             <div className="px-3 py-2 border-b border-border/30">
               <div className="relative">
-                <textarea
+                <Textarea
                   data-testid={`add-task-input-${listName}`}
                   ref={addInputRef}
                   value={addValue}
@@ -278,7 +276,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                     }
                   }}
                   placeholder="New task... (Cmd+Enter to submit)"
-                  className="w-full bg-background border border-border rounded px-2 py-1 text-sm resize-none overflow-hidden placeholder:text-muted-foreground/50"
+                  className="min-h-0 field-sizing-fixed bg-background px-2 py-1 text-sm resize-none overflow-hidden"
                   rows={1}
                 />
                 {ac.isOpen && (
@@ -316,6 +314,8 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 onShowStatus={onShowStatus}
                 onNavigateToTask={onNavigateToTask}
                 onCreateSubtask={(taskId) => startAdd(`\n^${taskId}`)}
+                onDecompose={onDecompose}
+                lmStudioAvailable={lmStudioAvailable}
                 onTagClick={onTagClick}
               />
             ))}

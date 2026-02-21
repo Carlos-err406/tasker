@@ -30,7 +30,8 @@ import { TaskItem } from '@/components/TaskItem.js';
 import { SearchBar } from '@/components/SearchBar.js';
 import { HelpPanel } from '@/components/HelpPanel.js';
 import { LogsPanel } from '@/components/LogsPanel.js';
-import { CommandPanel } from '@/components/CommandPanel.js';
+import { CommandPalette } from '@/components/CommandPalette.js';
+import { DecomposePanel } from '@/components/DecomposePanel.js';
 
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
@@ -48,6 +49,8 @@ export default function App() {
   const [newListName, setNewListName] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [decomposeTaskId, setDecomposeTaskId] = useState<string | null>(null);
+  const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
   const [activeType, setActiveType] = useState<'task' | 'list' | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +82,21 @@ export default function App() {
     });
   }, [store.setSearch]);
 
+  // Check LM Studio availability when popup shows
+  useEffect(() => {
+    const check = () => {
+      window.ipc['decompose:available']().then(setLmStudioAvailable).catch(() => setLmStudioAvailable(false));
+    };
+    check();
+    return window.ipc.onPopupShown(check);
+  }, []);
+
+  const handleDecompose = useCallback(async (taskId: string) => {
+    setDecomposeTaskId(taskId);
+    setShowHelp(false);
+    setShowLogs(false);
+  }, []);
+
   const handleAddTaskToList = useCallback((listName: string) => {
     listSectionRefs.current[listName]?.current?.startAdding();
   }, []);
@@ -108,8 +126,10 @@ export default function App() {
   }, []);
 
   const handleEscape = useCallback(() => {
-    // ESC closes the topmost layer: help > logs > filter menu > creating list > window
-    if (showHelp) {
+    // ESC closes the topmost layer: decompose > help > logs > filter menu > creating list > window
+    if (decomposeTaskId) {
+      setDecomposeTaskId(null);
+    } else if (showHelp) {
       setShowHelp(false);
     } else if (showLogs) {
       setShowLogs(false);
@@ -120,7 +140,7 @@ export default function App() {
     } else {
       hideWindow();
     }
-  }, [showHelp, showLogs, showFilterMenu, creatingList]);
+  }, [decomposeTaskId, showHelp, showLogs, showFilterMenu, creatingList]);
 
   useKeyboardShortcuts({
     onUndo: store.undo,
@@ -216,6 +236,8 @@ export default function App() {
 
   // Filter dropdown
   const filterLabel = store.filterList ?? 'All Lists';
+
+  const decomposeTask = decomposeTaskId ? (store.tasks.find((t) => t.id === decomposeTaskId) ?? null) : null;
 
   // Status bar text
   const statusText = store.searchQuery
@@ -364,14 +386,20 @@ export default function App() {
         />
       </div>
 
+      {/* Decompose panel (Sheet portal — renders outside content div) */}
+      <DecomposePanel
+        task={decomposeTask}
+        onClose={() => setDecomposeTaskId(null)}
+        onCreated={() => { setDecomposeTaskId(null); store.refresh(); }}
+      />
+
+      {/* Help / Logs sheets (portals — render outside content div) */}
+      <HelpPanel open={showHelp} onClose={() => setShowHelp(false)} />
+      <LogsPanel open={showLogs} onClose={() => setShowLogs(false)} />
+
       {/* Content */}
       <div data-testid="app-content" className="flex-1 overflow-auto relative">
-        {showHelp ? (
-          <HelpPanel onClose={() => setShowHelp(false)} />
-        ) : showLogs ? (
-          <LogsPanel onClose={() => setShowLogs(false)} />
-        ) : (
-          <>
+        <>
             {/* Create list inline */}
             {creatingList && (
               <div className="px-3 py-2 border-b border-border/50">
@@ -438,6 +466,8 @@ export default function App() {
                       onDeleteList={store.deleteList}
                       onShowStatus={store.showStatus}
                       onNavigateToTask={store.navigateToTask}
+                      onDecompose={handleDecompose}
+                      lmStudioAvailable={lmStudioAvailable}
                       onTagClick={(tag) => setSearchInput(`tag:${tag}`)}
                       hideCompleted={store.hideCompletedLists.has(listName)}
                       onToggleHideCompleted={() => store.toggleHideCompleted(listName)}
@@ -482,8 +512,7 @@ export default function App() {
                 No results for &quot;{store.searchQuery}&quot;
               </div>
             )}
-          </>
-        )}
+        </>
       </div>
 
       {/* Footer */}
@@ -499,7 +528,7 @@ export default function App() {
     </div>
     </div>
 
-    <CommandPanel
+    <CommandPalette
       open={commandPanelOpen}
       initialMode={commandPanelMode}
       onClose={() => setCommandPanelOpen(false)}
@@ -530,3 +559,4 @@ export default function App() {
     </TooltipProvider>
   );
 }
+

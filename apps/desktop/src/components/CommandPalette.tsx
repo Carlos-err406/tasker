@@ -49,9 +49,9 @@ type Step =
   | { type: 'sub-pick'; command: TwoStepCommand; task: Task; options: SubPickOption[] }
   | { type: 'list-select'; command: ListStepCommand };
 
-// ---- Store interface (what CommandPanel needs from the store) ----
+// ---- Store interface (what CommandPalette needs from the store) ----
 
-export interface CommandPanelStore {
+export interface CommandPaletteStore {
   tasks: Task[];
   lists: string[];
   collapsedLists: Set<string>;
@@ -72,15 +72,15 @@ export interface CommandPanelStore {
   showStatus: (message: string) => void;
 }
 
-export interface CommandPanelHandle {
+export interface CommandPaletteHandle {
   startAddingToList: (listName: string) => void;
 }
 
-interface CommandPanelProps {
+interface CommandPaletteProps {
   open: boolean;
   initialMode: 'tasks' | 'commands';
   onClose: () => void;
-  store: CommandPanelStore;
+  store: CommandPaletteStore;
   onToggleHelp: () => void;
   onToggleLogs: () => void;
   onAddTaskToList: (listName: string) => void;
@@ -95,7 +95,7 @@ const STATUS_ICONS: Record<TaskStatus, ReactElement> = {
 
 // ---- Component ----
 
-export function CommandPanel({
+export function CommandPalette({
   open,
   initialMode,
   onClose,
@@ -103,7 +103,7 @@ export function CommandPanel({
   onToggleHelp,
   onToggleLogs,
   onAddTaskToList,
-}: CommandPanelProps) {
+}: CommandPaletteProps) {
   const [inputValue, setInputValue] = useState('');
   const [step, setStep] = useState<Step>({ type: 'root' });
 

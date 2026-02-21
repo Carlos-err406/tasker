@@ -26,7 +26,8 @@
     "radix-ui": "^1.4.3",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "optionalDependencies": {
     "eventkit-node": "^1.0.3"

@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { cn } from '@/lib/utils.js';
+import { Input } from '@/components/ui/input.js';
 
 interface SearchBarProps {
   value: string;
@@ -10,7 +11,7 @@ interface SearchBarProps {
 export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
   ({ value, onChange, className }, ref) => {
     return (
-      <input
+      <Input
         data-testid="search-input"
         ref={ref}
         type="text"
@@ -25,11 +26,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           }
         }}
         placeholder="Search all tasks... (&#8984;K)"
-        className={cn(
-          'w-full bg-secondary/50 border border-border/50 rounded-md px-3 py-1.5 text-sm',
-          'placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
-          className,
-        )}
+        className={cn('h-auto bg-secondary/50 border-border/50 py-1.5 text-sm placeholder:text-muted-foreground/50', className)}
       />
     );
   },

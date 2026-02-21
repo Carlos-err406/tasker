@@ -16,6 +16,8 @@ interface SortableTaskItemProps {
   onShowStatus: (message: string) => void;
   onNavigateToTask: (taskId: string) => void;
   onCreateSubtask: (taskId: string) => void;
+  onDecompose?: (taskId: string) => void;
+  lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
 }
 

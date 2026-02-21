@@ -6,11 +6,13 @@ import type { Components } from "react-markdown";
 /** Minimal hast Element shape for accessing AST position info. */
 interface HastElement { position?: { start: { line: number } } }
 import { CheckSquare, Square, Loader2, Copy, Check } from "lucide-react";
-import * as ContextMenu from "@radix-ui/react-context-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.js";
 import { openExternal } from "@/lib/services/window";
-
-const menuContentClass = "z-50 min-w-[140px] bg-popover border border-border rounded-md shadow-lg py-1 text-sm";
-const menuItemClass = "px-3 py-1.5 hover:bg-accent outline-none cursor-default";
 
 /** Context to pass the source line number from a task-list `<li>` to its checkbox `<input>`. */
 const CheckboxLineCtx = createContext<number | null>(null);
@@ -49,8 +51,8 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   }, [resolvedSrc]);
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
           {loading && !error && (
             <span className="flex items-center justify-center py-3 text-muted-foreground/50">
@@ -75,27 +77,19 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
             />
           )}
         </span>
-      </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content collisionPadding={8} className={menuContentClass}>
-          <ContextMenu.Item
-            onSelect={() => { if (src) openExternal(src); }}
-            className={menuItemClass}
-          >
-            Open image
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => { if (src) navigator.clipboard.writeText(src); }}
-            className={menuItemClass}
-          >
-            Copy image path
-          </ContextMenu.Item>
-          <ContextMenu.Item onSelect={handleCopyImage} className={menuItemClass}>
-            Copy image
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+      </ContextMenuTrigger>
+      <ContextMenuContent collisionPadding={8}>
+        <ContextMenuItem onSelect={() => { if (src) openExternal(src); }}>
+          Open image
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => { if (src) navigator.clipboard.writeText(src); }}>
+          Copy image path
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={handleCopyImage}>
+          Copy image
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -111,8 +105,8 @@ function LinkWithContextMenu({ href, children }: { href?: string; children?: Rea
   const textContent = getTextContent(children);
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <a
           href={href}
           onClick={(e) => {
@@ -125,30 +119,19 @@ function LinkWithContextMenu({ href, children }: { href?: string; children?: Rea
         >
           {children}
         </a>
-      </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content collisionPadding={8} className={menuContentClass}>
-          <ContextMenu.Item
-            onSelect={() => { if (href) openExternal(href); }}
-            className={menuItemClass}
-          >
-            Open link
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => { if (href) navigator.clipboard.writeText(href); }}
-            className={menuItemClass}
-          >
-            Copy link
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => navigator.clipboard.writeText(textContent)}
-            className={menuItemClass}
-          >
-            Copy link text
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+      </ContextMenuTrigger>
+      <ContextMenuContent collisionPadding={8}>
+        <ContextMenuItem onSelect={() => { if (href) openExternal(href); }}>
+          Open link
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => { if (href) navigator.clipboard.writeText(href); }}>
+          Copy link
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => navigator.clipboard.writeText(textContent)}>
+          Copy link text
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -163,8 +146,8 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
   }, [text]);
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <pre
           onClick={(e) => { e.stopPropagation(); copyText(); }}
           onContextMenu={(e) => e.stopPropagation()}
@@ -175,15 +158,13 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
             {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
           </span>
         </pre>
-      </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content collisionPadding={8} className={menuContentClass}>
-          <ContextMenu.Item onSelect={copyText} className={menuItemClass}>
-            Copy code
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+      </ContextMenuTrigger>
+      <ContextMenuContent collisionPadding={8}>
+        <ContextMenuItem onSelect={copyText}>
+          Copy code
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 

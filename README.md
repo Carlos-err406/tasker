@@ -31,7 +31,7 @@ A lightweight task manager with two interfaces: a CLI (`tasker` command) and a m
 | **Monorepo** | pnpm workspaces |
 | **Database** | SQLite (Drizzle ORM + libsql) |
 | **CLI** | Commander.js + Chalk |
-| **Desktop** | Electron + React + Tailwind CSS |
+| **Desktop** | Electron + React + Tailwind CSS + shadcn/ui |
 | **Testing** | Vitest + Playwright (E2E) |
 
 ## Requirements

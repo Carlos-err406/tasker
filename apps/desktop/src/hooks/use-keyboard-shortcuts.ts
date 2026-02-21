@@ -86,8 +86,9 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       }
 
       // Escape - context-dependent (close help, cancel edit, or close window)
-      // Skip if the event originated from an input/textarea — let the component handle it
+      // Skip if already handled by a Radix modal/sheet (defaultPrevented), or from an input/textarea
       if (e.key === 'Escape') {
+        if (e.defaultPrevented) return;
         const target = e.target as HTMLElement;
         if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') {
           return;

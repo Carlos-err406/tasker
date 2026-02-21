@@ -6,9 +6,19 @@ import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
-import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag } from 'lucide-react';
+import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
-import * as ContextMenu from '@radix-ui/react-context-menu';
+import { Textarea } from '@/components/ui/textarea.js';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu.js';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import {
   getDisplayTitle,
@@ -37,6 +47,8 @@ interface TaskItemProps {
   onShowStatus: (message: string) => void;
   onNavigateToTask: (taskId: string) => void;
   onCreateSubtask: (taskId: string) => void;
+  onDecompose?: (taskId: string) => void;
+  lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
 }
 
@@ -52,6 +64,8 @@ export function TaskItem({
   onShowStatus,
   onNavigateToTask,
   onCreateSubtask,
+  onDecompose,
+  lmStudioAvailable,
   onTagClick,
 }: TaskItemProps) {
   const [editing, setEditing] = useState(false);
@@ -189,8 +203,8 @@ export function TaskItem({
   };
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <div
           data-testid={`task-item-${shortId}`}
           className={cn(
@@ -232,7 +246,7 @@ export function TaskItem({
           <div className="flex-1 min-w-0 select-text">
             {editing ? (
               <div className="relative">
-                <textarea
+                <Textarea
                   data-testid="task-edit-input"
                   ref={inputRef}
                   value={editValue}
@@ -247,7 +261,7 @@ export function TaskItem({
                   onBlur={() => {
                     if (!ac.isOpen) submitEdit();
                   }}
-                  className="w-full bg-background border border-border rounded px-2 py-1 text-sm resize-none overflow-hidden"
+                  className="min-h-0 field-sizing-fixed bg-background px-2 py-1 text-sm resize-none overflow-hidden"
                   rows={1}
                 />
                 {ac.isOpen && (
@@ -363,116 +377,84 @@ export function TaskItem({
             )}
           </div>
         </div>
-      </ContextMenu.Trigger>
+      </ContextMenuTrigger>
 
-      <ContextMenu.Portal>
-        <ContextMenu.Content
-          collisionPadding={8}
-          className="z-50 min-w-[140px] bg-popover border border-border rounded-md shadow-lg py-1 text-sm"
-        >
-          <ContextMenu.Item
-            onSelect={startEdit}
-            className="px-3 py-1.5 hover:bg-accent outline-none cursor-default"
-          >
-            Edit
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => onCreateSubtask(task.id)}
-            className="px-3 py-1.5 hover:bg-accent outline-none cursor-default"
-          >
-            Create subtask
-          </ContextMenu.Item>
+      <ContextMenuContent collisionPadding={8} onCloseAutoFocus={(e) => e.preventDefault()}>
+        <ContextMenuItem onSelect={startEdit}>
+          Edit
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
+          Create subtask
+        </ContextMenuItem>
+        {lmStudioAvailable ? (
+          <ContextMenuItem onSelect={() => onDecompose?.(task.id)}>
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Decompose with AI
+          </ContextMenuItem>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ContextMenuItem disabled>
+                <Sparkles className="h-3.5 w-3.5" />
+                Decompose with AI
+              </ContextMenuItem>
+            </TooltipTrigger>
+            <TooltipContent side="right">LM Studio is not running</TooltipContent>
+          </Tooltip>
+        )}
 
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger className="px-3 py-1.5 hover:bg-accent outline-none cursor-default flex items-center justify-between">
-              Move to...
-            </ContextMenu.SubTrigger>
-            <ContextMenu.Portal>
-              <ContextMenu.SubContent
-                collisionPadding={8}
-                className="z-50 min-w-[100px] bg-popover border border-border rounded-md shadow-lg py-1 text-xs"
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>Move to...</ContextMenuSubTrigger>
+          <ContextMenuSubContent collisionPadding={8}>
+            {lists
+              .filter((l) => l !== task.listName)
+              .map((l) => (
+                <ContextMenuItem key={l} onSelect={() => onMove(task.id, l)}>
+                  {l}
+                </ContextMenuItem>
+              ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
+          <ContextMenuSubContent collisionPadding={8}>
+            {[
+              { label: 'Pending', status: TS.Pending },
+              { label: 'In Progress', status: TS.InProgress },
+              { label: 'Done', status: TS.Done },
+            ].map(({ label, status }) => (
+              <ContextMenuItem
+                key={label}
+                onSelect={() => onSetStatus(task.id, status)}
+                className={cn(task.status === status && 'text-primary font-medium')}
               >
-                {lists
-                  .filter((l) => l !== task.listName)
-                  .map((l) => (
-                    <ContextMenu.Item
-                      key={l}
-                      onSelect={() => onMove(task.id, l)}
-                      className="px-3 py-1 hover:bg-accent outline-none cursor-default"
-                    >
-                      {l}
-                    </ContextMenu.Item>
-                  ))}
-              </ContextMenu.SubContent>
-            </ContextMenu.Portal>
-          </ContextMenu.Sub>
+                {task.status === status && '~ '}
+                {label}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
 
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger className="px-3 py-1.5 hover:bg-accent outline-none cursor-default flex items-center justify-between">
-              Set Status
-            </ContextMenu.SubTrigger>
-            <ContextMenu.Portal>
-              <ContextMenu.SubContent
-                collisionPadding={8}
-                className="z-50 min-w-[100px] bg-popover border border-border rounded-md shadow-lg py-1 text-xs"
-              >
-                {[
-                  { label: 'Pending', status: TS.Pending },
-                  { label: 'In Progress', status: TS.InProgress },
-                  { label: 'Done', status: TS.Done },
-                ].map(({ label, status }) => (
-                  <ContextMenu.Item
-                    key={label}
-                    onSelect={() => onSetStatus(task.id, status)}
-                    className={cn(
-                      'px-3 py-1 hover:bg-accent outline-none cursor-default',
-                      task.status === status && 'text-primary font-medium',
-                    )}
-                  >
-                    {task.status === status && '~ '}
-                    {label}
-                  </ContextMenu.Item>
-                ))}
-              </ContextMenu.SubContent>
-            </ContextMenu.Portal>
-          </ContextMenu.Sub>
-
-          <ContextMenu.Separator className="h-px bg-border my-1" />
-          {relDetails && relDetails.subtasks.length > 0 ? (
-            <ContextMenu.Sub>
-              <ContextMenu.SubTrigger className="px-3 py-1.5 hover:bg-accent outline-none cursor-default text-red-400 flex items-center justify-between">
-                Delete...
-              </ContextMenu.SubTrigger>
-              <ContextMenu.Portal>
-                <ContextMenu.SubContent
-                  collisionPadding={8}
-                  className="z-50 min-w-[140px] bg-popover border border-border rounded-md shadow-lg py-1 text-xs"
-                >
-                  <ContextMenu.Item
-                    onSelect={() => onDelete(task.id, false)}
-                    className="px-3 py-1 hover:bg-accent outline-none cursor-default text-red-400"
-                  >
-                    This task only
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    onSelect={() => onDelete(task.id, true)}
-                    className="px-3 py-1 hover:bg-accent outline-none cursor-default text-red-400"
-                  >
-                    Task and subtasks
-                  </ContextMenu.Item>
-                </ContextMenu.SubContent>
-              </ContextMenu.Portal>
-            </ContextMenu.Sub>
-          ) : (
-            <ContextMenu.Item
-              onSelect={() => onDelete(task.id)}
-              className="px-3 py-1.5 hover:bg-accent outline-none cursor-default text-red-400"
-            >
-              Delete
-            </ContextMenu.Item>
-          )}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+        <ContextMenuSeparator />
+        {relDetails && relDetails.subtasks.length > 0 ? (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger className="text-destructive">Delete...</ContextMenuSubTrigger>
+            <ContextMenuSubContent collisionPadding={8}>
+              <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id, false)}>
+                This task only
+              </ContextMenuItem>
+              <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id, true)}>
+                Task and subtasks
+              </ContextMenuItem>
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        ) : (
+          <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id)}>
+            Delete
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

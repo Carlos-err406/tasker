@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import type { LogEntry } from '../../electron/lib/log-buffer.js';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet.js';
+import { Button } from '@/components/ui/button.js';
 
 const ipc = window.ipc;
 
 interface LogsPanelProps {
+  open: boolean;
   onClose: () => void;
 }
 
@@ -18,7 +21,7 @@ const levelColors: Record<LogEntry['level'], string> = {
   error: 'text-red-400',
 };
 
-export function LogsPanel({ onClose }: LogsPanelProps) {
+export function LogsPanel({ open, onClose }: LogsPanelProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -47,37 +50,29 @@ export function LogsPanel({ onClose }: LogsPanelProps) {
   };
 
   return (
-    <div className="absolute inset-0 z-40 bg-background/95 backdrop-blur-sm overflow-auto p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">Logs</h2>
-        <div className="flex gap-3">
-          <button
-            onClick={handleClear}
-            className="text-muted-foreground hover:text-foreground text-sm"
-          >
-            Clear
-          </button>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-sm"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-
-      <div className="font-mono text-[11px] leading-relaxed">
-        {logs.length === 0 && (
-          <div className="text-muted-foreground text-center py-8 text-xs">No logs yet</div>
-        )}
-        {logs.map((entry, i) => (
-          <div key={i} className={`flex gap-2 py-1 ${i > 0 ? "border-t border-border/30" : ""}`}>
-            <span className="text-muted-foreground/60 flex-shrink-0">{formatTime(entry.timestamp)}</span>
-            <span className={`${levelColors[entry.level]} break-all min-w-0`}>{entry.message}</span>
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <SheetContent side="right" showCloseButton={false} className="w-full sm:max-w-full flex flex-col gap-0 p-0">
+        <SheetHeader className="flex-row items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">
+          <SheetTitle className="text-sm">Logs</SheetTitle>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="xs" onClick={handleClear}>Clear</Button>
+            <Button variant="ghost" size="xs" onClick={onClose}>Close</Button>
           </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-    </div>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-auto p-4 font-mono text-[11px] leading-relaxed">
+          {logs.length === 0 && (
+            <div className="text-muted-foreground text-center py-8 text-xs">No logs yet</div>
+          )}
+          {logs.map((entry, i) => (
+            <div key={i} className={`flex gap-2 py-1 ${i > 0 ? 'border-t border-border/30' : ''}`}>
+              <span className="text-muted-foreground/60 flex-shrink-0">{formatTime(entry.timestamp)}</span>
+              <span className={`${levelColors[entry.level]} break-all min-w-0`}>{entry.message}</span>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
