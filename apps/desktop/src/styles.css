@@ -1,6 +1,14 @@
 @import 'tailwindcss';
 @plugin 'tailwindcss-animate';
 
+/* Constrain the visible area to 400px from the first paint.
+   The BrowserWindow is 600px wide (200px transparent overflow for submenus),
+   but content should never exceed the visible 400px. */
+html, body {
+  max-width: 400px;
+  overflow-x: hidden;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
