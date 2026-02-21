@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Task, TaskStatus } from '@tasker/core/types';
-import { TaskStatus as TS } from '@tasker/core/types';
+import { TaskStatus as TS, Priority } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
-import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck } from 'lucide-react';
+import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import {
@@ -26,7 +26,6 @@ import {
   getShortId,
   isDone,
   isInProgress,
-  getPriorityIndicator,
   getPriorityColor,
   getDueDateColor,
   formatDueDate,
@@ -85,7 +84,6 @@ export function TaskItem({
   const title = getDisplayTitle(task);
   const descPreview = getDescriptionPreview(task);
   const shortId = getShortId(task);
-  const priorityIndicator = getPriorityIndicator(task.priority);
   const priorityColor = getPriorityColor(task.priority);
   const dueDateLabel = formatDueDate(task.dueDate);
   const dueDateColor = getDueDateColor(task.dueDate);
@@ -278,9 +276,11 @@ export function TaskItem({
             ) : (
               <div className={cn(done && 'opacity-60')}>
                 <div className="flex items-start gap-1.5">
-                  {priorityIndicator && (
-                    <span className={cn('text-xs font-mono font-bold mt-0.5', priorityColor)}>
-                      {priorityIndicator}
+                  {task.priority !== null && task.priority !== undefined && (
+                    <span className={cn('mt-0.5 flex-shrink-0', priorityColor)}>
+                      {task.priority === Priority.High && <ChevronsUp className="h-3.5 w-3.5" />}
+                      {task.priority === Priority.Medium && <ChevronUp className="h-3.5 w-3.5" />}
+                      {task.priority === Priority.Low && <ChevronDown className="h-3.5 w-3.5" />}
                     </span>
                   )}
                   <span

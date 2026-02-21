@@ -259,10 +259,9 @@ test.describe('Command Panel', () => {
     // Select 'High' (value = 1)
     await page.locator('[data-testid="command-panel-subopt-1"]').click();
 
-    // Panel closed; the task item should now show the high-priority indicator
+    // Panel closed; the task item should now show the high-priority icon (ChevronsUp)
     await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
-    // High priority renders '>>>' in the priority indicator span
-    await expect(taskItem).toContainText('>>>');
+    await expect(taskItem.locator('svg.lucide-chevrons-up')).toBeVisible();
   });
 });
