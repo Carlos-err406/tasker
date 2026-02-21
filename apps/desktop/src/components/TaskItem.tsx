@@ -410,7 +410,7 @@ export function TaskItem({
             <FolderInput className="h-3.5 w-3.5" />
             Move to...
           </ContextMenuSubTrigger>
-          <ContextMenuSubContent side="left" collisionPadding={8}>
+          <ContextMenuSubContent collisionPadding={8}>
             {lists
               .filter((l) => l !== task.listName)
               .map((l) => (
@@ -423,7 +423,7 @@ export function TaskItem({
 
         <ContextMenuSub>
           <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
-          <ContextMenuSubContent side="left" collisionPadding={8}>
+          <ContextMenuSubContent collisionPadding={8}>
             {[
               { label: 'Pending', status: TS.Pending, icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
               { label: 'In Progress', status: TS.InProgress, icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" /> },
@@ -448,7 +448,7 @@ export function TaskItem({
               <Trash2 className="h-3.5 w-3.5" />
               Delete...
             </ContextMenuSubTrigger>
-            <ContextMenuSubContent side="left" collisionPadding={8}>
+            <ContextMenuSubContent collisionPadding={8}>
               <ContextMenuItem variant="destructive" onSelect={() => onDelete(task.id, false)}>
                 This task only
               </ContextMenuItem>
