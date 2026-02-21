@@ -59,15 +59,18 @@ describe('getCommandQuery', () => {
 });
 
 describe('filterTasks', () => {
+  const T = '2026-01-01T00:00:00.000Z';
   const tasks = [
-    makeTask({ id: 'abc', description: 'Buy groceries' }),
-    makeTask({ id: 'def', description: 'Write tests' }),
-    makeTask({ id: 'ghi', description: 'Fix bug in renderer p1' }),
+    makeTask({ id: 'abc', description: 'Buy groceries', createdAt: T }),
+    makeTask({ id: 'def', description: 'Write tests', createdAt: T }),
+    makeTask({ id: 'ghi', description: 'Fix bug in renderer p1', createdAt: T }),
   ];
 
-  it('returns all tasks when query is empty', () => {
-    expect(filterTasks(tasks, '')).toEqual(tasks);
-    expect(filterTasks(tasks, '   ')).toEqual(tasks);
+  it('returns all tasks when query is empty (system sort: status/priority/due)', () => {
+    // All Pending, no priority, no due date — all keys equal, stable sort preserves input order
+    const sorted = [tasks[0], tasks[1], tasks[2]];
+    expect(filterTasks(tasks, '')).toEqual(sorted);
+    expect(filterTasks(tasks, '   ')).toEqual(sorted);
   });
 
   it('filters by description (case-insensitive)', () => {
@@ -89,6 +92,102 @@ describe('filterTasks', () => {
     // 'e' appears in 'groceries', 'Write', 'renderer'
     const result = filterTasks(tasks, 'e');
     expect(result.length).toBe(3);
+  });
+
+  it('multi-word: all words must appear (AND semantics)', () => {
+    expect(filterTasks(tasks, 'fix bug')).toEqual([tasks[2]]);
+    expect(filterTasks(tasks, 'bug renderer')).toEqual([tasks[2]]);
+    expect(filterTasks(tasks, 'fix tests')).toEqual([]);
+  });
+
+  it('multi-word: order does not matter', () => {
+    expect(filterTasks(tasks, 'renderer fix')).toEqual([tasks[2]]);
+    expect(filterTasks(tasks, 'groceries buy')).toEqual([tasks[0]]);
+  });
+
+  it('multi-word: extra spaces are ignored', () => {
+    expect(filterTasks(tasks, '  fix   bug  ')).toEqual([tasks[2]]);
+  });
+});
+
+describe('filterTasks — filter syntax', () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  const T = '2026-01-01T00:00:00.000Z';
+  const taskA = makeTask({ id: 'aaa', description: 'Buy milk', tags: ['shopping', 'food'], listName: 'tasks', createdAt: T });
+  const taskB = makeTask({ id: 'bbb', description: 'Read book', tags: ['learning'], listName: 'tasks', status: TaskStatus.Done, completedAt: T, createdAt: T });
+  const taskC = makeTask({ id: 'ccc', description: 'Fix bug', tags: null, listName: 'work', dueDate: todayStr, createdAt: T });
+  const taskD = makeTask({ id: 'ddd', description: 'Subtask', parentId: 'aaa', listName: 'tasks', createdAt: T });
+  const tasks = [taskA, taskB, taskC, taskD];
+
+  it('tag: filters by tag', () => {
+    expect(filterTasks(tasks, 'tag:shopping')).toEqual([taskA]);
+    expect(filterTasks(tasks, 'tag:learning')).toEqual([taskB]);
+    expect(filterTasks(tasks, 'tag:nonexistent')).toEqual([]);
+  });
+
+  it('tag: is case-insensitive', () => {
+    expect(filterTasks(tasks, 'tag:Shopping')).toEqual([taskA]);
+  });
+
+  it('has:tags filters tasks with any tags', () => {
+    expect(filterTasks(tasks, 'has:tags')).toEqual([taskA, taskB]);
+  });
+
+  it('has:tags negation filters tasks without tags', () => {
+    // taskC has dueDate=today (urgency 0) → sorts before taskD (no due date)
+    expect(filterTasks(tasks, 'has:!tags')).toEqual([taskC, taskD]);
+  });
+
+  it('status: filters by status', () => {
+    expect(filterTasks(tasks, 'status:done')).toEqual([taskB]);
+    // taskC has dueDate=today → most urgent, sorts first; taskA and taskD have no due date (stable order)
+    expect(filterTasks(tasks, 'status:pending')).toEqual([taskC, taskA, taskD]);
+  });
+
+  it('list: filters by list name', () => {
+    expect(filterTasks(tasks, 'list:work')).toEqual([taskC]);
+    // taskA and taskD are Pending (active), taskB is Done → active sorts before done
+    expect(filterTasks(tasks, 'list:tasks')).toEqual([taskA, taskD, taskB]);
+  });
+
+  it('has:due filters tasks with a due date', () => {
+    expect(filterTasks(tasks, 'has:due')).toEqual([taskC]);
+  });
+
+  it('has:parent filters subtasks', () => {
+    expect(filterTasks(tasks, 'has:parent')).toEqual([taskD]);
+  });
+
+  it('has:subtasks filters tasks that have subtasks', () => {
+    expect(filterTasks(tasks, 'has:subtasks')).toEqual([taskA]);
+  });
+
+  it('id: filters by id prefix', () => {
+    expect(filterTasks(tasks, 'id:aaa')).toEqual([taskA]);
+    expect(filterTasks(tasks, 'id:bb')).toEqual([taskB]);
+  });
+
+  it('due:today filters tasks due today', () => {
+    expect(filterTasks(tasks, 'due:today')).toEqual([taskC]);
+  });
+
+  it('due:overdue filters overdue tasks', () => {
+    const overdueTask = makeTask({ id: 'eee', description: 'Overdue task', dueDate: yesterdayStr });
+    expect(filterTasks([...tasks, overdueTask], 'due:overdue')).toEqual([overdueTask]);
+  });
+
+  it('combines text and filter tokens', () => {
+    expect(filterTasks(tasks, 'bug list:work')).toEqual([taskC]);
+    // tag:shopping + text "milk" → taskA (description is "Buy milk", has tag shopping)
+    expect(filterTasks(tasks, 'tag:shopping milk')).toEqual([taskA]);
+    // tag:shopping + text "book" → no match (taskA has tag but not "book" in description)
+    expect(filterTasks(tasks, 'tag:shopping book')).toEqual([]);
   });
 });
 
@@ -118,5 +217,15 @@ describe('filterByLabel', () => {
     // 'e' appears in 'Undo' (no), 'Redo' (yes), 'Apply system sort' (yes: 'e' in 'system')
     const result = filterByLabel(items, 'e');
     expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('multi-word: all words must appear', () => {
+    expect(filterByLabel(items, 'system sort')).toEqual([items[2]]);
+    expect(filterByLabel(items, 'apply sort')).toEqual([items[2]]);
+    expect(filterByLabel(items, 'undo sort')).toEqual([]);
+  });
+
+  it('multi-word: order does not matter', () => {
+    expect(filterByLabel(items, 'sort system')).toEqual([items[2]]);
   });
 });

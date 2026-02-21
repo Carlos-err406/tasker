@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
+import { ArrowLeft, Circle, CircleDot, CircleCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog.js';
 import {
   Command,
@@ -54,6 +54,8 @@ type Step =
 export interface CommandPanelStore {
   tasks: Task[];
   lists: string[];
+  collapsedLists: Set<string>;
+  hideCompletedLists: Set<string>;
   undo: () => void;
   redo: () => void;
   refresh: () => void;
@@ -85,10 +87,10 @@ interface CommandPanelProps {
 }
 
 // ---- Status icons ----
-const STATUS_ICONS: Record<TaskStatus, string> = {
-  [TaskStatus.Pending]: '○',
-  [TaskStatus.InProgress]: '◑',
-  [TaskStatus.Done]: '●',
+const STATUS_ICONS: Record<TaskStatus, ReactElement> = {
+  [TaskStatus.Pending]: <Circle className="h-3 w-3 text-muted-foreground" />,
+  [TaskStatus.InProgress]: <CircleDot className="h-3 w-3 text-amber-400" />,
+  [TaskStatus.Done]: <CircleCheck className="h-3 w-3 text-green-400" />,
 };
 
 // ---- Component ----
@@ -110,6 +112,13 @@ export function CommandPanel({
     if (open) {
       setInputValue(initialMode === 'commands' ? '>' : '');
       setStep({ type: 'root' });
+      // Move cursor to end so '>' isn't selected on open
+      if (initialMode === 'commands') {
+        requestAnimationFrame(() => {
+          const input = document.querySelector<HTMLInputElement>('[data-testid="command-panel-input"]');
+          if (input) input.setSelectionRange(input.value.length, input.value.length);
+        });
+      }
     }
   }, [open, initialMode]);
 
@@ -198,9 +207,9 @@ export function CommandPanel({
         group: 'Tasks',
         needsSubPick: true,
         getSubOptions: () => [
-          { label: '○ Pending', value: String(TaskStatus.Pending) },
-          { label: '◑ In Progress', value: String(TaskStatus.InProgress) },
-          { label: '● Done', value: String(TaskStatus.Done) },
+          { label: 'Pending', value: String(TaskStatus.Pending) },
+          { label: 'In Progress', value: String(TaskStatus.InProgress) },
+          { label: 'Done', value: String(TaskStatus.Done) },
         ],
         execute: (task, option) => {
           if (!option) return;
@@ -307,6 +316,7 @@ export function CommandPanel({
     label: string;
     group: string;
     shortcut?: string;
+    value?: string;
     execute: () => void;
   };
 
@@ -327,12 +337,14 @@ export function CommandPanel({
         id: `hide-completed-${listName}`,
         label: `Toggle hide completed — ${listName}`,
         group: 'Lists',
+        value: store.hideCompletedLists.has(listName) ? 'on' : 'off',
         execute: () => { store.toggleHideCompleted(listName); handleClose(); },
       });
       base.push({
         id: `toggle-expand-${listName}`,
         label: `Toggle expand — ${listName}`,
         group: 'Lists',
+        value: store.collapsedLists.has(listName) ? 'collapsed' : 'expanded',
         execute: () => { store.toggleCollapsed(listName); handleClose(); },
       });
     }
@@ -348,11 +360,11 @@ export function CommandPanel({
       value={task.id}
       data-testid={`command-panel-task-${task.id}`}
       onSelect={() => onSelect(task)}
-      className="flex items-center gap-2"
+      className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
     >
-      <span className="text-muted-foreground text-xs">{STATUS_ICONS[task.status as TaskStatus]}</span>
-      <span className="flex-1 truncate">{getDisplayTitle(task)}</span>
-      <span className="text-muted-foreground text-xs shrink-0">{task.listName}</span>
+      <span>{STATUS_ICONS[task.status as TaskStatus]}</span>
+      <span className="truncate">{getDisplayTitle(task)}</span>
+      <span className="text-muted-foreground text-xs">{task.listName}</span>
     </CommandItem>
   );
 
@@ -405,6 +417,7 @@ export function CommandPanel({
                 onSelect={cmd.execute}
               >
                 <span className="flex-1">{cmd.label}</span>
+                {cmd.value && <span className="text-muted-foreground/60 text-xs">{cmd.value}</span>}
                 {cmd.shortcut && <CommandShortcut>{cmd.shortcut}</CommandShortcut>}
               </CommandItem>
             ))}
@@ -563,13 +576,14 @@ export function CommandPanel({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent
-        className="overflow-hidden p-0 sm:max-w-lg"
+        className="overflow-hidden p-0 top-8 translate-y-0"
+        overlayClassName="inset-1 rounded-xl"
         showCloseButton={false}
         aria-describedby={undefined}
       >
         <div data-testid="command-panel">
           {renderHeader()}
-          <Command shouldFilter={false} className="[&_[cmdk-input-wrapper]]:border-0">
+          <Command shouldFilter={false} className="[&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-item]]:py-1 [&_[cmdk-item]]:text-xs [&_[cmdk-group-heading]]:text-xs">
             <CommandInput
               data-testid="command-panel-input"
               placeholder={placeholder}
@@ -580,7 +594,7 @@ export function CommandPanel({
                 // Reset to root if user starts typing '>' or removes '>'
               }}
             />
-            <CommandList>
+            <CommandList className="max-h-[260px]">
               {step.type === 'root' && !cmdMode && renderTaskMode()}
               {step.type === 'root' && cmdMode && renderCommandMode()}
               {step.type === 'task-select' && renderTaskSelect(step.command)}

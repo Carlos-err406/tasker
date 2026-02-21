@@ -138,6 +138,77 @@ test.describe('Command Panel', () => {
     await expect(page.locator('[data-testid^="command-panel-subopt-"]')).toHaveCount(3);
   });
 
+  test('task mode: long title renders without overflowing dialog width', async ({ page }) => {
+    const longTitle = 'git-aware task linking — auto-detect task IDs in commits and branches for automated workflows';
+    await addTask(page, longTitle);
+
+    await openTaskPanel(page);
+
+    const taskItem = page.locator('[data-testid^="command-panel-task-"]').first();
+    await expect(taskItem).toBeVisible();
+
+    // Use page.evaluate() to get getBoundingClientRect in CSS pixels (unaffected by DPR)
+    const { itemRight, dialogRight } = await page.evaluate(() => {
+      const item = document.querySelector('[data-testid^="command-panel-task-"]');
+      const dialog = document.querySelector('[data-slot="dialog-content"]');
+      return {
+        itemRight: item?.getBoundingClientRect().right ?? 0,
+        dialogRight: dialog?.getBoundingClientRect().right ?? 0,
+      };
+    });
+
+    expect(dialogRight).toBeGreaterThan(0);
+    expect(itemRight).toBeLessThanOrEqual(dialogRight + 1);
+  });
+
+  test('task mode: filters by tag: syntax', async ({ page }) => {
+    await addTask(page, 'Buy milk\n#shopping');
+    await addTask(page, 'Read a book\n#learning');
+
+    await openTaskPanel(page);
+    const input = page.locator('[data-testid="command-panel-input"]');
+
+    await input.fill('tag:shopping');
+    await page.waitForTimeout(100);
+
+    const taskItems = page.locator('[data-testid^="command-panel-task-"]');
+    await expect(taskItems).toHaveCount(1);
+  });
+
+  test('task mode: filters by has:tags syntax', async ({ page }) => {
+    await addTask(page, 'Task without tag');
+    await addTask(page, 'Task with tag\n#mytag');
+
+    await openTaskPanel(page);
+    const input = page.locator('[data-testid="command-panel-input"]');
+
+    await input.fill('has:tags');
+    await page.waitForTimeout(100);
+
+    // Only the tagged task should appear
+    const taskItems = page.locator('[data-testid^="command-panel-task-"]');
+    await expect(taskItems).toHaveCount(1);
+  });
+
+  test('task mode: filters by status:done syntax', async ({ page }) => {
+    await addTask(page, 'Pending task');
+    await addTask(page, 'Done task');
+
+    // Complete the first task via checkbox click
+    const checkbox = page.locator('[data-testid^="task-checkbox-"]').first();
+    await checkbox.click();
+    await page.waitForTimeout(200);
+
+    await openTaskPanel(page);
+    const input = page.locator('[data-testid="command-panel-input"]');
+
+    await input.fill('status:done');
+    await page.waitForTimeout(100);
+
+    const panelItems = page.locator('[data-testid^="command-panel-task-"]');
+    await expect(panelItems).toHaveCount(1);
+  });
+
   test('command mode: undo executes and closes panel', async ({ page }) => {
     await addTask(page, 'Task to undo');
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);

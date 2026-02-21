@@ -509,6 +509,8 @@ export default function App() {
       store={{
         tasks: store.tasks,
         lists: store.lists,
+        collapsedLists: store.collapsedLists,
+        hideCompletedLists: store.hideCompletedLists,
         undo: store.undo,
         redo: store.redo,
         refresh: store.refresh,
