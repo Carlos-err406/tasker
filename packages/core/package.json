@@ -31,6 +31,10 @@
     "./backup": {
       "types": "./dist/backup/index.d.ts",
       "default": "./dist/backup/index.js"
+    },
+    "./ai": {
+      "types": "./dist/ai/index.d.ts",
+      "default": "./dist/ai/index.js"
     }
   },
   "scripts": {
@@ -41,6 +45,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.30",
+    "@ai-sdk/provider": "^3.0.8",
+    "ai": "^6.0.95",
     "better-sqlite3": "npm:libsql@^0.5.22",
     "drizzle-orm": "^0.38.0"
   },

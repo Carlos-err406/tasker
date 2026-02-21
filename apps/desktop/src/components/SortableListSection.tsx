@@ -1,8 +1,9 @@
+import { forwardRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task, TaskStatus } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
-import { ListSection } from './ListSection.js';
+import { ListSection, type ListSectionHandle } from './ListSection.js';
 
 interface SortableListSectionProps {
   listName: string;
@@ -27,28 +28,33 @@ interface SortableListSectionProps {
   onToggleHideCompleted: () => void;
 }
 
-export function SortableListSection({ listName, ...rest }: SortableListSectionProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: `list::${listName}` });
+export type { ListSectionHandle as SortableListSectionHandle };
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
+export const SortableListSection = forwardRef<ListSectionHandle, SortableListSectionProps>(
+  function SortableListSection({ listName, ...rest }, ref) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: `list::${listName}` });
 
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <ListSection
-        listName={listName}
-        {...rest}
-      />
-    </div>
-  );
-}
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+    };
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <ListSection
+          ref={ref}
+          listName={listName}
+          {...rest}
+        />
+      </div>
+    );
+  }
+);

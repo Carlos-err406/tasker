@@ -11,12 +11,22 @@ interface ShortcutHandlers {
   onApplySort: () => void;
   onToggleCollapseAll: () => void;
   onEscape: () => void;
+  onOpenTaskPanel: () => void;
+  onOpenCommandPanel: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
+
+      // Cmd+P - open task panel, Cmd+Shift+P - open command panel
+      if (meta && e.key === 'p') {
+        e.preventDefault();
+        if (e.shiftKey) handlers.onOpenCommandPanel();
+        else handlers.onOpenTaskPanel();
+        return;
+      }
 
       // Cmd+K - focus search
       if (meta && e.key === 'k') {

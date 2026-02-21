@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type { Task, TaskStatus } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
@@ -35,7 +35,11 @@ interface ListSectionProps {
   onToggleHideCompleted: () => void;
 }
 
-export function ListSection({
+export interface ListSectionHandle {
+  startAdding: (initialValue?: string) => void;
+}
+
+export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(function ListSection({
   listName,
   tasks,
   lists,
@@ -56,7 +60,7 @@ export function ListSection({
   onTagClick,
   hideCompleted,
   onToggleHideCompleted,
-}: ListSectionProps) {
+}, ref) {
   const [adding, setAdding] = useState(false);
   const [addValue, setAddValue] = useState('');
   const [editingName, setEditingName] = useState(false);
@@ -108,6 +112,8 @@ export function ListSection({
       }
     }, 50);
   };
+
+  useImperativeHandle(ref, () => ({ startAdding: startAdd }), [startAdd]);
 
   const submitAdd = () => {
     const trimmed = addValue.trim();
@@ -318,4 +324,4 @@ export function ListSection({
       </div>
     </div>
   );
-}
+});

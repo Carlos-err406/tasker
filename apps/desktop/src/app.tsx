@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo, createRef } from 'react';
 import { cn } from '@/lib/utils.js';
 import { useTaskerStore } from '@/hooks/use-tasker-store.js';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts.js';
@@ -25,11 +25,12 @@ import {
 import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
-import { SortableListSection } from '@/components/SortableListSection.js';
+import { SortableListSection, type SortableListSectionHandle } from '@/components/SortableListSection.js';
 import { TaskItem } from '@/components/TaskItem.js';
 import { SearchBar } from '@/components/SearchBar.js';
 import { HelpPanel } from '@/components/HelpPanel.js';
 import { LogsPanel } from '@/components/LogsPanel.js';
+import { CommandPanel } from '@/components/CommandPanel.js';
 
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
@@ -40,6 +41,8 @@ export default function App() {
   const store = useTaskerStore();
   const [showHelp, setShowHelp] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [commandPanelOpen, setCommandPanelOpen] = useState(false);
+  const [commandPanelMode, setCommandPanelMode] = useState<'tasks' | 'commands'>('tasks');
   const [searchInput, setSearchInput] = useState('');
   const [creatingList, setCreatingList] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -49,6 +52,7 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const listSectionRefs = useRef<Record<string, React.RefObject<SortableListSectionHandle | null>>>({});
 
   const sensors = useSensors(
     useSensor(VerticalPointerSensor, { activationConstraint: { distance: 5 } }),
@@ -74,6 +78,20 @@ export default function App() {
       store.setSearch(query);
     });
   }, [store.setSearch]);
+
+  const handleAddTaskToList = useCallback((listName: string) => {
+    listSectionRefs.current[listName]?.current?.startAdding();
+  }, []);
+
+  const handleOpenTaskPanel = useCallback(() => {
+    setCommandPanelMode('tasks');
+    setCommandPanelOpen(true);
+  }, []);
+
+  const handleOpenCommandPanel = useCallback(() => {
+    setCommandPanelMode('commands');
+    setCommandPanelOpen(true);
+  }, []);
 
   const handleToggleHelp = useCallback(() => {
     setShowHelp((v) => {
@@ -114,6 +132,8 @@ export default function App() {
     onApplySort: store.applySystemSort,
     onToggleCollapseAll: store.toggleCollapseAll,
     onEscape: handleEscape,
+    onOpenTaskPanel: handleOpenTaskPanel,
+    onOpenCommandPanel: handleOpenCommandPanel,
   });
 
   useClickOutside(filterMenuRef, useCallback(() => setShowFilterMenu(false), []));
@@ -393,9 +413,14 @@ export default function App() {
                   const tasks = store.tasksByList[listName] ?? [];
                   const collapsed = store.collapsedLists.has(listName);
 
+                  if (!listSectionRefs.current[listName]) {
+                    listSectionRefs.current[listName] = createRef<SortableListSectionHandle | null>();
+                  }
+
                   return (
                     <SortableListSection
                       key={listName}
+                      ref={listSectionRefs.current[listName]}
                       listName={listName}
                       tasks={tasks}
                       lists={store.lists}
@@ -473,6 +498,35 @@ export default function App() {
       </div>
     </div>
     </div>
+
+    <CommandPanel
+      open={commandPanelOpen}
+      initialMode={commandPanelMode}
+      onClose={() => setCommandPanelOpen(false)}
+      onToggleHelp={handleToggleHelp}
+      onToggleLogs={handleToggleLogs}
+      onAddTaskToList={handleAddTaskToList}
+      store={{
+        tasks: store.tasks,
+        lists: store.lists,
+        collapsedLists: store.collapsedLists,
+        hideCompletedLists: store.hideCompletedLists,
+        undo: store.undo,
+        redo: store.redo,
+        refresh: store.refresh,
+        applySystemSort: store.applySystemSort,
+        toggleCollapseAll: store.toggleCollapseAll,
+        toggleCollapsed: store.toggleCollapsed,
+        toggleHideCompleted: store.toggleHideCompleted,
+        setStatusTo: store.setStatusTo,
+        rename: store.rename,
+        deleteTask: store.deleteTask,
+        moveTask: store.moveTask,
+        navigateToTask: store.navigateToTask,
+        setFilterList: store.setFilterList,
+        showStatus: store.showStatus,
+      }}
+    />
     </TooltipProvider>
   );
 }
