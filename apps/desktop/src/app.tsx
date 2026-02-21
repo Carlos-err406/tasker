@@ -107,18 +107,16 @@ export default function App() {
   }, []);
 
   // Toggle click-through for the transparent 200px overflow zone on the right.
-  // Only ignore mouse events when the cursor is over empty space — if a submenu
-  // or other portal has rendered content there, keep events enabled.
+  // If any Radix menu/dropdown is open, disable click-through entirely — Radix's
+  // own outside-click handler will close the menu without closing the popup.
+  // Only enable click-through when the overflow zone is empty (no menu open).
   useEffect(() => {
     const VISIBLE_WIDTH = 400;
+    const isAnyMenuOpen = () =>
+      !!document.querySelector('[data-radix-popper-content-wrapper]');
     const onMouseMove = (e: MouseEvent) => {
-      if (e.clientX <= VISIBLE_WIDTH) {
-        window.ipc['window:setIgnoreMouseEvents'](false);
-        return;
-      }
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const hasContent = !!el && el !== document.documentElement && el !== document.body;
-      window.ipc['window:setIgnoreMouseEvents'](!hasContent);
+      const ignore = e.clientX > VISIBLE_WIDTH && !isAnyMenuOpen();
+      window.ipc['window:setIgnoreMouseEvents'](ignore);
     };
     window.addEventListener('mousemove', onMouseMove);
     return () => {
