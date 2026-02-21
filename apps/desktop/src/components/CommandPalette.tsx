@@ -579,8 +579,8 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent
-        className="overflow-hidden p-0 top-8 translate-y-0"
-        overlayClassName="inset-1 rounded-xl"
+        className="overflow-hidden p-0 top-8 translate-y-0 left-[200px] max-w-[368px]"
+        overlayClassName="inset-y-1 left-1 right-[201px] rounded-xl"
         showCloseButton={false}
         aria-describedby={undefined}
       >

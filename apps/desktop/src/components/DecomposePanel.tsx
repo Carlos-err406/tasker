@@ -163,9 +163,9 @@ export function DecomposePanel({ task, onClose, onCreated }: DecomposePanelProps
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) abortAndClose(); }}>
       <SheetContent
-        side="right"
+        side="left"
         showCloseButton={false}
-        className="w-full sm:max-w-full h-full flex flex-col gap-0 p-0"
+        className="w-[400px] h-full flex flex-col gap-0 p-0"
       >
         {/* Header */}
         <SheetHeader className="flex-row items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">

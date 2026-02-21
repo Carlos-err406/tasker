@@ -12,7 +12,7 @@ function getRendererDist(): string {
   return path.join(appRoot, 'dist');
 }
 
-const VISIBLE_WIDTH = 400;
+export const VISIBLE_WIDTH = 400;
 const OVERFLOW_WIDTH = 200; // extra transparent space for submenus to render into
 const POPUP_WIDTH = VISIBLE_WIDTH + OVERFLOW_WIDTH;
 const POPUP_HEIGHT = 600;
@@ -60,7 +60,7 @@ function calculatePopupPosition(trayBounds?: Electron.Rectangle): {
 
   if (!trayBounds) {
     return {
-      x: workArea.x + workArea.width - POPUP_WIDTH - 10,
+      x: workArea.x + workArea.width - VISIBLE_WIDTH - 10,
       y: workArea.y + 5,
     };
   }

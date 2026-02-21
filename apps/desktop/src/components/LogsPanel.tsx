@@ -51,7 +51,7 @@ export function LogsPanel({ open, onClose }: LogsPanelProps) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent side="right" showCloseButton={false} className="w-full sm:max-w-full flex flex-col gap-0 p-0">
+      <SheetContent side="left" showCloseButton={false} className="w-[400px] flex flex-col gap-0 p-0">
         <SheetHeader className="flex-row items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">
           <SheetTitle className="text-sm">Logs</SheetTitle>
           <div className="flex gap-1">

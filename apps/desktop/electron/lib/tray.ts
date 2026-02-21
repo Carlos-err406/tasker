@@ -1,7 +1,7 @@
 import { BrowserWindow, Menu, Notification, Tray, app, screen } from 'electron';
 import path from 'node:path';
 import { getPublicPath } from './config.js';
-import { createPopupWindow } from './window.js';
+import { createPopupWindow, VISIBLE_WIDTH } from './window.js';
 import { getSettings, updateSettings } from './reminder-sync/index.js';
 import { getSettings as getDueDateSettings, setEnabled as setDueDateEnabled } from './due-date-notifier.js';
 
@@ -121,13 +121,13 @@ export function showPopup(): void {
     const trayBounds = tray.getBounds();
     const popupBounds = popup.getBounds();
     let x = Math.round(
-      trayBounds.x + trayBounds.width / 2 - popupBounds.width / 2,
+      trayBounds.x + trayBounds.width / 2 - VISIBLE_WIDTH / 2,
     );
     const y = trayBounds.y + trayBounds.height + 5;
-    // Clamp X
+    // Clamp X so visible area stays on screen (transparent overflow may extend beyond right edge)
     const { workArea } = screen.getPrimaryDisplay();
-    if (x + popupBounds.width > workArea.x + workArea.width) {
-      x = workArea.x + workArea.width - popupBounds.width - 10;
+    if (x + VISIBLE_WIDTH > workArea.x + workArea.width) {
+      x = workArea.x + workArea.width - VISIBLE_WIDTH - 10;
     }
     if (x < workArea.x) x = workArea.x + 10;
     popup.setPosition(x, y);
