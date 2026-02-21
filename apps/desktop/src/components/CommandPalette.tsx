@@ -160,6 +160,7 @@ export function CommandPalette({
         parsed.relatedIds,
       );
       store.rename(task.id, newDesc);
+      handleClose();
     };
 
     const setDueDateWithOption = (task: Task, option?: SubPickOption) => {

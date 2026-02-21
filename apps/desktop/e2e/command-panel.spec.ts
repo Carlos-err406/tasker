@@ -223,4 +223,46 @@ test.describe('Command Panel', () => {
     // Task should be gone (undo removed the creation)
     await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(0);
   });
+
+  test('command mode: set priority shows 4 options and closes panel after selection', async ({ page }) => {
+    await addTask(page, 'Priority target task');
+    await openCommandPanel(page);
+
+    // Click 'Set priority'
+    const setPriority = page.locator('[data-testid="command-panel-cmd-set-priority"]');
+    await setPriority.click();
+
+    // Should show task select step
+    await expect(page.locator('[data-testid="command-panel-step-task-select"]')).toBeVisible();
+
+    // Select the task
+    await page.locator('[data-testid^="command-panel-task-"]').first().click();
+
+    // Should show sub-pick with 4 priority options (High, Medium, Low, None)
+    const subPick = page.locator('[data-testid="command-panel-step-sub-pick"]');
+    await expect(subPick).toBeVisible();
+    await expect(page.locator('[data-testid^="command-panel-subopt-"]')).toHaveCount(4);
+
+    // Select 'High' (value = Priority.High = 1)
+    await page.locator('[data-testid="command-panel-subopt-1"]').click();
+
+    // Panel should close after selection
+    await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
+  });
+
+  test('command mode: set priority applies priority to task', async ({ page }) => {
+    await addTask(page, 'Needs priority');
+    await openCommandPanel(page);
+
+    await page.locator('[data-testid="command-panel-cmd-set-priority"]').click();
+    await page.locator('[data-testid^="command-panel-task-"]').first().click();
+    // Select 'High' (value = 1)
+    await page.locator('[data-testid="command-panel-subopt-1"]').click();
+
+    // Panel closed; the task item should now show the high-priority indicator
+    await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    // High priority renders '>>>' in the priority indicator span
+    await expect(taskItem).toContainText('>>>');
+  });
 });

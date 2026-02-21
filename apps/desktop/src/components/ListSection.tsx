@@ -7,7 +7,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, Plus, Ellipsis, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, Plus, Ellipsis, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import {
   DropdownMenu,
@@ -239,9 +239,11 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="end" collisionPadding={8}>
                 <DropdownMenuItem onSelect={startEditName}>
+                  <Pencil className="h-3.5 w-3.5" />
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onSelect={() => onDeleteList(listName)}>
+                  <Trash2 className="h-3.5 w-3.5" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
