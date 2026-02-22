@@ -153,10 +153,14 @@ html, body {
   opacity: 0.3;
 }
 
-/* Popup glass effect */
+/* Popup glass effect — disabled during drag to avoid per-frame blur recalculation */
 .popup-glass {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+.is-dragging .popup-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Highlight flash for navigate-to-task */

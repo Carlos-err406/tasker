@@ -225,6 +225,7 @@ export default function App() {
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id);
+    document.body.classList.add('is-dragging');
     if (id.startsWith('list::')) {
       setActiveId(id);
       setActiveType('list');
@@ -237,6 +238,7 @@ export default function App() {
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
+      document.body.classList.remove('is-dragging');
       setActiveId(null);
       setActiveType(null);
 
@@ -270,6 +272,7 @@ export default function App() {
   );
 
   const handleDragCancel = useCallback(() => {
+    document.body.classList.remove('is-dragging');
     setActiveId(null);
     setActiveType(null);
   }, []);
