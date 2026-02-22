@@ -283,7 +283,7 @@ export default function App() {
 
   if (store.loading) {
     return (
-      <div className="dark h-screen w-screen p-1">
+      <div className="dark h-screen w-[400px] p-1">
         <div className="h-full flex items-center justify-center bg-background rounded-xl">
           <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
