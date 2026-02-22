@@ -67,6 +67,15 @@ export function TaskItem({
   lmStudioAvailable,
   onTagClick,
 }: TaskItemProps) {
+  const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
+
+  const handleContextMenuOpen = useCallback((open: boolean) => {
+    if (open) {
+      window.ipc['decompose:available']()
+        .then(setLmAvailable)
+        .catch(() => setLmAvailable(false));
+    }
+  }, []);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -206,7 +215,7 @@ export function TaskItem({
   };
 
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={handleContextMenuOpen}>
       <ContextMenuTrigger asChild>
         <div
           data-testid={`task-item-${shortId}`}
@@ -401,7 +410,7 @@ export function TaskItem({
           <CornerRightDown className="h-3.5 w-3.5" />
           Create subtask
         </ContextMenuItem>
-        {lmStudioAvailable ? (
+        {lmAvailable ? (
           <ContextMenuItem onSelect={() => onDecompose?.(task.id)}>
             <Sparkles className="h-3.5 w-3.5" />
             Decompose with AI
@@ -409,12 +418,14 @@ export function TaskItem({
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
-              <ContextMenuItem disabled>
-                <Sparkles className="h-3.5 w-3.5" />
-                Decompose with AI
-              </ContextMenuItem>
+              <span className="block">
+                <ContextMenuItem disabled className="pointer-events-none">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Decompose with AI
+                </ContextMenuItem>
+              </span>
             </TooltipTrigger>
-            <TooltipContent side="right">LM Studio is not running</TooltipContent>
+            <TooltipContent side="right">LM Studio server is not running</TooltipContent>
           </Tooltip>
         )}
 

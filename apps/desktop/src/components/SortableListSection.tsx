@@ -24,6 +24,7 @@ interface SortableListSectionProps {
   onShowStatus: (message: string) => void;
   onNavigateToTask: (taskId: string) => void;
   onDecompose?: (taskId: string) => void;
+  onSummary?: (listName: string, timeRange: string) => void;
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   hideCompleted: boolean;

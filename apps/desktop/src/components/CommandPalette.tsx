@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
-import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus } from 'lucide-react';
+import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus, Sparkles } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -39,14 +39,16 @@ type TwoStepCommand = {
 type ListStepCommand = {
   id: string;
   label: string;
-  execute: (listName: string) => void;
+  getSubOptions?: () => SubPickOption[];
+  execute: (listName: string, option?: SubPickOption) => void;
 };
 
 type Step =
   | { type: 'root' }
   | { type: 'task-select'; command: TwoStepCommand }
   | { type: 'sub-pick'; command: TwoStepCommand; task: Task; options: SubPickOption[] }
-  | { type: 'list-select'; command: ListStepCommand };
+  | { type: 'list-select'; command: ListStepCommand }
+  | { type: 'list-sub-pick'; command: ListStepCommand; listName: string; options: SubPickOption[] };
 
 // ---- Store interface (what CommandPalette needs from the store) ----
 
@@ -83,6 +85,8 @@ interface CommandPaletteProps {
   onToggleHelp: () => void;
   onToggleLogs: () => void;
   onAddTaskToList: (listName: string) => void;
+  lmStudioAvailable?: boolean;
+  onSummary?: (listName: string, timeRange: string) => void;
 }
 
 // ---- Status icons ----
@@ -102,6 +106,8 @@ export function CommandPalette({
   onToggleHelp,
   onToggleLogs,
   onAddTaskToList,
+  lmStudioAvailable = false,
+  onSummary,
 }: CommandPaletteProps) {
   const [inputValue, setInputValue] = useState('');
   const [step, setStep] = useState<Step>({ type: 'root' });
@@ -319,6 +325,35 @@ export function CommandPalette({
     [store, handleClose, onAddTaskToList],
   );
 
+  // ---- AI list commands ----
+  const aiListCommands = useMemo((): ListStepCommand[] => {
+    if (!lmStudioAvailable || !onSummary) return [];
+    return [
+      {
+        id: 'summarize',
+        label: 'Summarize',
+        execute: (listName) => {
+          onSummary(listName, '7d');
+          handleClose();
+        },
+      },
+      {
+        id: 'summarize-range',
+        label: 'Summarize…',
+        getSubOptions: () => [
+          { label: 'Today',        value: 'today' },
+          { label: 'Last 7 days',  value: '7d'    },
+          { label: 'Last 30 days', value: '30d'   },
+          { label: 'All time',     value: 'all'   },
+        ],
+        execute: (listName, opt) => {
+          onSummary(listName, opt?.value ?? '7d');
+          handleClose();
+        },
+      },
+    ];
+  }, [lmStudioAvailable, onSummary, handleClose]);
+
   // ---- Immediate commands ----
   type ImmediateCommand = {
     id: string;
@@ -401,6 +436,7 @@ export function CommandPalette({
     const filteredImmediate = filterByLabel(immediate, searchQuery);
     const filteredTwoStep = filterByLabel(twoStep, searchQuery);
     const filteredListCmds = filterByLabel(listCmds, searchQuery);
+    const filteredAiCmds = filterByLabel(aiListCommands, searchQuery);
 
     const groupedImmediate = Object.entries(
       filteredImmediate.reduce<Record<string, ImmediateCommand[]>>((acc, cmd) => {
@@ -412,7 +448,10 @@ export function CommandPalette({
     const twoStepGroups = filteredTwoStep.length > 0 ? filteredTwoStep : [];
     const listGroups = filteredListCmds.length > 0 ? filteredListCmds : [];
 
-    const allEmpty = groupedImmediate.length === 0 && twoStepGroups.length === 0 && listGroups.length === 0;
+    const allEmpty = groupedImmediate.length === 0 && twoStepGroups.length === 0 && listGroups.length === 0 && filteredAiCmds.length === 0;
+
+    const anyBefore = (index: number) =>
+      [groupedImmediate.length > 0, twoStepGroups.length > 0, listGroups.length > 0].slice(0, index).some(Boolean);
 
     return (
       <>
@@ -449,6 +488,29 @@ export function CommandPalette({
                 >
                   <span className="flex-1">{cmd.label}</span>
                   <span className="text-muted-foreground text-xs">→ select task</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {filteredAiCmds.length > 0 && (
+          <>
+            {anyBefore(2) && <CommandSeparator />}
+            <CommandGroup heading="AI">
+              {filteredAiCmds.map((cmd) => (
+                <CommandItem
+                  key={cmd.id}
+                  value={cmd.id}
+                  data-testid={`command-panel-cmd-${cmd.id}`}
+                  onSelect={() => {
+                    setInputValue('');
+                    setStep({ type: 'list-select', command: cmd });
+                  }}
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                  <span className="flex-1">{cmd.label}</span>
+                  <span className="text-muted-foreground text-xs">→ select list</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -539,13 +601,42 @@ export function CommandPalette({
               key={opt.value}
               value={opt.value}
               data-testid={`command-panel-list-${opt.value}`}
-              onSelect={() => cmd.execute(opt.value)}
+              onSelect={() => {
+                if (cmd.getSubOptions) {
+                  setInputValue('');
+                  setStep({ type: 'list-sub-pick', command: cmd, listName: opt.value, options: cmd.getSubOptions() });
+                } else {
+                  cmd.execute(opt.value);
+                }
+              }}
             >
               {opt.label}
             </CommandItem>
           ))}
         </CommandGroup>
         <CommandEmpty>No lists found.</CommandEmpty>
+      </>
+    );
+  };
+
+  // ---- Step: list-sub-pick ----
+  const renderListSubPick = (cmd: ListStepCommand, listName: string, options: SubPickOption[]) => {
+    const filtered = filterByLabel(options.map((o) => ({ ...o })), searchQuery);
+    return (
+      <>
+        <CommandGroup heading={`${cmd.label} — ${listName} — select range`} data-testid="command-panel-step-list-sub-pick">
+          {filtered.map((opt) => (
+            <CommandItem
+              key={opt.value}
+              value={opt.value}
+              data-testid={`command-panel-subopt-${opt.value}`}
+              onSelect={() => cmd.execute(listName, opt)}
+            >
+              {opt.label}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandEmpty>No options found.</CommandEmpty>
       </>
     );
   };
@@ -562,7 +653,9 @@ export function CommandPalette({
           ? `${step.command.label} — ${getDisplayTitle(step.task)}`
           : step.type === 'list-select'
             ? `${step.command.label} — select list…`
-            : '';
+            : step.type === 'list-sub-pick'
+              ? `${step.command.label} — ${step.listName} — select range…`
+              : '';
 
   // ---- Header breadcrumb (for non-root steps) ----
   const renderHeader = () => {
@@ -574,7 +667,9 @@ export function CommandPalette({
           ? `${step.command.label} › ${getDisplayTitle(step.task)}`
           : step.type === 'list-select'
             ? step.command.label
-            : '';
+            : step.type === 'list-sub-pick'
+              ? `${step.command.label} › ${step.listName}`
+              : '';
     return (
       <div className="flex items-center gap-2 px-3 py-2 border-b text-xs text-muted-foreground">
         <ArrowLeft className="size-3" />
@@ -610,6 +705,7 @@ export function CommandPalette({
           {step.type === 'task-select' && renderTaskSelect(step.command)}
           {step.type === 'sub-pick' && renderSubPick(step.command, step.task, step.options)}
           {step.type === 'list-select' && renderListSelect(step.command)}
+          {step.type === 'list-sub-pick' && renderListSubPick(step.command, step.listName, step.options)}
         </CommandList>
       </div>
     </CommandDialog>

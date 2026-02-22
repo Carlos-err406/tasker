@@ -8,6 +8,7 @@ import type { reminderInvokerFactory } from './reminder/preload.js';
 import type { logsInvokerFactory } from './logs/preload.js';
 import type { clipboardInvokerFactory } from './clipboard/preload.js';
 import type { decomposeInvokerFactory } from './decompose/preload.js';
+import type { summaryInvokerFactory } from './summary/preload.js';
 import type { LogEntry } from '../lib/log-buffer.js';
 
 export interface IPCContext {
@@ -28,7 +29,8 @@ export type IPC = ReturnType<typeof tasksInvokerFactory> &
   ReturnType<typeof reminderInvokerFactory> &
   ReturnType<typeof logsInvokerFactory> &
   ReturnType<typeof clipboardInvokerFactory> &
-  ReturnType<typeof decomposeInvokerFactory> & {
+  ReturnType<typeof decomposeInvokerFactory> &
+  ReturnType<typeof summaryInvokerFactory> & {
     homePath: string;
     onLogEntry: (callback: (entry: LogEntry) => void) => () => void;
     onDbChanged: (callback: () => void) => () => void;

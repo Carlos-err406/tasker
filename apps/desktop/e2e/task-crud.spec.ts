@@ -11,7 +11,7 @@ test.describe('Task CRUD', () => {
 
   test('add a task with inline metadata', async ({ page }) => {
     // Metadata on separate last line: p1 = high priority, @date, #tag
-    await addTask(page, 'Buy milk\np1 @2026-03-01 #shopping');
+    await addTask(page, 'Buy milk\np1 @2027-06-15 #shopping');
 
     // Verify task appears with metadata rendered as badges
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
@@ -24,7 +24,7 @@ test.describe('Task CRUD', () => {
     await expect(taskItem.getByText('shopping')).toBeVisible();
 
     // Due date badge should render (formatDueDate returns ISO string for dates >7d away)
-    await expect(taskItem.getByText('2026-03-01')).toBeVisible();
+    await expect(taskItem.getByText('2027-06-15')).toBeVisible();
   });
 
   test('edit/rename a task via context menu', async ({ page }) => {

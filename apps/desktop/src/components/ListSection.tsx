@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Task, TaskStatus } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
@@ -7,7 +7,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, Plus, Ellipsis, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Ellipsis, Eye, EyeOff, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import {
   DropdownMenu,
@@ -38,6 +38,7 @@ interface ListSectionProps {
   onShowStatus: (message: string) => void;
   onNavigateToTask: (taskId: string) => void;
   onDecompose?: (taskId: string) => void;
+  onSummary?: (listName: string, timeRange: string) => void;
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   hideCompleted: boolean;
@@ -67,6 +68,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   onShowStatus,
   onNavigateToTask,
   onDecompose,
+  onSummary,
   lmStudioAvailable,
   onTagClick,
   hideCompleted,
@@ -76,8 +78,17 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const [addValue, setAddValue] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
+  const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
   const addInputRef = useRef<HTMLTextAreaElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMenuOpen = useCallback((open: boolean) => {
+    if (open) {
+      window.ipc['decompose:available']()
+        .then(setLmAvailable)
+        .catch(() => setLmAvailable(false));
+    }
+  }, []);
 
   const ac = useMetadataAutocomplete(addValue, addInputRef);
 
@@ -230,25 +241,44 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
             <TooltipContent>Add task</TooltipContent>
           </Tooltip>
 
-          {!isDefault && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="text-muted-foreground hover:text-foreground p-0.5">
-                  <Ellipsis className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="bottom" align="end" collisionPadding={8}>
-                <DropdownMenuItem onSelect={startEditName}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onSelect={() => onDeleteList(listName)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu onOpenChange={handleMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button className="text-muted-foreground hover:text-foreground p-0.5">
+                <Ellipsis className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="bottom" align="end" collisionPadding={8}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="block">
+                    <DropdownMenuItem
+                      onSelect={() => onSummary?.(listName, '7d')}
+                      disabled={!lmAvailable}
+                      className={!lmAvailable ? 'pointer-events-none' : undefined}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Summarize
+                    </DropdownMenuItem>
+                  </span>
+                </TooltipTrigger>
+                {!lmAvailable && (
+                  <TooltipContent side="left">LM Studio server is not running</TooltipContent>
+                )}
+              </Tooltip>
+              {!isDefault && (
+                <>
+                  <DropdownMenuItem onSelect={startEditName}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onSelect={() => onDeleteList(listName)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

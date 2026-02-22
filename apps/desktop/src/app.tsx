@@ -32,6 +32,7 @@ import { HelpPanel } from '@/components/HelpPanel.js';
 import { LogsPanel } from '@/components/LogsPanel.js';
 import { CommandPalette } from '@/components/CommandPalette.js';
 import { DecomposePanel } from '@/components/DecomposePanel.js';
+import { SummaryPanel } from '@/components/SummaryPanel.js';
 
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
@@ -50,6 +51,7 @@ export default function App() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [decomposeTaskId, setDecomposeTaskId] = useState<string | null>(null);
+  const [summaryParams, setSummaryParams] = useState<{ listName: string; timeRange: string } | null>(null);
   const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
   const [activeType, setActiveType] = useState<'task' | 'list' | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -131,6 +133,12 @@ export default function App() {
     setShowLogs(false);
   }, []);
 
+  const handleSummary = useCallback((listName: string, timeRange: string) => {
+    setSummaryParams({ listName, timeRange });
+    setShowHelp(false);
+    setShowLogs(false);
+  }, []);
+
   const handleAddTaskToList = useCallback((listName: string) => {
     listSectionRefs.current[listName]?.current?.startAdding();
   }, []);
@@ -160,8 +168,10 @@ export default function App() {
   }, []);
 
   const handleEscape = useCallback(() => {
-    // ESC closes the topmost layer: decompose > help > logs > filter menu > creating list > window
-    if (decomposeTaskId) {
+    // ESC closes the topmost layer: summary > decompose > help > logs > filter menu > creating list > window
+    if (summaryParams) {
+      setSummaryParams(null);
+    } else if (decomposeTaskId) {
       setDecomposeTaskId(null);
     } else if (showHelp) {
       setShowHelp(false);
@@ -174,7 +184,7 @@ export default function App() {
     } else {
       hideWindow();
     }
-  }, [decomposeTaskId, showHelp, showLogs, showFilterMenu, creatingList]);
+  }, [summaryParams, decomposeTaskId, showHelp, showLogs, showFilterMenu, creatingList]);
 
   useKeyboardShortcuts({
     onUndo: store.undo,
@@ -427,6 +437,12 @@ export default function App() {
         onCreated={() => { setDecomposeTaskId(null); store.refresh(); }}
       />
 
+      {/* Summary panel (Sheet portal — renders outside content div) */}
+      <SummaryPanel
+        params={summaryParams}
+        onClose={() => setSummaryParams(null)}
+      />
+
       {/* Help / Logs sheets (portals — render outside content div) */}
       <HelpPanel open={showHelp} onClose={() => setShowHelp(false)} />
       <LogsPanel open={showLogs} onClose={() => setShowLogs(false)} />
@@ -501,6 +517,7 @@ export default function App() {
                       onShowStatus={store.showStatus}
                       onNavigateToTask={store.navigateToTask}
                       onDecompose={handleDecompose}
+                      onSummary={handleSummary}
                       lmStudioAvailable={lmStudioAvailable}
                       onTagClick={(tag) => setSearchInput(`tag:${tag}`)}
                       hideCompleted={store.hideCompletedLists.has(listName)}
@@ -569,6 +586,8 @@ export default function App() {
       onToggleHelp={handleToggleHelp}
       onToggleLogs={handleToggleLogs}
       onAddTaskToList={handleAddTaskToList}
+      lmStudioAvailable={lmStudioAvailable}
+      onSummary={handleSummary}
       store={{
         tasks: store.tasks,
         lists: store.lists,
