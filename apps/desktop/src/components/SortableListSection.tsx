@@ -45,9 +45,10 @@ export const SortableListSection = forwardRef<ListSectionHandle, SortableListSec
     } = useSortable({ id: `list::${listName}` });
 
     const style = {
-      transform: CSS.Transform.toString(transform),
+      transform: CSS.Translate.toString(transform),
       transition,
       opacity: isDragging ? 0.4 : 1,
+      willChange: 'transform',
     };
 
     return (

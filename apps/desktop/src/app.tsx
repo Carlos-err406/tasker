@@ -116,9 +116,13 @@ export default function App() {
     const VISIBLE_WIDTH = 400;
     const isAnyMenuOpen = () =>
       !!document.querySelector('[data-radix-popper-content-wrapper]');
+    let currentIgnore = false;
     const onMouseMove = (e: MouseEvent) => {
       const ignore = e.clientX > VISIBLE_WIDTH && !isAnyMenuOpen();
-      window.ipc['window:setIgnoreMouseEvents'](ignore);
+      if (ignore !== currentIgnore) {
+        currentIgnore = ignore;
+        window.ipc['window:setIgnoreMouseEvents'](ignore);
+      }
     };
     window.addEventListener('mousemove', onMouseMove);
     return () => {

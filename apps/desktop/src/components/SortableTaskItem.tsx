@@ -32,9 +32,10 @@ export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
   } = useSortable({ id: task.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
+    willChange: 'transform',
   };
 
   return (
