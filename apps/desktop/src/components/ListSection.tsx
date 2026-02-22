@@ -23,6 +23,8 @@ interface ListSectionProps {
   listName: string;
   tasks: Task[];
   lists: string[];
+  dragHandleListeners?: React.HTMLAttributes<HTMLElement>;
+  dragHandleAttributes?: React.HTMLAttributes<HTMLElement>;
   relDetails: Record<string, TaskRelDetails>;
   isDefault: boolean;
   collapsed: boolean;
@@ -73,6 +75,8 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   onTagClick,
   hideCompleted,
   onToggleHideCompleted,
+  dragHandleListeners,
+  dragHandleAttributes,
 }, ref) {
   const [adding, setAdding] = useState(false);
   const [addValue, setAddValue] = useState('');
@@ -183,7 +187,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   return (
     <div data-testid={`list-section-${listName}`} className="border-b border-border/50">
       {/* List header */}
-      <div data-testid={`list-header-${listName}`} className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary/80 backdrop-blur-sm hover:bg-secondary/90 transition-colors">
+      <div data-testid={`list-header-${listName}`} className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary/80 backdrop-blur-sm hover:bg-secondary/90 transition-colors" {...dragHandleAttributes} {...dragHandleListeners}>
         <button
           data-testid={`list-collapse-${listName}`}
           onClick={onToggleCollapsed}

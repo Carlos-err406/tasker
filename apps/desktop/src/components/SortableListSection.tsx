@@ -51,10 +51,12 @@ export const SortableListSection = forwardRef<ListSectionHandle, SortableListSec
     };
 
     return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <div ref={setNodeRef} style={style}>
         <ListSection
           ref={ref}
           listName={listName}
+          dragHandleListeners={listeners}
+          dragHandleAttributes={attributes}
           {...rest}
         />
       </div>
