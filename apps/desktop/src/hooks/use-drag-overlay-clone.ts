@@ -2,25 +2,46 @@ import { useRef, useCallback } from 'react';
 
 /**
  * Manages a native DOM clone as a drag overlay, completely bypassing React's
- * render cycle. On every pointermove the clone's CSS transform is updated
- * directly on the element — no state, no reconciliation, no context re-renders.
+ * render cycle. Uses `pointerrawupdate` for lowest-latency cursor tracking
+ * and rAF gating to batch transforms to one per display frame.
  *
  * The clone is a pixel-perfect copy of the dragged element styled to float
- * above everything with a frosted glass background and shadow.
+ * above everything with a solid dark background and shadow.
  */
 export function useDragOverlayClone() {
   const cloneRef = useRef<HTMLElement | null>(null);
   const startYRef = useRef(0);
+  const rafRef = useRef(0);
+  const latestYRef = useRef(0);
 
-  const onPointerMove = useRef((e: PointerEvent) => {
+  // rAF callback — applies the latest pointer position once per frame
+  const applyTransform = useRef(() => {
     const clone = cloneRef.current;
     if (!clone) return;
-    const dy = e.clientY - startYRef.current;
+    const dy = latestYRef.current - startYRef.current;
     clone.style.transform = `translateY(${dy}px) scale(1.02)`;
+    rafRef.current = 0;
+  });
+
+  const onPointerUpdate = useRef((e: PointerEvent) => {
+    // Grab the latest Y (use coalesced events if available for highest fidelity)
+    const coalesced = (e as any).getCoalescedEvents?.();
+    const latest = coalesced?.length ? coalesced[coalesced.length - 1] : e;
+    latestYRef.current = latest.clientY;
+
+    // Schedule one transform per frame
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(applyTransform.current);
+    }
   });
 
   const cleanup = useCallback(() => {
-    window.removeEventListener('pointermove', onPointerMove.current);
+    window.removeEventListener('pointerrawupdate' as any, onPointerUpdate.current);
+    window.removeEventListener('pointermove', onPointerUpdate.current);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
     if (cloneRef.current) {
       cloneRef.current.remove();
       cloneRef.current = null;
@@ -37,6 +58,7 @@ export function useDragOverlayClone() {
 
     const rect = source.getBoundingClientRect();
     startYRef.current = pointerY;
+    latestYRef.current = pointerY;
 
     // Clone the DOM node inside a dark-themed wrapper so Tailwind's
     // dark: variants resolve correctly (the app's `dark` class is on
@@ -58,9 +80,7 @@ export function useDragOverlayClone() {
     const clone = source.cloneNode(true) as HTMLElement;
     clone.style.cssText = `
       border-radius: 8px;
-      background: hsl(240 6% 10% / 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: hsl(240 6% 10% / 0.95);
       box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
     `;
     // Strip interactive attributes from clone
@@ -73,7 +93,13 @@ export function useDragOverlayClone() {
     document.body.appendChild(wrapper);
     cloneRef.current = wrapper;
 
-    window.addEventListener('pointermove', onPointerMove.current, { passive: true });
+    // Use pointerrawupdate for lowest-latency input (fires at hardware rate),
+    // fall back to pointermove for browsers that don't support it.
+    if ('onpointerrawupdate' in window) {
+      window.addEventListener('pointerrawupdate' as any, onPointerUpdate.current, { passive: true });
+    } else {
+      window.addEventListener('pointermove', onPointerUpdate.current, { passive: true });
+    }
   }, []);
 
   const hideClone = useCallback(() => {
