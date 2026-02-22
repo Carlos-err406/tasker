@@ -6,12 +6,11 @@ import { useRef, useCallback } from 'react';
  * directly on the element — no state, no reconciliation, no context re-renders.
  *
  * The clone is a pixel-perfect copy of the dragged element styled to float
- * above everything with a subtle scale + shadow.
+ * above everything with a frosted glass background and shadow.
  */
 export function useDragOverlayClone() {
   const cloneRef = useRef<HTMLElement | null>(null);
   const startYRef = useRef(0);
-  const offsetYRef = useRef(0);
 
   const onPointerMove = useRef((e: PointerEvent) => {
     const clone = cloneRef.current;
@@ -38,7 +37,6 @@ export function useDragOverlayClone() {
 
     const rect = source.getBoundingClientRect();
     startYRef.current = pointerY;
-    offsetYRef.current = rect.top;
 
     // Clone the DOM node
     const clone = source.cloneNode(true) as HTMLElement;
@@ -50,9 +48,11 @@ export function useDragOverlayClone() {
       height: ${rect.height}px;
       z-index: 9999;
       pointer-events: none;
-      opacity: 0.92;
       border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      background: hsl(240 6% 10% / 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
       transform: scale(1.02);
       will-change: transform;
       transition: none;
@@ -66,7 +66,7 @@ export function useDragOverlayClone() {
     document.body.appendChild(clone);
     cloneRef.current = clone;
 
-    window.addEventListener('pointermove', onPointerMove.current);
+    window.addEventListener('pointermove', onPointerMove.current, { passive: true });
   }, []);
 
   const hideClone = useCallback(() => {

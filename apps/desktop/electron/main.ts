@@ -12,6 +12,13 @@ import { initLogCapture } from './lib/log-buffer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Force GPU rasterization even with transparent windows — without these,
+// macOS + transparent BrowserWindow falls back to software rendering,
+// making all CSS transforms (drag-and-drop, animations) janky.
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-zero-copy');
+
 const isTestMode = process.env['TASKER_TEST_MODE'] === '1';
 
 // Register custom protocol for loading local files (works in both dev http:// and prod file:// origins)
