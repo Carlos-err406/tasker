@@ -7,7 +7,6 @@ import { useDebounce } from '@/hooks/use-debounce.js';
 import { hideWindow, quitApp } from '@/lib/services/window.js';
 import {
   DndContext,
-  DragOverlay,
   closestCenter,
   KeyboardSensor,
   useSensor,
@@ -26,7 +25,7 @@ import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal } 
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
 import { SortableListSection, type SortableListSectionHandle } from '@/components/SortableListSection.js';
-import { getDisplayTitle } from '@/lib/task-display.js';
+import { useDragOverlayClone } from '@/hooks/use-drag-overlay-clone.js';
 import { SearchBar } from '@/components/SearchBar.js';
 import { HelpPanel } from '@/components/HelpPanel.js';
 import { LogsPanel } from '@/components/LogsPanel.js';
@@ -54,6 +53,7 @@ export default function App() {
   const [summaryParams, setSummaryParams] = useState<{ listName: string; timeRange: string } | null>(null);
   const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
   const [activeType, setActiveType] = useState<'task' | 'list' | null>(null);
+  const dragOverlay = useDragOverlayClone();
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -226,19 +226,23 @@ export default function App() {
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id);
     document.body.classList.add('is-dragging');
+    const pointerY = (event.activatorEvent as PointerEvent).clientY;
     if (id.startsWith('list::')) {
       setActiveId(id);
       setActiveType('list');
+      dragOverlay.showClone(id.slice(6), 'list', pointerY);
     } else {
       setActiveId(id);
       setActiveType('task');
+      dragOverlay.showClone(id, 'task', pointerY);
     }
-  }, []);
+  }, [dragOverlay]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       document.body.classList.remove('is-dragging');
+      dragOverlay.hideClone();
       setActiveId(null);
       setActiveType(null);
 
@@ -273,17 +277,10 @@ export default function App() {
 
   const handleDragCancel = useCallback(() => {
     document.body.classList.remove('is-dragging');
+    dragOverlay.hideClone();
     setActiveId(null);
     setActiveType(null);
-  }, []);
-
-  // Find the active task for DragOverlay rendering
-  const activeTask = activeType === 'task' && activeId
-    ? store.tasks.find((t) => t.id === activeId) ?? null
-    : null;
-  const activeListName = activeType === 'list' && activeId
-    ? activeId.slice(6)
-    : null;
+  }, [dragOverlay]);
 
   // Filter dropdown
   const filterLabel = store.filterList ?? 'All Lists';
@@ -534,23 +531,7 @@ export default function App() {
                 })}
               </SortableContext>
 
-              <DragOverlay dropAnimation={null}>
-                {activeTask && (
-                  <div className="rounded-lg bg-secondary/90 shadow-lg scale-[1.02] opacity-90 border border-border/60 px-3 py-2">
-                    <span className="text-sm truncate">{getDisplayTitle(activeTask)}</span>
-                  </div>
-                )}
-                {activeListName && (
-                  <div className="rounded-lg bg-secondary/90 shadow-lg scale-[1.02] opacity-90 border border-border/60">
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <span className="text-sm font-semibold">{activeListName}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {(store.tasksByList[activeListName] ?? []).length} tasks
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </DragOverlay>
+              {/* Drag overlay handled by useDragOverlayClone (native DOM, no React) */}
             </DndContext>
 
             {store.searchQuery && store.totalCount === 0 && (
