@@ -38,24 +38,29 @@ export function useDragOverlayClone() {
     const rect = source.getBoundingClientRect();
     startYRef.current = pointerY;
 
-    // Clone the DOM node
-    const clone = source.cloneNode(true) as HTMLElement;
-    clone.style.cssText = `
+    // Clone the DOM node inside a dark-themed wrapper so Tailwind's
+    // dark: variants resolve correctly (the app's `dark` class is on
+    // a container div, not on <body>).
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dark';
+    wrapper.style.cssText = `
       position: fixed;
       left: ${rect.left}px;
       top: ${rect.top}px;
       width: ${rect.width}px;
-      height: ${rect.height}px;
       z-index: 9999;
       pointer-events: none;
+      will-change: transform;
+      transition: none;
+    `;
+
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.style.cssText = `
       border-radius: 8px;
-      background: hsl(240 6% 10% / 0.85);
+      background: hsl(240 6% 10% / 0.88);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
-      transform: scale(1.02);
-      will-change: transform;
-      transition: none;
     `;
     // Strip interactive attributes from clone
     clone.querySelectorAll('button, a, input, textarea').forEach(el => {
@@ -63,8 +68,9 @@ export function useDragOverlayClone() {
       el.removeAttribute('tabindex');
     });
 
-    document.body.appendChild(clone);
-    cloneRef.current = clone;
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+    cloneRef.current = wrapper;
 
     window.addEventListener('pointermove', onPointerMove.current, { passive: true });
   }, []);
