@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { memo, useState, useRef, useCallback, useEffect } from 'react';
 import type { Task, TaskStatus } from '@tasker/core/types';
 import { TaskStatus as TS, Priority } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
@@ -51,7 +51,7 @@ interface TaskItemProps {
   onTagClick?: (tag: string) => void;
 }
 
-export function TaskItem({
+export const TaskItem = memo(function TaskItem({
   task,
   lists,
   relDetails,
@@ -490,4 +490,4 @@ export function TaskItem({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
