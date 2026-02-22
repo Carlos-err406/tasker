@@ -292,6 +292,14 @@ export function CommandPalette({
   const listStepCommands = useMemo(
     (): ListStepCommand[] => [
       {
+        id: 'new-task',
+        label: 'New task',
+        execute: (listName) => {
+          onAddTaskToList(listName);
+          handleClose();
+        },
+      },
+      {
         id: 'add-task-to-list',
         label: 'Add task to list',
         execute: (listName) => {

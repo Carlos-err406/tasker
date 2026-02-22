@@ -238,6 +238,25 @@ test.describe('Command Panel', () => {
     await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
   });
 
+  test('command mode: new task command opens add-task input in selected list', async ({ page }) => {
+    await openCommandPanel(page);
+
+    const input = page.locator('[data-testid="command-panel-input"]');
+    await input.fill('>new');
+
+    await page.locator('[data-testid="command-panel-cmd-new-task"]').click();
+
+    // List-select step: pick the first list
+    const listItem = page.locator('[data-testid^="command-panel-list-"]').first();
+    const listTestId = await listItem.getAttribute('data-testid');
+    const listName = listTestId?.replace('command-panel-list-', '') ?? '';
+    await listItem.click();
+
+    // Palette should close and add-task input should appear in that list
+    await expect(page.locator('[data-testid="command-panel"]')).not.toBeVisible();
+    await expect(page.locator(`[data-testid="add-task-input-${listName}"]`)).toBeVisible();
+  });
+
   test('command mode: set priority applies priority to task', async ({ page }) => {
     await addTask(page, 'Needs priority');
     await openCommandPanel(page);

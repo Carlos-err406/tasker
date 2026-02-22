@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
-import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown } from 'lucide-react';
+import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import {
@@ -200,6 +200,11 @@ export function TaskItem({
     onShowStatus(`Copied: ${shortId}`);
   };
 
+  const copyText = () => {
+    navigator.clipboard.writeText(task.description);
+    onShowStatus('Copied task text');
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -383,6 +388,14 @@ export function TaskItem({
         <ContextMenuItem onSelect={startEdit}>
           <Pencil className="h-3.5 w-3.5" />
           Edit
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={copyId}>
+          <Copy className="h-3.5 w-3.5" />
+          Copy ID
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={copyText}>
+          <Copy className="h-3.5 w-3.5" />
+          Copy text
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
           <CornerRightDown className="h-3.5 w-3.5" />

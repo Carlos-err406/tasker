@@ -109,6 +109,11 @@ function ensurePopup(onReady: () => void): void {
   }
 
   popup.once('ready-to-show', () => {
+    if (process.env['TASKER_TEST_MODE'] === '1') {
+      popup!.webContents.insertCSS(
+        '*, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }',
+      );
+    }
     onReady();
   });
 }

@@ -90,6 +90,24 @@ test.describe('Context Menus', () => {
     await expect(taskNames.filter({ hasText: 'Child task' })).toHaveCount(1);
   });
 
+  test('copy id from context menu shows status', async ({ page }) => {
+    await addTask(page, 'Copy test task');
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await taskItem.click({ button: 'right' });
+    await expect(page.locator('[role="menu"]')).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Copy ID' }).click();
+    await expect(page.locator('[data-testid="status-bar"]')).toContainText('Copied:');
+  });
+
+  test('copy text from context menu shows status', async ({ page }) => {
+    await addTask(page, 'Copy test task');
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await taskItem.click({ button: 'right' });
+    await expect(page.locator('[role="menu"]')).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Copy text' }).click();
+    await expect(page.locator('[data-testid="status-bar"]')).toContainText('Copied');
+  });
+
   test('move task to another list', async ({ page }) => {
     // Create second list
     await page.locator('[data-testid="new-list-button"]').click();
