@@ -50,6 +50,7 @@ export function useDragOverlayClone() {
       width: ${rect.width}px;
       z-index: 9999;
       pointer-events: none;
+      overflow: hidden;
       will-change: transform;
       transition: none;
     `;
