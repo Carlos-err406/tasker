@@ -2,7 +2,9 @@ import { useState, useRef, useMemo, useEffect, useCallback, forwardRef, useImper
 import type { Task, TaskStatus } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
+import { useAiAutocomplete } from '@/hooks/use-ai-autocomplete.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
+import { getPlainText, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -16,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu.js';
 import { Input } from '@/components/ui/input.js';
-import { Textarea } from '@/components/ui/textarea.js';
 import { SortableTaskItem } from './SortableTaskItem.js';
 
 interface ListSectionProps {
@@ -83,8 +84,13 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
-  const addInputRef = useRef<HTMLTextAreaElement>(null);
+  const addInputRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync lmAvailable when the parent re-checks availability (e.g. on popup shown)
+  useEffect(() => {
+    if (lmStudioAvailable !== undefined) setLmAvailable(lmStudioAvailable);
+  }, [lmStudioAvailable]);
 
   const handleMenuOpen = useCallback((open: boolean) => {
     if (open) {
@@ -95,11 +101,12 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   }, []);
 
   const ac = useMetadataAutocomplete(addValue, addInputRef);
+  const aiAc = useAiAutocomplete(addInputRef, lmAvailable && adding, onShowStatus);
 
-  // Trigger autocomplete detection on value changes
+  // Cancel AI ghost when metadata dropdown opens (they conflict visually)
   useEffect(() => {
-    if (adding) ac.detect();
-  }, [addValue, adding]);
+    if (ac.isOpen) aiAc.cancelPending();
+  }, [ac.isOpen]);
 
   const visibleTasks = useMemo(
     () => hideCompleted ? tasks.filter((t) => t.status !== 2) : tasks,
@@ -129,12 +136,14 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
     setTimeout(() => {
       const el = addInputRef.current;
       if (el) {
-        el.focus();
-        if (initialValue) {
-          el.selectionStart = el.selectionEnd = 0;
+        // Only set textContent for pre-filled values (e.g. subtask parent link).
+        // For empty inputs the div is already empty — setting textContent here
+        // would wipe any text already typed by a fast E2E helper or user.
+        if (initialValue !== undefined) {
+          el.textContent = initialValue;
+          setCaretOffset(el, 0);
         }
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
+        el.focus();
       }
     }, 50);
   };
@@ -153,20 +162,40 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const handleAddKeyDown = (e: React.KeyboardEvent) => {
     // Stop propagation so dnd-kit keyboard listeners don't intercept (e.g. Space)
     e.stopPropagation();
-    // Let autocomplete handle its keys first
+    // 1. Metadata autocomplete takes priority
     if (ac.onKeyDown(e)) {
       if ((e.key === 'Enter' || e.key === 'Tab') && ac.isOpen) {
+        aiAc.dismissGhost();
         const newVal = ac.select(ac.selectedIndex);
-        if (newVal !== null) setAddValue(newVal);
+        if (newVal !== null) {
+          setAddValue(newVal);
+          // Sync DOM so setCaretOffset (called in ac.select's setTimeout) works correctly
+          if (addInputRef.current) setPlainText(addInputRef.current, newVal);
+        }
       }
       return;
     }
+    // 2. AI ghost text accept
+    if (e.key === 'Tab' && aiAc.ghostText) {
+      e.preventDefault();
+      setAddValue(aiAc.acceptGhost());
+      return;
+    }
+    // 3. Escape: first dismiss ghost, second closes input
+    if (e.key === 'Escape') {
+      if (aiAc.ghostText) {
+        aiAc.dismissGhost();
+        return;
+      }
+      aiAc.cancelPending();
+      setAdding(false);
+      return;
+    }
+    // 4. Submit
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
+      aiAc.cancelPending();
       submitAdd();
-    }
-    if (e.key === 'Escape') {
-      setAdding(false);
     }
   };
 
@@ -286,49 +315,57 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
         </div>
       </div>
 
+      {/* Add task input */}
+      {adding && (
+        <div className="px-3 py-2 border-b border-border/50">
+          <div
+            ref={addInputRef}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            data-testid={`add-task-input-${listName}`}
+            data-placeholder="New task... (Cmd+Enter to submit)"
+            onInput={(e) => {
+              const plain = getPlainText(e.currentTarget);
+              setAddValue(plain);
+              aiAc.onValueChange(plain);
+              ac.detect();
+            }}
+            onKeyDown={handleAddKeyDown}
+            onBlur={() => {
+              if (!ac.isOpen) {
+                aiAc.cancelPending();
+                if (addValue.trim()) submitAdd();
+                else setAdding(false);
+              }
+            }}
+            className="min-h-[28px] max-h-32 overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+          />
+          {ac.isOpen && (
+            <AutocompleteDropdown
+              anchorRef={addInputRef}
+              suggestions={ac.suggestions}
+              selectedIndex={ac.selectedIndex}
+              onSelect={(i) => {
+                aiAc.dismissGhost();
+                const newVal = ac.select(i);
+                if (newVal !== null) {
+                  setAddValue(newVal);
+                  if (addInputRef.current) setPlainText(addInputRef.current, newVal);
+                }
+              }}
+            />
+          )}
+        </div>
+      )}
+
       {/* Tasks */}
       <div
         className="grid transition-[grid-template-rows] duration-200 ease-in-out"
         style={{ gridTemplateRows: collapsed ? '0fr' : '1fr' }}
       >
         <div className="overflow-hidden">
-          {adding && (
-            <div className="px-3 py-2 border-b border-border/30">
-              <div className="relative">
-                <Textarea
-                  data-testid={`add-task-input-${listName}`}
-                  ref={addInputRef}
-                  value={addValue}
-                  onChange={(e) => {
-                    setAddValue(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                  }}
-                  onKeyDown={handleAddKeyDown}
-                  onBlur={() => {
-                    if (!ac.isOpen) {
-                      if (addValue.trim()) submitAdd();
-                      else setAdding(false);
-                    }
-                  }}
-                  placeholder="New task... (Cmd+Enter to submit)"
-                  className="min-h-0 field-sizing-fixed bg-background px-2 py-1 text-sm resize-none overflow-hidden"
-                  rows={1}
-                />
-                {ac.isOpen && (
-                  <AutocompleteDropdown
-                    suggestions={ac.suggestions}
-                    selectedIndex={ac.selectedIndex}
-                    onSelect={(i) => {
-                      const newVal = ac.select(i);
-                      if (newVal !== null) setAddValue(newVal);
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
           {visibleTasks.length === 0 && !adding && (
             <div className="px-3 py-3 text-xs text-muted-foreground/50 text-center">
               {hideCompleted && doneCount > 0 ? 'All tasks completed' : 'No tasks'}

@@ -1,7 +1,8 @@
 import { useRef, useCallback } from 'react';
+import { getPlainText, getSelectionOffsets, setSelectionOffsets, setPlainText } from '@/lib/content-editable-utils.js';
 
 /**
- * Markdown keyboard shortcuts for a textarea. All wrap shortcuts toggle
+ * Markdown keyboard shortcuts for a contentEditable div. All wrap shortcuts toggle
  * (unwrap if the selection or cursor is already inside the wrapper).
  *
  * - Cmd+B: bold (**)
@@ -17,26 +18,20 @@ import { useRef, useCallback } from 'react';
  * content inside the following parentheses.
  */
 export function useMarkdownShortcuts(
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+  inputRef: React.RefObject<HTMLDivElement | null>,
   setValue: (v: string) => void,
 ) {
   // Whether we're in a template tab-stop mode (user just inserted a link/image template
   // and is editing the first placeholder). Tab should jump to the () group.
   const hasTabStop = useRef(false);
 
-  /** Replace text in the textarea, update React state, and set selection. */
+  /** Replace text in the div, update React state, and set selection. */
   const applyEdit = useCallback(
-    (
-      el: HTMLTextAreaElement,
-      newValue: string,
-      selStart: number,
-      selEnd: number,
-    ) => {
+    (el: HTMLDivElement, newValue: string, selStart: number, selEnd: number) => {
+      setPlainText(el, newValue);
       setValue(newValue);
       requestAnimationFrame(() => {
-        el.setSelectionRange(selStart, selEnd);
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
+        setSelectionOffsets(el, selStart, selEnd);
       });
     },
     [setValue],
@@ -45,9 +40,10 @@ export function useMarkdownShortcuts(
   /** Wrap/unwrap the current selection with markdown wrappers (toggle behavior).
    *  If endWrapper is omitted, the same wrapper is used for both sides. */
   const wrapSelection = useCallback(
-    (el: HTMLTextAreaElement, wrapper: string, endWrapper?: string) => {
+    (el: HTMLDivElement, wrapper: string, endWrapper?: string) => {
       const end_w = endWrapper ?? wrapper;
-      const { selectionStart: start, selectionEnd: end, value } = el;
+      const { start, end } = getSelectionOffsets(el);
+      const value = getPlainText(el);
       const selected = value.slice(start, end);
       const wLen = wrapper.length;
       const ewLen = end_w.length;
@@ -93,8 +89,9 @@ export function useMarkdownShortcuts(
 
   /** Insert a template with two tab-stop placeholders. */
   const insertTemplate = useCallback(
-    (el: HTMLTextAreaElement, prefix: string) => {
-      const { selectionStart: start, value } = el;
+    (el: HTMLDivElement, prefix: string) => {
+      const { start } = getSelectionOffsets(el);
+      const value = getPlainText(el);
       const placeholder1 = prefix === '!' ? 'alt' : 'text';
       const placeholder2 = 'url';
       const template = `${prefix}[${placeholder1}](${placeholder2})`;
@@ -113,13 +110,14 @@ export function useMarkdownShortcuts(
 
   /** Handle Tab key to advance to the next tab-stop. Returns true if handled. */
   const handleTab = useCallback(
-    (el: HTMLTextAreaElement): boolean => {
+    (el: HTMLDivElement): boolean => {
       if (!hasTabStop.current) return false;
       hasTabStop.current = false;
 
       // Find the `](` after the cursor, then select content between ( and )
-      const { value, selectionEnd } = el;
-      const closeBracket = value.indexOf('](', selectionEnd);
+      const { end: selEnd } = getSelectionOffsets(el);
+      const value = getPlainText(el);
+      const closeBracket = value.indexOf('](', selEnd);
       if (closeBracket < 0) return false;
 
       const parenStart = closeBracket + 2; // position after `(`
@@ -127,7 +125,7 @@ export function useMarkdownShortcuts(
       if (parenEnd < 0) return false;
 
       requestAnimationFrame(() => {
-        el.setSelectionRange(parenStart, parenEnd);
+        setSelectionOffsets(el, parenStart, parenEnd);
       });
       return true;
     },
@@ -135,12 +133,12 @@ export function useMarkdownShortcuts(
   );
 
   /**
-   * onKeyDown handler for the textarea. Call this from the textarea's onKeyDown.
+   * onKeyDown handler for the contentEditable div. Call this from the div's onKeyDown.
    * Returns true if the event was handled (caller should not process further).
    */
   const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-      const el = textareaRef.current;
+    (e: React.KeyboardEvent): boolean => {
+      const el = inputRef.current;
       if (!el) return false;
 
       // Tab key: navigate to tab-stop, or insert indent
@@ -152,7 +150,8 @@ export function useMarkdownShortcuts(
         }
         // Insert tab for indentation
         e.preventDefault();
-        const { selectionStart: s, selectionEnd: end, value } = el;
+        const { start: s, end } = getSelectionOffsets(el);
+        const value = getPlainText(el);
         const indent = '\t';
         const newValue = value.slice(0, s) + indent + value.slice(end);
         const pos = s + indent.length;
@@ -207,7 +206,7 @@ export function useMarkdownShortcuts(
 
       return false;
     },
-    [textareaRef, applyEdit, wrapSelection, insertTemplate, handleTab],
+    [inputRef, applyEdit, wrapSelection, insertTemplate, handleTab],
   );
 
   return { onKeyDown };

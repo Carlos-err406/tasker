@@ -35,7 +35,9 @@ export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
-    willChange: 'transform',
+    // Only hint willChange during active drags to avoid creating persistent stacking
+    // contexts that put later items' headers on top of dropdowns.
+    willChange: transform ? 'transform' : undefined,
   };
 
   return (

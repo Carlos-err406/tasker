@@ -8,6 +8,7 @@ import { logsInvokerFactory } from './ipc/logs/preload.js';
 import { clipboardInvokerFactory } from './ipc/clipboard/preload.js';
 import { decomposeInvokerFactory } from './ipc/decompose/preload.js';
 import { summaryInvokerFactory } from './ipc/summary/preload.js';
+import { aiCompleteInvokerFactory } from './ipc/ai-complete/preload.js';
 import { LOGS_ENTRY } from './ipc/logs/channels.js';
 
 contextBridge.exposeInMainWorld('ipc', {
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('ipc', {
   ...clipboardInvokerFactory(ipcRenderer),
   ...decomposeInvokerFactory(ipcRenderer),
   ...summaryInvokerFactory(ipcRenderer),
+  ...aiCompleteInvokerFactory(ipcRenderer),
   onLogEntry: (callback: (entry: import('./lib/log-buffer.js').LogEntry) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, entry: import('./lib/log-buffer.js').LogEntry) => callback(entry);
     ipcRenderer.on(LOGS_ENTRY, handler);

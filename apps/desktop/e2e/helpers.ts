@@ -43,6 +43,9 @@ export async function dragTaskVertical(
  * Add a task to a list via the UI.
  * Clicks the add button in the list header, types the description,
  * and submits with Cmd+Enter.
+ *
+ * Uses keyboard typing instead of fill() because the input is a
+ * contentEditable div — Playwright's fill() only works on form inputs.
  */
 export async function addTask(
   page: Page,
@@ -53,9 +56,17 @@ export async function addTask(
   const header = page.locator(`[data-testid="list-header-${listName}"]`);
   await header.locator('button', { has: page.locator('svg.lucide-plus') }).click();
 
-  // Fill and submit
   const input = page.locator(`[data-testid="add-task-input-${listName}"]`);
-  await input.fill(description);
+  await input.waitFor({ state: 'visible' });
+  await input.click();
+
+  // Handle multiline: split on \n, type each segment, press Enter between
+  const lines = description.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i]) await page.keyboard.type(lines[i]);
+    if (i < lines.length - 1) await input.press('Enter');
+  }
+
   await input.press('Meta+Enter');
 
   // Wait for the form to close (IPC round trip + re-render complete)

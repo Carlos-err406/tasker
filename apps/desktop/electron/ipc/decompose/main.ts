@@ -1,5 +1,5 @@
 import { getTaskById, getSubtasks } from '@tasker/core';
-import { isLmStudioAvailable, createLmStudioProvider, createModel, streamWithCallbacks } from '@tasker/core/ai';
+import { isLmStudioAvailable, createLmStudioProvider, createModel, streamWithCallbacks, DEFAULT_BASE_URL } from '@tasker/core/ai';
 import { getPopupWindow } from '../../lib/tray.js';
 import type { IPCRegisterFunction } from '../types.js';
 import { buildDecomposePrompt } from './prompts/decompose.js';
@@ -15,7 +15,9 @@ import {
 export const decomposeRegister: IPCRegisterFunction = (ipcMain, _widget, { db }) => {
   let currentController: AbortController | null = null;
 
-  ipcMain.handle(DECOMPOSE_AVAILABLE, () => isLmStudioAvailable());
+  ipcMain.handle(DECOMPOSE_AVAILABLE, () =>
+    isLmStudioAvailable(process.env['TASKER_LM_STUDIO_URL'] ?? DEFAULT_BASE_URL),
+  );
 
   ipcMain.handle(DECOMPOSE_ABORT, () => {
     currentController?.abort();

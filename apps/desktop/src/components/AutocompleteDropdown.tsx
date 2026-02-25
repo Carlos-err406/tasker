@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { TaskStatus } from '@tasker/core/types';
 import type { Suggestion } from '@/hooks/use-metadata-autocomplete.js';
 import { cn } from '@/lib/utils.js';
@@ -7,6 +8,7 @@ interface AutocompleteDropdownProps {
   suggestions: Suggestion[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  anchorRef: React.RefObject<HTMLElement | null>;
 }
 
 const STATUS_DOT: Record<number, string> = {
@@ -15,38 +17,39 @@ const STATUS_DOT: Record<number, string> = {
   [TaskStatus.Done]: 'bg-green-500',
 };
 
-export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect }: AutocompleteDropdownProps) {
-  const listRef = useRef<HTMLDivElement>(null);
+export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anchorRef }: AutocompleteDropdownProps) {
   const selectedRef = useRef<HTMLButtonElement>(null);
-  /** Placement decided once on mount — locked for this dropdown session */
-  const [placement, setPlacement] = useState<'below' | 'above'>('below');
-  const placementDecided = useRef(false);
+  const [style, setStyle] = useState<React.CSSProperties>({ position: 'fixed', visibility: 'hidden' });
 
+  // Recompute position whenever anchor or suggestions change
   useLayoutEffect(() => {
-    if (placementDecided.current) return;
-    placementDecided.current = true;
-    const el = listRef.current;
+    const el = anchorRef.current;
     if (!el) return;
-    const parent = el.offsetParent as HTMLElement | null;
-    if (!parent) return;
-    const parentRect = parent.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - parentRect.bottom;
-    if (spaceBelow < 210) setPlacement('above');
-  }, []);
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const showAbove = spaceBelow < 210;
+    setStyle({
+      position: 'fixed',
+      width: `${rect.width}px`,
+      left: `${rect.left}px`,
+      ...(showAbove
+        ? { bottom: `${window.innerHeight - rect.top + 4}px`, top: 'auto' }
+        : { top: `${rect.bottom + 4}px`, bottom: 'auto' }),
+      zIndex: 9999,
+    });
+  }, [anchorRef, suggestions]);
 
   // Scroll selected item into view
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
-  return (
+  return createPortal(
     <div
-      ref={listRef}
-      className={cn(
-        'absolute right-0 z-50 w-[280px] max-h-[200px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg',
-        placement === 'below' ? 'top-full mt-1' : 'bottom-full mb-1',
-      )}
-      onMouseDown={(e) => e.preventDefault()} // prevent textarea blur
+      data-testid="metadata-autocomplete-dropdown"
+      style={style}
+      className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg"
+      onMouseDown={(e) => e.preventDefault()} // prevent input blur
     >
       {suggestions.map((s, i) => (
         <button
@@ -67,6 +70,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect }: A
           <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.task.listName}</span>
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

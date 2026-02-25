@@ -6,6 +6,7 @@ import {
   type GenerateTextResult,
   type StreamTextResult,
   type ToolSet,
+  type ModelMessage,
 } from 'ai';
 
 export type GenerateOptions = {
@@ -26,6 +27,20 @@ export async function generate(
   if (options?.system) params.system = options.system;
   if (options?.maxOutputTokens) params.maxOutputTokens = options.maxOutputTokens;
   if (options?.temperature !== undefined) params.temperature = options.temperature;
+  if (options?.signal) params.abortSignal = options.signal;
+  return await generateText(params);
+}
+
+/** Generate using a messages array (supports assistant prefill for continuation). */
+export async function generateMessages(
+  model: LanguageModel,
+  messages: ModelMessage[],
+  options?: GenerateOptions,
+): Promise<GenerateTextResult<ToolSet, DefaultOutput>> {
+  const params: Parameters<typeof generateText>[0] = { model, messages };
+  if (options?.maxOutputTokens) params.maxOutputTokens = options.maxOutputTokens;
+  if (options?.temperature !== undefined) params.temperature = options.temperature;
+  if (options?.signal) params.abortSignal = options.signal;
   return await generateText(params);
 }
 

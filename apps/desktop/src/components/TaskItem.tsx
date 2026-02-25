@@ -5,10 +5,11 @@ import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
+import { useAiAutocomplete } from '@/hooks/use-ai-autocomplete.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
 import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
-import { Textarea } from '@/components/ui/textarea.js';
+import { getPlainText, getCaretOffset, getSelectionOffsets, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -78,15 +79,16 @@ export const TaskItem = memo(function TaskItem({
   }, []);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
 
   const ac = useMetadataAutocomplete(editValue, inputRef, task.id);
   const md = useMarkdownShortcuts(inputRef, setEditValue);
+  const aiAc = useAiAutocomplete(inputRef, lmStudioAvailable === true && editing, onShowStatus);
 
-  // Trigger autocomplete detection on value changes
+  // Cancel AI ghost when metadata dropdown opens (they conflict visually)
   useEffect(() => {
-    if (editing) ac.detect();
-  }, [editValue, editing]);
+    if (ac.isOpen) aiAc.cancelPending();
+  }, [ac.isOpen]);
 
   const done = isDone(task);
   const inProg = isInProgress(task);
@@ -126,9 +128,9 @@ export const TaskItem = memo(function TaskItem({
     setTimeout(() => {
       const el = inputRef.current;
       if (el) {
+        setPlainText(el, task.description);
         el.focus();
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
+        setCaretOffset(el, task.description.length);
       }
     }, 50);
   };
@@ -141,7 +143,7 @@ export const TaskItem = memo(function TaskItem({
     setEditing(false);
   };
 
-  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLDivElement>) => {
     const hasImage = Array.from(e.clipboardData.types).includes('image/png')
       || Array.from(e.clipboardData.types).includes('image/jpeg')
       || Array.from(e.clipboardData.files).some((f) => f.type.startsWith('image/'));
@@ -156,42 +158,59 @@ export const TaskItem = memo(function TaskItem({
     const el = inputRef.current;
     if (!el) return;
 
-    const before = editValue.slice(0, el.selectionStart);
-    const after = editValue.slice(el.selectionEnd);
+    const { start, end } = getSelectionOffsets(el);
+    const currentValue = getPlainText(el);
+    const before = currentValue.slice(0, start);
+    const after = currentValue.slice(end);
     const insertion = `![image](${savedPath})`;
     const newValue = before + insertion + after;
+    setPlainText(el, newValue);
     setEditValue(newValue);
 
     // Place cursor after the inserted markdown
     requestAnimationFrame(() => {
-      const pos = before.length + insertion.length;
-      el.selectionStart = pos;
-      el.selectionEnd = pos;
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
+      setCaretOffset(el, before.length + insertion.length);
     });
-  }, [editValue, setEditValue]);
+  }, [setEditValue]);
 
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     // Stop propagation so dnd-kit keyboard listeners don't intercept (e.g. Space)
     e.stopPropagation();
-    // Let autocomplete handle its keys first
+    // 1. Metadata autocomplete takes priority
     if (ac.onKeyDown(e)) {
       if ((e.key === 'Enter' || e.key === 'Tab') && ac.isOpen) {
+        aiAc.dismissGhost();
         const newVal = ac.select(ac.selectedIndex);
-        if (newVal !== null) setEditValue(newVal);
+        if (newVal !== null) {
+          setEditValue(newVal);
+          if (inputRef.current) setPlainText(inputRef.current, newVal);
+        }
       }
       return;
     }
-    // Markdown shortcuts (Cmd+B, Cmd+I, Cmd+Shift+I, Cmd+K, Tab for tab-stops)
+    // 2. AI ghost text accept (Tab)
+    if (e.key === 'Tab' && aiAc.ghostText) {
+      e.preventDefault();
+      setEditValue(aiAc.acceptGhost());
+      return;
+    }
+    // 3. Markdown shortcuts (Cmd+B, Cmd+I, etc. and Tab for template tab-stops)
     if (md.onKeyDown(e)) return;
+    // 4. Escape: first dismiss ghost, then close editor
+    if (e.key === 'Escape') {
+      if (aiAc.ghostText) {
+        aiAc.dismissGhost();
+        return;
+      }
+      aiAc.cancelPending();
+      setEditing(false);
+      return;
+    }
+    // 5. Submit
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
+      aiAc.cancelPending();
       submitEdit();
-    }
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      setEditing(false);
     }
   };
 
@@ -257,38 +276,50 @@ export const TaskItem = memo(function TaskItem({
           {/* Content column */}
           <div className="flex-1 min-w-0 select-text">
             {editing ? (
-              <div className="relative">
-                <Textarea
-                  data-testid="task-edit-input"
+              <>
+                <div
+                  key="editing"
                   ref={inputRef}
-                  value={editValue}
-                  onChange={(e) => {
-                    setEditValue(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
+                  contentEditable
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-multiline="true"
+                  data-testid="task-edit-input"
+                  onInput={(e) => {
+                    const plain = getPlainText(e.currentTarget);
+                    setEditValue(plain);
+                    aiAc.onValueChange(plain);
+                    ac.detect();
                   }}
                   onKeyDown={handleEditKeyDown}
                   onPaste={handlePaste}
                   onPointerDown={(e) => e.stopPropagation()}
                   onBlur={() => {
-                    if (!ac.isOpen) submitEdit();
+                    if (!ac.isOpen) {
+                      aiAc.cancelPending();
+                      submitEdit();
+                    }
                   }}
-                  className="min-h-0 field-sizing-fixed bg-background px-2 py-1 text-sm resize-none overflow-hidden"
-                  rows={1}
+                  className="min-h-[28px] max-h-[300px] overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 {ac.isOpen && (
                   <AutocompleteDropdown
+                    anchorRef={inputRef}
                     suggestions={ac.suggestions}
                     selectedIndex={ac.selectedIndex}
                     onSelect={(i) => {
+                      aiAc.dismissGhost();
                       const newVal = ac.select(i);
-                      if (newVal !== null) setEditValue(newVal);
+                      if (newVal !== null) {
+                        setEditValue(newVal);
+                        if (inputRef.current) setPlainText(inputRef.current, newVal);
+                      }
                     }}
                   />
                 )}
-              </div>
+              </>
             ) : (
-              <div className={cn(done && 'opacity-60')}>
+              <div key="display" className={cn(done && 'opacity-60')}>
                 <div className="flex items-start gap-1.5">
                   {task.priority !== null && task.priority !== undefined && (
                     <span className={cn('mt-0.5 flex-shrink-0', priorityColor)}>

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Task } from '@tasker/core/types';
 import * as taskService from '@/lib/services/tasks.js';
 import { getDisplayTitle, getShortId } from '@/lib/task-display.js';
+import { getPlainText, setCaretOffset, getTextBeforeCursor } from '@/lib/content-editable-utils.js';
 
 export interface Suggestion {
   task: Task;
@@ -34,38 +35,46 @@ const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~])(\w*)$/;
 
 export function useMetadataAutocomplete(
   value: string,
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+  textareaRef: React.RefObject<HTMLDivElement | null>,
   excludeTaskId?: string,
 ) {
   const [state, setState] = useState<AutocompleteState>(CLOSED);
   const allTasksRef = useRef<Task[] | null>(null);
-  const fetchingRef = useRef(false);
+  /** Shared in-flight fetch — all concurrent detect() calls await the same Promise */
+  const fetchPromiseRef = useRef<Promise<Task[] | null> | null>(null);
+  /** Incremented on every detect() call; only the latest call updates state */
+  const detectVersionRef = useRef(0);
   /** Suppresses the next detect() call after a selection (the inserted ID still matches the prefix regex) */
   const justSelectedRef = useRef(false);
 
-  const fetchTasks = useCallback(async () => {
-    if (allTasksRef.current || fetchingRef.current) return allTasksRef.current;
-    fetchingRef.current = true;
-    try {
-      const tasks = await taskService.getAllTasks();
-      allTasksRef.current = tasks;
-      return tasks;
-    } finally {
-      fetchingRef.current = false;
+  const fetchTasks = useCallback((): Promise<Task[] | null> => {
+    if (allTasksRef.current) return Promise.resolve(allTasksRef.current);
+    if (!fetchPromiseRef.current) {
+      fetchPromiseRef.current = taskService.getAllTasks()
+        .then((tasks) => { allTasksRef.current = tasks; return tasks; })
+        .catch(() => null)
+        .finally(() => { fetchPromiseRef.current = null; });
     }
+    return fetchPromiseRef.current;
   }, []);
 
-  /** Call this on every value/cursor change to detect prefix */
+  /** Call this on every input event to detect a metadata prefix at the cursor.
+   *  Reads text-before-cursor directly from the DOM (via Range cloning) so it
+   *  is immune to React stale-closure issues and correctly handles multi-line
+   *  contentEditable structures (<div>/<br> line breaks). */
   const detect = useCallback(
-    async (cursorPos?: number) => {
+    async () => {
       if (justSelectedRef.current) {
         justSelectedRef.current = false;
         return;
       }
+      const thisVersion = ++detectVersionRef.current;
       const el = textareaRef.current;
       if (!el) return;
-      const pos = cursorPos ?? el.selectionStart;
-      const textBeforeCursor = value.slice(0, pos);
+
+      // Read text before cursor directly from the live DOM — this correctly
+      // handles <div>/<br> line breaks that getCaretOffset+slice cannot.
+      const textBeforeCursor = getTextBeforeCursor(el);
 
       // Check the current line only (from last newline to cursor)
       const lineStart = textBeforeCursor.lastIndexOf('\n') + 1;
@@ -89,6 +98,9 @@ export function useMetadataAutocomplete(
         if (!tasks) return;
       }
 
+      // Discard stale result if a newer detect() has been called since we started
+      if (thisVersion !== detectVersionRef.current) return;
+
       // Filter
       const lowerPartial = partial.toLowerCase();
       const filtered: Suggestion[] = [];
@@ -111,13 +123,14 @@ export function useMetadataAutocomplete(
         matchStart,
       });
     },
-    [value, textareaRef, excludeTaskId, state.isOpen, fetchTasks],
+    [textareaRef, excludeTaskId, state.isOpen, fetchTasks],
   );
 
   // Reset task cache when autocomplete closes so next open gets fresh data
   useEffect(() => {
     if (!state.isOpen) {
       allTasksRef.current = null;
+      fetchPromiseRef.current = null;
     }
   }, [state.isOpen]);
 
@@ -126,17 +139,28 @@ export function useMetadataAutocomplete(
     (index: number): string | null => {
       if (!state.isOpen || index < 0 || index >= state.suggestions.length) return null;
       const suggestion = state.suggestions[index]!;
-      const replaceEnd = state.matchStart + state.prefix.length + state.partial.length;
+
+      // Read the live DOM text so we never operate on a stale React `value`.
+      const el = textareaRef.current;
+      const liveValue = el ? getPlainText(el) : value;
+
+      // Scan forward from matchStart to find the TRUE end of prefix+partial
+      // in the live text — don't trust state.partial which can be stale due
+      // to React closure/batching races.
+      const afterMatchStart = liveValue.slice(state.matchStart);
+      const prefixPartialMatch = /^(-[!^]|[!^~])\w*/.exec(afterMatchStart);
+      const replaceLen = prefixPartialMatch ? prefixPartialMatch[0].length : state.prefix.length;
+
       const insertion = state.prefix + suggestion.shortId;
-      const newValue = value.slice(0, state.matchStart) + insertion + value.slice(replaceEnd);
-      justSelectedRef.current = true;
+      const newValue = liveValue.slice(0, state.matchStart) + insertion + liveValue.slice(state.matchStart + replaceLen);
+      ++detectVersionRef.current; // Cancel in-flight detects so they can't re-open the dropdown
+      justSelectedRef.current = true; // Suppress the next detect triggered by the new value
       setState(CLOSED);
       // Set cursor position after insertion
       const cursorPos = state.matchStart + insertion.length;
       setTimeout(() => {
-        const el = textareaRef.current;
-        if (el) {
-          el.selectionStart = el.selectionEnd = cursorPos;
+        if (textareaRef.current) {
+          setCaretOffset(textareaRef.current, cursorPos);
         }
       }, 0);
       return newValue;
@@ -174,6 +198,8 @@ export function useMetadataAutocomplete(
 
       if (e.key === 'Escape') {
         e.preventDefault();
+        ++detectVersionRef.current; // Cancel any in-flight detect so it can't re-open
+        justSelectedRef.current = true; // Suppress the next detect triggered by React re-render
         setState(CLOSED);
         return true;
       }

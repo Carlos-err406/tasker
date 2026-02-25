@@ -48,7 +48,9 @@ export const SortableListSection = forwardRef<ListSectionHandle, SortableListSec
       transform: CSS.Translate.toString(transform),
       transition,
       opacity: isDragging ? 0.4 : 1,
-      willChange: 'transform',
+      // Only hint willChange during active drags — a permanent willChange creates a new
+      // stacking context that puts the next section's sticky header on top of dropdowns.
+      willChange: transform ? 'transform' : undefined,
     };
 
     return (
