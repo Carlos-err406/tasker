@@ -14,6 +14,8 @@ export type GenerateOptions = {
   maxOutputTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
+  /** Provider-specific options (e.g. { openai: { reasoningEffort: 'none' } }) */
+  providerOptions?: Parameters<typeof generateText>[0]['providerOptions'];
 };
 
 type DefaultOutput = Output.Output<string, string>;
@@ -38,9 +40,11 @@ export async function generateMessages(
   options?: GenerateOptions,
 ): Promise<GenerateTextResult<ToolSet, DefaultOutput>> {
   const params: Parameters<typeof generateText>[0] = { model, messages };
+  if (options?.system) params.system = options.system;
   if (options?.maxOutputTokens) params.maxOutputTokens = options.maxOutputTokens;
   if (options?.temperature !== undefined) params.temperature = options.temperature;
   if (options?.signal) params.abortSignal = options.signal;
+  if (options?.providerOptions) params.providerOptions = options.providerOptions;
   return await generateText(params);
 }
 

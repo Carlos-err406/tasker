@@ -101,7 +101,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   }, []);
 
   const ac = useMetadataAutocomplete(addValue, addInputRef);
-  const aiAc = useAiAutocomplete(addInputRef, lmAvailable && adding, onShowStatus);
+  const aiAc = useAiAutocomplete(addInputRef, lmAvailable && adding, listName, onShowStatus);
 
   // Cancel AI ghost when metadata dropdown opens (they conflict visually)
   useEffect(() => {

@@ -83,7 +83,7 @@ export const TaskItem = memo(function TaskItem({
 
   const ac = useMetadataAutocomplete(editValue, inputRef, task.id);
   const md = useMarkdownShortcuts(inputRef, setEditValue);
-  const aiAc = useAiAutocomplete(inputRef, lmStudioAvailable === true && editing, onShowStatus);
+  const aiAc = useAiAutocomplete(inputRef, lmStudioAvailable === true && editing, task.listName, onShowStatus);
 
   // Cancel AI ghost when metadata dropdown opens (they conflict visually)
   useEffect(() => {

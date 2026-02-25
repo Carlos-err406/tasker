@@ -16,6 +16,7 @@ interface GhostInfo {
 export function useAiAutocomplete(
   addInputRef: React.RefObject<HTMLDivElement | null>,
   enabled: boolean,
+  listName: string,
   onError?: (message: string) => void,
 ) {
   const [ghostText, setGhostText] = useState('');
@@ -97,9 +98,10 @@ export function useAiAutocomplete(
       if (/(?:^|\s)(-[!^]|[!^~])\w*$/.test(firstLine)) return;
 
       abortedRef.current = false;
+      const caretOffset = addInputRef.current ? getCaretOffset(addInputRef.current) : value.length;
       debounceRef.current = setTimeout(async () => {
         try {
-          const result = await window.ipc[AI_COMPLETE](firstLine);
+          const result = await window.ipc[AI_COMPLETE]({ text: value, caretOffset, listName });
           if (abortedRef.current || !result) return;
 
           // Strip if the model repeated the input prefix
@@ -131,7 +133,7 @@ export function useAiAutocomplete(
         }
       }, 400);
     },
-    [enabled, clearGhost, addInputRef, onError],
+    [enabled, clearGhost, addInputRef, listName, onError],
   );
 
   const acceptGhost = useCallback((): string => {
