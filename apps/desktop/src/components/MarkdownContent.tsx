@@ -191,7 +191,9 @@ interface MarkdownContentProps {
 }
 
 export function MarkdownContent({ content, onToggleCheckbox }: MarkdownContentProps) {
-  const processed = preprocessCheckboxes(content);
+  // Normalize non-breaking spaces (\u00A0) to regular spaces so markdown
+  // parsers recognize indentation for nested lists.
+  const processed = preprocessCheckboxes(content.replace(/\u00A0/g, ' '));
 
   // Build components with dynamic li/input that use context for checkbox line identification.
   // The li component reads its AST source line and provides it via context;

@@ -57,6 +57,38 @@ test.describe('Lists', () => {
     await expect(taskItem).toBeVisible();
   });
 
+  test('reset list filter when deleting last task in filtered list', async ({ page }) => {
+    // Create a second list with a task
+    await page.locator('[data-testid="new-list-button"]').click();
+    const listInput = page.locator('input[placeholder="List name..."]');
+    await listInput.fill('work');
+    await listInput.press('Enter');
+    await addTask(page, 'Work task', 'work');
+
+    // Add a task to default list too
+    await addTask(page, 'Default task', 'tasks');
+
+    // Filter to the "work" list
+    await page.locator('[data-testid="filter-dropdown-toggle"]').click();
+    await page.locator('[data-testid="filter-option-work"]').click();
+
+    // Verify filter is active — only work tasks shown
+    await expect(page.locator('[data-testid="filter-dropdown-toggle"]')).toHaveText(/work/);
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
+
+    // Delete the only task in the work list via context menu
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await taskItem.click({ button: 'right' });
+    const menu = page.locator('[role="menu"]');
+    await menu.waitFor({ state: 'visible' });
+    await menu.getByRole('menuitem', { name: 'Delete' }).dispatchEvent('click');
+
+    // Filter should reset to "All Lists" and show all remaining tasks
+    await expect(page.locator('[data-testid="filter-dropdown-toggle"]')).toHaveText(/All Lists/);
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid^="task-name-"]').first()).toHaveText('Default task');
+  });
+
   test('hide and show completed tasks', async ({ page }) => {
     await addTask(page, 'Pending task');
     await addTask(page, 'Done task');

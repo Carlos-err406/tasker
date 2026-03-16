@@ -1,15 +1,14 @@
-import { memo, useState, useRef, useCallback, useEffect } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import type { Task, TaskStatus } from '@tasker/core/types';
 import { TaskStatus as TS, Priority } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
-import { useAiAutocomplete } from '@/hooks/use-ai-autocomplete.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
 import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
-import { getPlainText, getCaretOffset, getSelectionOffsets, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
+import { getPlainText, getSelectionOffsets, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -83,12 +82,6 @@ export const TaskItem = memo(function TaskItem({
 
   const ac = useMetadataAutocomplete(editValue, inputRef, task.id);
   const md = useMarkdownShortcuts(inputRef, setEditValue);
-  const aiAc = useAiAutocomplete(inputRef, lmStudioAvailable === true && editing, task.listName, onShowStatus);
-
-  // Cancel AI ghost when metadata dropdown opens (they conflict visually)
-  useEffect(() => {
-    if (ac.isOpen) aiAc.cancelPending();
-  }, [ac.isOpen]);
 
   const done = isDone(task);
   const inProg = isInProgress(task);
@@ -179,7 +172,6 @@ export const TaskItem = memo(function TaskItem({
     // 1. Metadata autocomplete takes priority
     if (ac.onKeyDown(e)) {
       if ((e.key === 'Enter' || e.key === 'Tab') && ac.isOpen) {
-        aiAc.dismissGhost();
         const newVal = ac.select(ac.selectedIndex);
         if (newVal !== null) {
           setEditValue(newVal);
@@ -188,28 +180,16 @@ export const TaskItem = memo(function TaskItem({
       }
       return;
     }
-    // 2. AI ghost text accept (Tab)
-    if (e.key === 'Tab' && aiAc.ghostText) {
-      e.preventDefault();
-      setEditValue(aiAc.acceptGhost());
-      return;
-    }
-    // 3. Markdown shortcuts (Cmd+B, Cmd+I, etc. and Tab for template tab-stops)
+    // 2. Markdown shortcuts (Cmd+B, Cmd+I, etc. and Tab for template tab-stops)
     if (md.onKeyDown(e)) return;
-    // 4. Escape: first dismiss ghost, then close editor
+    // 3. Escape closes editor
     if (e.key === 'Escape') {
-      if (aiAc.ghostText) {
-        aiAc.dismissGhost();
-        return;
-      }
-      aiAc.cancelPending();
       setEditing(false);
       return;
     }
-    // 5. Submit
+    // 4. Submit
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      aiAc.cancelPending();
       submitEdit();
     }
   };
@@ -288,17 +268,13 @@ export const TaskItem = memo(function TaskItem({
                   onInput={(e) => {
                     const plain = getPlainText(e.currentTarget);
                     setEditValue(plain);
-                    aiAc.onValueChange(plain);
                     ac.detect();
                   }}
                   onKeyDown={handleEditKeyDown}
                   onPaste={handlePaste}
                   onPointerDown={(e) => e.stopPropagation()}
                   onBlur={() => {
-                    if (!ac.isOpen) {
-                      aiAc.cancelPending();
-                      submitEdit();
-                    }
+                    if (!ac.isOpen) submitEdit();
                   }}
                   className="min-h-[28px] max-h-[300px] overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
@@ -308,7 +284,6 @@ export const TaskItem = memo(function TaskItem({
                     suggestions={ac.suggestions}
                     selectedIndex={ac.selectedIndex}
                     onSelect={(i) => {
-                      aiAc.dismissGhost();
                       const newVal = ac.select(i);
                       if (newVal !== null) {
                         setEditValue(newVal);

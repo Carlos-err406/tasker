@@ -316,6 +316,7 @@ export default function App() {
         {/* Filter dropdown */}
         <div ref={filterMenuRef} className="relative flex-1">
           <button
+            data-testid="filter-dropdown-toggle"
             onClick={() => setShowFilterMenu(!showFilterMenu)}
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
@@ -325,6 +326,7 @@ export default function App() {
           {showFilterMenu && (
             <div className="absolute left-0 top-5 z-50 min-w-[120px] bg-popover border border-border rounded-md shadow-lg py-1 text-sm">
               <button
+                data-testid="filter-option-all"
                 onClick={() => {
                   store.setFilterList(null);
                   setShowFilterMenu(false);
@@ -339,6 +341,7 @@ export default function App() {
               {store.lists.map((l) => (
                 <button
                   key={l}
+                  data-testid={`filter-option-${l}`}
                   onClick={() => {
                     store.setFilterList(l);
                     setShowFilterMenu(false);

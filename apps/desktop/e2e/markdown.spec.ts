@@ -27,6 +27,18 @@ test.describe('Markdown', () => {
     await expect(link).toHaveAttribute('href', 'https://example.com');
   });
 
+  test('renders nested list with non-breaking space indentation', async ({ page }) => {
+    // Simulate task with \u00A0 (non-breaking space) indentation — common from C# import
+    await addTask(page, 'Title\n- [ ] playlist\n\u00A0 - [ ] downloads\n\u00A0 - [ ] shares');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+
+    // The nested items should render as a sub-list (ul inside ul)
+    const nestedList = taskItem.locator('ul ul');
+    await expect(nestedList).toBeVisible();
+    await expect(nestedList.locator('li')).toHaveCount(2);
+  });
+
   test('clickable checkbox toggles', async ({ page }) => {
     await addTask(page, 'Title\n- [ ] unchecked item\n- [x] checked item');
 

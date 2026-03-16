@@ -187,9 +187,16 @@ export function useTaskerStore() {
       dispatch({ type: 'SET_HIDE_COMPLETED_MAP', map: hideCompletedMap });
 
       // Load tasks
-      const tasks = state.searchQuery
+      let tasks = state.searchQuery
         ? await taskService.searchTasks(state.searchQuery)
         : await taskService.getAllTasks(state.filterList ?? undefined);
+
+      // Reset filter if the filtered list is now empty
+      if (tasks.length === 0 && state.filterList && !state.searchQuery) {
+        dispatch({ type: 'SET_FILTER_LIST', list: null });
+        tasks = await taskService.getAllTasks();
+      }
+
       dispatch({ type: 'SET_TASKS', tasks });
 
       // Build relationship details by parsing descriptions + batch-fetching titles

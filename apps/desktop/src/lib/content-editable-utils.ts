@@ -1,15 +1,9 @@
 /**
  * Utilities for treating a contentEditable div like a textarea.
- * All functions skip ghost spans (data-ghost="true") when calculating
- * text content and cursor positions.
  */
 
-function isGhostNode(node: Node): boolean {
-  return node.nodeType === Node.ELEMENT_NODE && (node as Element).hasAttribute('data-ghost');
-}
-
 /**
- * Extract plain text from a contentEditable element, skipping ghost spans.
+ * Extract plain text from a contentEditable element.
  * Handles both flat (raw text nodes) and wrapped (Chrome div-per-line) cases.
  */
 export function getPlainText(el: HTMLElement): string {
@@ -17,7 +11,6 @@ export function getPlainText(el: HTMLElement): string {
   let current = '';
 
   function walk(node: Node) {
-    if (isGhostNode(node)) return;
     if (node.nodeType === Node.TEXT_NODE) {
       current += node.textContent ?? '';
     } else if (node.nodeName === 'BR') {
@@ -42,8 +35,8 @@ export function getPlainText(el: HTMLElement): string {
 
 /**
  * Compute the character offset (matching getPlainText's output) for a given
- * DOM container + offset pair. Uses Range-cloning so it correctly accounts
- * for \n from <div>/<br> line breaks.
+ * DOM container + offset pair. Uses Range-cloning so it correctly accounts for
+ * \n from <div>/<br> line breaks.
  */
 function domPositionToCharOffset(el: HTMLElement, container: Node, offset: number): number {
   const range = document.createRange();
@@ -57,7 +50,7 @@ function domPositionToCharOffset(el: HTMLElement, container: Node, offset: numbe
 
 /**
  * Get the caret character offset within the contentEditable element.
- * Correctly accounts for \n from <div>/<br> line breaks and skips ghost spans.
+ * Correctly accounts for \n from <div>/<br> line breaks.
  */
 export function getCaretOffset(el: HTMLElement): number {
   const sel = window.getSelection();
@@ -88,8 +81,7 @@ export function getTextBeforeCursor(el: HTMLElement): string {
 /**
  * Find the DOM node + offset for a character offset that matches getPlainText's
  * output. Walks the DOM the same way getPlainText does, counting \n for
- * <div>/<br> boundaries and skipping ghost spans.
- * Returns [node, offset] or null if not found.
+ * <div>/<br> boundaries. Returns [node, offset] or null if not found.
  */
 function findDomPosition(el: HTMLElement, targetOffset: number): [Node, number] | null {
   let pos = 0;
@@ -98,8 +90,6 @@ function findDomPosition(el: HTMLElement, targetOffset: number): [Node, number] 
   let lastTextLen = 0;
 
   function walk(node: Node): [Node, number] | null {
-    if (isGhostNode(node)) return null;
-
     if (node.nodeType === Node.TEXT_NODE) {
       const len = (node.textContent ?? '').length;
       if (pos + len >= targetOffset) {
@@ -153,7 +143,7 @@ function findDomPosition(el: HTMLElement, targetOffset: number): [Node, number] 
 }
 
 /**
- * Set the caret to a specific character offset, skipping ghost spans.
+ * Set the caret to a specific character offset.
  * The offset matches getPlainText's character counting (including \n for line breaks).
  */
 export function setCaretOffset(el: HTMLElement, targetOffset: number): void {
@@ -182,39 +172,6 @@ export function setCaretOffset(el: HTMLElement, targetOffset: number): void {
 }
 
 /**
- * Insert a ghost span at the current cursor position.
- * The span has data-ghost="true" and contentEditable="false".
- */
-export function insertGhostSpan(el: HTMLElement, text: string): void {
-  removeGhostSpan(el);
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return;
-  const range = sel.getRangeAt(0);
-  const span = document.createElement('span');
-  span.setAttribute('data-ghost', 'true');
-  span.setAttribute('contenteditable', 'false');
-  span.textContent = text;
-  span.style.opacity = '0.4';
-  span.style.pointerEvents = 'none';
-  span.style.userSelect = 'none';
-  range.insertNode(span);
-  // Move caret to just before the ghost span (so it stays at user's position)
-  range.setStartBefore(span);
-  range.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
-/**
- * Remove any ghost spans from the element.
- */
-export function removeGhostSpan(el: HTMLElement): void {
-  for (const span of Array.from(el.querySelectorAll('[data-ghost]'))) {
-    span.remove();
-  }
-}
-
-/**
  * Set plain text content, building the same DOM structure Chrome produces for
  * multi-line contentEditable (first line as a direct text node, subsequent
  * lines wrapped in <div> elements, empty lines represented by a <br>).
@@ -236,7 +193,7 @@ export function setPlainText(el: HTMLElement, text: string): void {
 }
 
 /**
- * Get both selection start and end character offsets, skipping ghost spans.
+ * Get both selection start and end character offsets.
  * Uses Range-cloning so offsets correctly account for \n from <div>/<br> line breaks.
  */
 export function getSelectionOffsets(el: HTMLElement): { start: number; end: number } {
@@ -249,7 +206,7 @@ export function getSelectionOffsets(el: HTMLElement): { start: number; end: numb
 }
 
 /**
- * Set both selection start and end character offsets, skipping ghost spans.
+ * Set both selection start and end character offsets.
  * Offsets match getPlainText's character counting (including \n for line breaks).
  */
 export function setSelectionOffsets(el: HTMLElement, start: number, end: number): void {

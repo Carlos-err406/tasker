@@ -2,7 +2,6 @@ import { useState, useRef, useMemo, useEffect, useCallback, forwardRef, useImper
 import type { Task, TaskStatus } from '@tasker/core/types';
 import type { TaskRelDetails } from '@/hooks/use-tasker-store.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
-import { useAiAutocomplete } from '@/hooks/use-ai-autocomplete.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
 import { getPlainText, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
 import {
@@ -101,12 +100,6 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   }, []);
 
   const ac = useMetadataAutocomplete(addValue, addInputRef);
-  const aiAc = useAiAutocomplete(addInputRef, lmAvailable && adding, listName, onShowStatus);
-
-  // Cancel AI ghost when metadata dropdown opens (they conflict visually)
-  useEffect(() => {
-    if (ac.isOpen) aiAc.cancelPending();
-  }, [ac.isOpen]);
 
   const visibleTasks = useMemo(
     () => hideCompleted ? tasks.filter((t) => t.status !== 2) : tasks,
@@ -165,7 +158,6 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
     // 1. Metadata autocomplete takes priority
     if (ac.onKeyDown(e)) {
       if ((e.key === 'Enter' || e.key === 'Tab') && ac.isOpen) {
-        aiAc.dismissGhost();
         const newVal = ac.select(ac.selectedIndex);
         if (newVal !== null) {
           setAddValue(newVal);
@@ -175,26 +167,14 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
       }
       return;
     }
-    // 2. AI ghost text accept
-    if (e.key === 'Tab' && aiAc.ghostText) {
-      e.preventDefault();
-      setAddValue(aiAc.acceptGhost());
-      return;
-    }
-    // 3. Escape: first dismiss ghost, second closes input
+    // 2. Escape closes input
     if (e.key === 'Escape') {
-      if (aiAc.ghostText) {
-        aiAc.dismissGhost();
-        return;
-      }
-      aiAc.cancelPending();
       setAdding(false);
       return;
     }
-    // 4. Submit
+    // 3. Submit
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      aiAc.cancelPending();
       submitAdd();
     }
   };
@@ -329,13 +309,11 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
             onInput={(e) => {
               const plain = getPlainText(e.currentTarget);
               setAddValue(plain);
-              aiAc.onValueChange(plain);
               ac.detect();
             }}
             onKeyDown={handleAddKeyDown}
             onBlur={() => {
               if (!ac.isOpen) {
-                aiAc.cancelPending();
                 if (addValue.trim()) submitAdd();
                 else setAdding(false);
               }
@@ -348,7 +326,6 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
               suggestions={ac.suggestions}
               selectedIndex={ac.selectedIndex}
               onSelect={(i) => {
-                aiAc.dismissGhost();
                 const newVal = ac.select(i);
                 if (newVal !== null) {
                   setAddValue(newVal);
