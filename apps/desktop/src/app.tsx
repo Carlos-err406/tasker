@@ -586,6 +586,8 @@ export default function App() {
         navigateToTask: store.navigateToTask,
         setFilterList: store.setFilterList,
         showStatus: store.showStatus,
+        softDeleteByStatus: store.softDeleteByStatus,
+        softDeleteOlderThan: store.softDeleteOlderThan,
       }}
     />
     </TooltipProvider>

@@ -71,3 +71,11 @@ export async function getTaskTitles(taskIds: string[]): Promise<Record<string, T
 export async function applySystemSort(listName?: string): Promise<number> {
   return unwrap(IPC['tasks:applySystemSort'](listName));
 }
+
+export async function softDeleteByStatus(status: number, listName?: string): Promise<number> {
+  return unwrap(IPC['tasks:softDeleteByStatus'](status, listName));
+}
+
+export async function softDeleteOlderThan(beforeDate: string, listName?: string): Promise<number> {
+  return unwrap(IPC['tasks:softDeleteOlderThan'](beforeDate, listName));
+}

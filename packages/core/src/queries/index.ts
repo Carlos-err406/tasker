@@ -22,6 +22,8 @@ export {
   setStatus,
   deleteTask,
   deleteTasks,
+  softDeleteByStatus,
+  softDeleteOlderThan,
   setStatuses,
   renameTask,
   moveTask,
