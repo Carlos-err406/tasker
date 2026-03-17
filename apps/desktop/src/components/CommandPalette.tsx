@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
-import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus, Sparkles, Trash2 } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -71,6 +71,8 @@ export interface CommandPaletteStore {
   navigateToTask: (taskId: string) => void;
   setFilterList: (list: string | null) => void;
   showStatus: (message: string) => void;
+  softDeleteByStatus: (status: TaskStatus, listName?: string) => Promise<void>;
+  softDeleteOlderThan: (beforeDate: string, listName?: string) => Promise<void>;
 }
 
 export interface CommandPaletteHandle {
@@ -325,6 +327,40 @@ export function CommandPalette({
     [store, handleClose, onAddTaskToList],
   );
 
+  // ---- Bulk delete list commands ----
+  const bulkDeleteCommands = useMemo((): ListStepCommand[] => [
+    {
+      id: 'delete-done-tasks',
+      label: 'Delete done tasks',
+      execute: async (listName) => {
+        await store.softDeleteByStatus(TaskStatus.Done, listName);
+        handleClose();
+      },
+    },
+    {
+      id: 'delete-tasks-older-than',
+      label: 'Delete tasks older than…',
+      getSubOptions: () => {
+        const d = (days: number) => {
+          const date = new Date();
+          date.setDate(date.getDate() - days);
+          return date.toISOString();
+        };
+        return [
+          { label: '1 week', value: d(7) },
+          { label: '2 weeks', value: d(14) },
+          { label: '1 month', value: d(30) },
+          { label: '3 months', value: d(90) },
+          { label: '6 months', value: d(180) },
+        ];
+      },
+      execute: async (listName, opt) => {
+        await store.softDeleteOlderThan(opt?.value ?? '', listName);
+        handleClose();
+      },
+    },
+  ], [store, handleClose]);
+
   // ---- AI list commands ----
   const aiListCommands = useMemo((): ListStepCommand[] => {
     if (!lmStudioAvailable || !onSummary) return [];
@@ -437,6 +473,7 @@ export function CommandPalette({
     const filteredTwoStep = filterByLabel(twoStep, searchQuery);
     const filteredListCmds = filterByLabel(listCmds, searchQuery);
     const filteredAiCmds = filterByLabel(aiListCommands, searchQuery);
+    const filteredBulkDelete = filterByLabel(bulkDeleteCommands, searchQuery);
 
     const groupedImmediate = Object.entries(
       filteredImmediate.reduce<Record<string, ImmediateCommand[]>>((acc, cmd) => {
@@ -448,7 +485,7 @@ export function CommandPalette({
     const twoStepGroups = filteredTwoStep.length > 0 ? filteredTwoStep : [];
     const listGroups = filteredListCmds.length > 0 ? filteredListCmds : [];
 
-    const allEmpty = groupedImmediate.length === 0 && twoStepGroups.length === 0 && listGroups.length === 0 && filteredAiCmds.length === 0;
+    const allEmpty = groupedImmediate.length === 0 && twoStepGroups.length === 0 && listGroups.length === 0 && filteredAiCmds.length === 0 && filteredBulkDelete.length === 0;
 
     const anyBefore = (index: number) =>
       [groupedImmediate.length > 0, twoStepGroups.length > 0, listGroups.length > 0].slice(0, index).some(Boolean);
@@ -509,6 +546,29 @@ export function CommandPalette({
                   }}
                 >
                   <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                  <span className="flex-1">{cmd.label}</span>
+                  <span className="text-muted-foreground text-xs">→ select list</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {filteredBulkDelete.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Bulk delete">
+              {filteredBulkDelete.map((cmd) => (
+                <CommandItem
+                  key={cmd.id}
+                  value={cmd.id}
+                  data-testid={`command-panel-cmd-${cmd.id}`}
+                  onSelect={() => {
+                    setInputValue('');
+                    setStep({ type: 'list-select', command: cmd });
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   <span className="flex-1">{cmd.label}</span>
                   <span className="text-muted-foreground text-xs">→ select list</span>
                 </CommandItem>

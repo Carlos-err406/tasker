@@ -494,6 +494,34 @@ export function useTaskerStore() {
     }
   }, [state.filterList, refresh, showStatus]);
 
+  // Bulk soft-delete by status
+  const softDeleteByStatusAction = useCallback(
+    async (status: TaskStatus, listName?: string) => {
+      try {
+        const count = await taskService.softDeleteByStatus(status, listName);
+        showStatus(`Deleted ${count} task${count !== 1 ? 's' : ''}`);
+        await refresh();
+      } catch (err) {
+        showStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [refresh, showStatus],
+  );
+
+  // Bulk soft-delete older than date
+  const softDeleteOlderThanAction = useCallback(
+    async (beforeDate: string, listName?: string) => {
+      try {
+        const count = await taskService.softDeleteOlderThan(beforeDate, listName);
+        showStatus(`Deleted ${count} task${count !== 1 ? 's' : ''}`);
+        await refresh();
+      } catch (err) {
+        showStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [refresh, showStatus],
+  );
+
   // Navigate to a linked task: expand its list if collapsed, scroll into view, highlight
   const navigateToTask = useCallback(
     async (taskId: string) => {
@@ -570,5 +598,7 @@ export function useTaskerStore() {
     applySystemSort: applySystemSortAction,
     navigateToTask,
     showStatus,
+    softDeleteByStatus: softDeleteByStatusAction,
+    softDeleteOlderThan: softDeleteOlderThanAction,
   };
 }

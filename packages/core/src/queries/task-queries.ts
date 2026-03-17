@@ -529,6 +529,40 @@ export function deleteTasks(db: TaskerDb, taskIds: TaskId[]): BatchResult {
   return { results };
 }
 
+/** Soft-delete all tasks with a given status */
+export function softDeleteByStatus(db: TaskerDb, status: TaskStatus, listName?: ListName): number {
+  const taskList = getAllTasks(db, listName).filter(t => t.status === status);
+  if (taskList.length === 0) return 0;
+
+  const raw = getRawDb(db);
+  const run = raw.transaction(() => {
+    for (const task of taskList) {
+      cleanupRelationshipMarkers(db, task.id);
+      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
+    }
+  });
+  run();
+
+  return taskList.length;
+}
+
+/** Soft-delete all tasks created before a given date (ISO string, e.g. '2024-01-15') */
+export function softDeleteOlderThan(db: TaskerDb, beforeDate: string, listName?: ListName): number {
+  const taskList = getAllTasks(db, listName).filter(t => t.createdAt < beforeDate);
+  if (taskList.length === 0) return 0;
+
+  const raw = getRawDb(db);
+  const run = raw.transaction(() => {
+    for (const task of taskList) {
+      cleanupRelationshipMarkers(db, task.id);
+      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
+    }
+  });
+  run();
+
+  return taskList.length;
+}
+
 /** Batch set status for multiple tasks */
 export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus): BatchResult {
   const raw = getRawDb(db);

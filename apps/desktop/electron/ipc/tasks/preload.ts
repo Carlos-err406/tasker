@@ -17,6 +17,8 @@ import {
   TASKS_GET_REL_COUNTS,
   TASKS_GET_TITLES,
   TASKS_APPLY_SYSTEM_SORT,
+  TASKS_SOFT_DELETE_BY_STATUS,
+  TASKS_SOFT_DELETE_OLDER_THAN,
 } from './channels.js';
 
 export const tasksInvokerFactory = (ipcRenderer: Electron.IpcRenderer) => ({
@@ -105,6 +107,18 @@ export const tasksInvokerFactory = (ipcRenderer: Electron.IpcRenderer) => ({
 
   [TASKS_APPLY_SYSTEM_SORT]: ((listName?: string) =>
     ipcRenderer.invoke(TASKS_APPLY_SYSTEM_SORT, listName)) as (
+    listName?: string,
+  ) => TryResult<number>,
+
+  [TASKS_SOFT_DELETE_BY_STATUS]: ((status: TaskStatus, listName?: string) =>
+    ipcRenderer.invoke(TASKS_SOFT_DELETE_BY_STATUS, status, listName)) as (
+    status: TaskStatus,
+    listName?: string,
+  ) => TryResult<number>,
+
+  [TASKS_SOFT_DELETE_OLDER_THAN]: ((beforeDate: string, listName?: string) =>
+    ipcRenderer.invoke(TASKS_SOFT_DELETE_OLDER_THAN, beforeDate, listName)) as (
+    beforeDate: string,
     listName?: string,
   ) => TryResult<number>,
 });
