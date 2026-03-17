@@ -27,7 +27,7 @@ test.describe('Context Menus', () => {
     await expect(page.locator('[data-testid="task-edit-input"]')).toBeVisible();
   });
 
-  test('Set Status submenu shows all 3 states', async ({ page }) => {
+  test('Set Status submenu shows all 4 states', async ({ page }) => {
     await addTask(page, 'Status test');
 
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
@@ -41,6 +41,7 @@ test.describe('Context Menus', () => {
     await expect(page.getByRole('menuitem', { name: 'Pending' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'In Progress' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Done' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: "Won't Do" })).toBeVisible();
   });
 
   test('Move to submenu shows available lists', async ({ page }) => {

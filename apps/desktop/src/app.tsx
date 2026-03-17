@@ -406,6 +406,7 @@ export default function App() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              data-testid="trash-button"
               onClick={() => setShowTrash((v) => !v)}
               className={cn('text-muted-foreground hover:text-foreground p-0.5', showTrash && 'text-foreground')}
             >
