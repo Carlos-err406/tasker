@@ -35,3 +35,4 @@ dist-release
 # Playwright
 playwright-report/
 test-results/
+.worktrees
