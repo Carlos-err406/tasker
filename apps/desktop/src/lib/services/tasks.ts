@@ -71,3 +71,11 @@ export async function getTaskTitles(taskIds: string[]): Promise<Record<string, T
 export async function applySystemSort(listName?: string): Promise<number> {
   return unwrap(IPC['tasks:applySystemSort'](listName));
 }
+
+export async function getTrash(listName?: string): Promise<Task[]> {
+  return unwrap(IPC['tasks:getTrash'](listName));
+}
+
+export async function clearTrash(listName?: string): Promise<number> {
+  return unwrap(IPC['tasks:clearTrash'](listName));
+}

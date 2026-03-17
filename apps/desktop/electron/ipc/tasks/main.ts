@@ -15,6 +15,8 @@ import {
   getRelationshipCounts,
   getTaskTitles,
   applySystemSort,
+  getTrash,
+  clearTrash,
   getSubtasks,
   unsetParent,
   getRawDb,
@@ -39,6 +41,8 @@ import {
   TASKS_GET_REL_COUNTS,
   TASKS_GET_TITLES,
   TASKS_APPLY_SYSTEM_SORT,
+  TASKS_GET_TRASH,
+  TASKS_CLEAR_TRASH,
 } from './channels.js';
 import { log } from './utils.js';
 
@@ -276,6 +280,16 @@ export const tasksRegister: IPCRegisterFunction = (ipcMain, _widget, { db, undo 
   ipcMain.handle(TASKS_APPLY_SYSTEM_SORT, (_, listName?: string) => {
     log('applySystemSort', listName ?? 'all');
     return $try(() => applySystemSort(db, listName));
+  });
+
+  ipcMain.handle(TASKS_GET_TRASH, (_, listName?: string) => {
+    log('getTrash', listName ?? 'all');
+    return $try(() => getTrash(db, listName));
+  });
+
+  ipcMain.handle(TASKS_CLEAR_TRASH, (_, listName?: string) => {
+    log('clearTrash', listName ?? 'all');
+    return $try(() => clearTrash(db, listName));
   });
 
   if (process.env['TASKER_TEST_MODE'] === '1') {
