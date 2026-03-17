@@ -39,6 +39,10 @@ export function isDone(task: Task): boolean {
   return task.status === TaskStatus.Done;
 }
 
+export function isWontDo(task: Task): boolean {
+  return task.status === TaskStatus.WontDo;
+}
+
 export function getPriorityLabel(priority: number | null): string | null {
   if (priority === null) return null;
   return PriorityName[priority as keyof typeof PriorityName] ?? null;
@@ -100,6 +104,7 @@ export function getLinkedStatusLabel(status: number): string | null {
   switch (status) {
     case TaskStatus.Done: return 'Done';
     case TaskStatus.InProgress: return 'In Progress';
+    case TaskStatus.WontDo: return "Won't Do";
     default: return null;
   }
 }
@@ -109,6 +114,7 @@ export function getLinkedStatusColor(status: number): string {
   switch (status) {
     case TaskStatus.Done: return 'text-green-400';
     case TaskStatus.InProgress: return 'text-amber-400';
+    case TaskStatus.WontDo: return 'text-zinc-400';
     default: return '';
   }
 }

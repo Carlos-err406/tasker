@@ -16,14 +16,15 @@ export function getCommandQuery(inputValue: string): string {
 /** Mirrors core's sortTasksForDisplay — InProgress first, then Pending by priority/due, then Done */
 function sortForDisplay(tasks: Task[]): Task[] {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const statusOrder = (s: number) => s === TaskStatus.InProgress ? 0 : s === TaskStatus.Pending ? 1 : 2;
+  const statusOrder = (s: number) => s === TaskStatus.InProgress ? 0 : s === TaskStatus.Pending ? 1 : s === TaskStatus.Done ? 2 : 3;
   const dueOrder = (d: string | null) => {
     if (!d) return 99;
     if (d < todayStr) return 0;
     return Math.round((new Date(d + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000);
   };
+  const isTerminal = (s: number) => s === TaskStatus.Done || s === TaskStatus.WontDo;
   const active = tasks
-    .filter((t) => t.status !== TaskStatus.Done)
+    .filter((t) => !isTerminal(t.status))
     .sort((a, b) => {
       const s = statusOrder(a.status) - statusOrder(b.status);
       if (s !== 0) return s;
@@ -34,8 +35,12 @@ function sortForDisplay(tasks: Task[]): Task[] {
       return b.createdAt.localeCompare(a.createdAt);
     });
   const done = tasks
-    .filter((t) => t.status === TaskStatus.Done)
-    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+    .filter((t) => isTerminal(t.status))
+    .sort((a, b) => {
+      const s = statusOrder(a.status) - statusOrder(b.status);
+      if (s !== 0) return s;
+      return (b.completedAt ?? '').localeCompare(a.completedAt ?? '');
+    });
   return [...active, ...done];
 }
 

@@ -7,12 +7,12 @@ import { parseStatus, $try } from '../helpers.js';
 export function createStatusCommand(db: TaskerDb, undo: UndoManager): Command {
   return new Command('status')
     .description('Set the status of one or more tasks')
-    .argument('<status>', 'The status to set: pending, in-progress, done')
+    .argument('<status>', 'The status to set: pending, in-progress, done, wontdo')
     .argument('<taskIds...>', 'The id(s) of the task(s)')
     .action((statusStr: string, taskIds: string[]) => $try(() => {
       const status = parseStatus(statusStr);
       if (status == null) {
-        out.error(`Unknown status: '${statusStr}'. Use: pending, in-progress, done`);
+        out.error(`Unknown status: '${statusStr}'. Use: pending, in-progress, done, wontdo`);
         return;
       }
 

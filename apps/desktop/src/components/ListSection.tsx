@@ -102,14 +102,14 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const ac = useMetadataAutocomplete(addValue, addInputRef);
 
   const visibleTasks = useMemo(
-    () => hideCompleted ? tasks.filter((t) => t.status !== 2) : tasks,
+    () => hideCompleted ? tasks.filter((t) => t.status !== 2 && t.status !== 3) : tasks,
     [tasks, hideCompleted],
   );
 
   const taskIds = useMemo(() => visibleTasks.map((t) => t.id), [visibleTasks]);
 
   const pendingCount = tasks.filter((t) => t.status === 0).length;
-  const doneCount = tasks.filter((t) => t.status === 2).length;
+  const doneCount = tasks.filter((t) => t.status === 2 || t.status === 3).length;
   const totalCount = tasks.length;
   const hiddenDoneCount = hideCompleted ? doneCount : 0;
   const summaryParts: string[] = [];

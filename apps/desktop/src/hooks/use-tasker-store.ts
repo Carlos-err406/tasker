@@ -293,7 +293,7 @@ export function useTaskerStore() {
 
   const toggleStatus = useCallback(
     async (taskId: string, currentStatus: TaskStatus) => {
-      const newStatus = currentStatus === TS.Done ? TS.Pending : TS.Done;
+      const newStatus = (currentStatus === TS.Done || currentStatus === TS.WontDo) ? TS.Pending : TS.Done;
       dispatch({ type: 'UPDATE_TASK_STATUS', taskId, status: newStatus });
       try {
         await taskService.setTaskStatus(taskId, newStatus);
@@ -509,8 +509,8 @@ export function useTaskerStore() {
         await listService.setListCollapsed(task.listName, false);
       }
 
-      // Un-hide completed tasks if the target task is done and hidden
-      if (task.status === TS.Done && state.hideCompletedLists.has(task.listName)) {
+      // Un-hide completed tasks if the target task is done/wontdo and hidden
+      if ((task.status === TS.Done || task.status === TS.WontDo) && state.hideCompletedLists.has(task.listName)) {
         dispatch({ type: 'SET_HIDE_COMPLETED', name: task.listName, hide: false });
         await listService.setListHideCompleted(task.listName, false);
       }

@@ -48,6 +48,7 @@ export function parseStatus(status: string): TaskStatusType | null {
     case 'pending': return TaskStatus.Pending;
     case 'in-progress': case 'inprogress': case 'wip': return TaskStatus.InProgress;
     case 'done': case 'complete': case 'completed': return TaskStatus.Done;
+    case 'wontdo': case "won't-do": case 'wont-do': return TaskStatus.WontDo;
     default: return null;
   }
 }

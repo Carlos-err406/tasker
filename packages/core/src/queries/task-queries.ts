@@ -463,12 +463,12 @@ export function setStatus(db: TaskerDb, taskId: TaskId, status: TaskStatus): Tas
   if (!task) return { type: 'not-found', taskId };
   if (task.status === status) return { type: 'no-change', message: `Task ${taskId} is already ${statusLabel(status)}` };
 
-  // Cascade: when marking Done, also mark all non-Done descendants
+  // Cascade: when marking Done/WontDo, also mark all non-terminal descendants
   const cascadeIds: string[] = [];
-  if (status === TS.Done) {
+  if (status === TS.Done || status === TS.WontDo) {
     for (const descId of getAllDescendantIds(db, taskId)) {
       const desc = getTaskById(db, descId);
-      if (desc && desc.status !== TS.Done) cascadeIds.push(descId);
+      if (desc && desc.status !== TS.Done && desc.status !== TS.WontDo) cascadeIds.push(descId);
     }
   }
 

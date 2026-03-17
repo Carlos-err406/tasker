@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils.js';
 import { useMetadataAutocomplete } from '@/hooks/use-metadata-autocomplete.js';
 import { useMarkdownShortcuts } from '@/hooks/use-markdown-shortcuts.js';
 import { AutocompleteDropdown } from '@/components/AutocompleteDropdown.js';
-import { Check, Minus, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Copy } from 'lucide-react';
+import { Check, Minus, X, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Tag, Sparkles, Pencil, Trash2, FolderInput, Circle, CircleDot, CircleCheck, CircleSlash, ChevronsUp, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import { getPlainText, getSelectionOffsets, setCaretOffset, setPlainText } from '@/lib/content-editable-utils.js';
 import {
@@ -26,6 +26,7 @@ import {
   getShortId,
   isDone,
   isInProgress,
+  isWontDo,
   getPriorityColor,
   getDueDateColor,
   formatDueDate,
@@ -85,6 +86,7 @@ export const TaskItem = memo(function TaskItem({
 
   const done = isDone(task);
   const inProg = isInProgress(task);
+  const wontDo = isWontDo(task);
   const title = getDisplayTitle(task);
   const descPreview = getDescriptionPreview(task);
   const shortId = getShortId(task);
@@ -223,7 +225,7 @@ export const TaskItem = memo(function TaskItem({
           )}
         >
           {/* Checkbox + ID column */}
-          <div className={cn('flex flex-col items-center mt-0.5', done && 'opacity-60')}>
+          <div className={cn('flex flex-col items-center mt-0.5', (done || wontDo) && 'opacity-60')}>
             <button
               data-testid={`task-checkbox-${shortId}`}
               onClick={handleCheckboxClick}
@@ -232,12 +234,15 @@ export const TaskItem = memo(function TaskItem({
                 'h-4 w-4 rounded border transition-colors flex items-center justify-center',
                 done
                   ? 'border-green-500 bg-green-500/20 text-green-400'
-                  : inProg
-                    ? 'border-amber-400 bg-amber-400/20 text-amber-400'
-                    : 'border-muted-foreground/40 hover:border-foreground/60',
+                  : wontDo
+                    ? 'border-zinc-500 bg-zinc-500/20 text-zinc-400'
+                    : inProg
+                      ? 'border-amber-400 bg-amber-400/20 text-amber-400'
+                      : 'border-muted-foreground/40 hover:border-foreground/60',
               )}
             >
               {done && <Check className="h-3 w-3" />}
+              {wontDo && <X className="h-3 w-3" />}
               {inProg && <Minus className="h-3 w-3" />}
             </button>
             <Tooltip>
@@ -294,7 +299,7 @@ export const TaskItem = memo(function TaskItem({
                 )}
               </>
             ) : (
-              <div key="display" className={cn(done && 'opacity-60')}>
+              <div key="display" className={cn((done || wontDo) && 'opacity-60')}>
                 <div className="flex items-start gap-1.5">
                   {task.priority !== null && task.priority !== undefined && (
                     <span className={cn('mt-0.5 flex-shrink-0', priorityColor)}>
@@ -308,6 +313,7 @@ export const TaskItem = memo(function TaskItem({
                     className={cn(
                       'text-sm leading-tight',
                       done && 'line-through text-muted-foreground',
+                      wontDo && 'line-through text-muted-foreground',
                     )}
                   >
                     {title}
@@ -458,6 +464,7 @@ export const TaskItem = memo(function TaskItem({
               { label: 'Pending', status: TS.Pending, icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" /> },
               { label: 'In Progress', status: TS.InProgress, icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" /> },
               { label: 'Done', status: TS.Done, icon: <CircleCheck className="h-3.5 w-3.5 text-green-400" /> },
+              { label: "Won't Do", status: TS.WontDo, icon: <CircleSlash className="h-3.5 w-3.5 text-zinc-400" /> },
             ].map(({ label, status, icon }) => (
               <ContextMenuItem
                 key={label}

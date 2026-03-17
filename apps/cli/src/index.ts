@@ -25,6 +25,7 @@ import { createSystemCommand } from './commands/system.js';
 import { createInitCommand } from './commands/init.js';
 import { createBackupCommand } from './commands/backup.js';
 import { createDepsCommand } from './commands/deps.js';
+import { createWontDoCommand } from './commands/wontdo.js';
 
 // Initialize database
 const dbPath = getDefaultDbPath();
@@ -66,6 +67,7 @@ program.addCommand(createSystemCommand(db));
 program.addCommand(createInitCommand(db));
 program.addCommand(createBackupCommand(backup, undo));
 program.addCommand(createDepsCommand(db, undo));
+program.addCommand(createWontDoCommand(db, undo));
 
 // Default action (no command): show task list
 program.action((_opts: unknown, cmd: Command) => {

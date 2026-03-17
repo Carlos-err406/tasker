@@ -35,12 +35,12 @@ export function createTask(description: string, listName: string, now?: Date): T
   };
 }
 
-/** Return a copy of the task with a new status (sets completedAt for Done) */
+/** Return a copy of the task with a new status (sets completedAt for Done/WontDo) */
 export function withStatus(task: Task, status: TaskStatus): Task {
   return {
     ...task,
     status,
-    completedAt: status === TaskStatus.Done ? new Date().toISOString() : null,
+    completedAt: (status === TaskStatus.Done || status === TaskStatus.WontDo) ? new Date().toISOString() : null,
   };
 }
 
@@ -49,12 +49,13 @@ export function moveToList(task: Task, listName: string): Task {
   return { ...task, listName };
 }
 
-/** Sort order for display: InProgress(0), Pending(1), Done(2) */
+/** Sort order for display: InProgress(0), Pending(1), Done(2), WontDo(3) */
 export function statusSortOrder(status: TaskStatus): number {
   switch (status) {
     case TaskStatus.InProgress: return 0;
     case TaskStatus.Pending: return 1;
     case TaskStatus.Done: return 2;
+    case TaskStatus.WontDo: return 3;
     default: return 1;
   }
 }
@@ -76,8 +77,10 @@ export function sortTasksForDisplay(
 ): Task[] {
   const today = todayStr ?? formatDate(new Date());
 
+  const isTerminal = (s: TaskStatus) => s === TaskStatus.Done || s === TaskStatus.WontDo;
+
   const active = tasks
-    .filter(t => t.status !== TaskStatus.Done)
+    .filter(t => !isTerminal(t.status))
     .sort((a, b) => {
       // Status: InProgress first
       const s = statusSortOrder(a.status) - statusSortOrder(b.status);
@@ -95,8 +98,11 @@ export function sortTasksForDisplay(
     });
 
   const done = tasks
-    .filter(t => t.status === TaskStatus.Done)
+    .filter(t => isTerminal(t.status))
     .sort((a, b) => {
+      // Done before WontDo
+      const s = statusSortOrder(a.status) - statusSortOrder(b.status);
+      if (s !== 0) return s;
       // Most recently completed first
       const ca = a.completedAt ?? '';
       const cb = b.completedAt ?? '';
@@ -137,6 +143,7 @@ export function statusLabel(status: TaskStatus): string {
     case TaskStatus.Pending: return 'pending';
     case TaskStatus.InProgress: return 'in-progress';
     case TaskStatus.Done: return 'done';
+    case TaskStatus.WontDo: return "won't do";
     default: return String(status);
   }
 }

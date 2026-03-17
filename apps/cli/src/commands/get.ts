@@ -36,6 +36,7 @@ function formatStatus(s: number | undefined): string {
   switch (s) {
     case TaskStatus.Done: return 'done';
     case TaskStatus.InProgress: return 'in-progress';
+    case TaskStatus.WontDo: return "won't-do";
     default: return 'pending';
   }
 }
@@ -116,7 +117,7 @@ function outputRecursiveTree(db: TaskerDb, rootTask: Task): void {
 function printTreeNode(db: TaskerDb, task: Task, visited: Set<string>, depth: number): void {
   visited.add(task.id);
   const indent = '  '.repeat(depth);
-  const checkbox = task.status === TaskStatus.Done ? '[x]' : task.status === TaskStatus.InProgress ? '[-]' : '[ ]';
+  const checkbox = task.status === TaskStatus.Done ? '[x]' : task.status === TaskStatus.InProgress ? '[-]' : task.status === TaskStatus.WontDo ? '[~]' : '[ ]';
   const desc = getDisplayDescription(task.description);
 
   console.log(`${indent}${chalk.bold(`(${task.id})`)} ${checkbox} ${desc}`);
@@ -163,7 +164,7 @@ function printTreeNode(db: TaskerDb, task: Task, visited: Set<string>, depth: nu
 }
 
 function outputHumanReadable(db: TaskerDb, task: Task): void {
-  const checkbox = task.status === TaskStatus.Done ? '[x]' : task.status === TaskStatus.InProgress ? '[-]' : '[ ]';
+  const checkbox = task.status === TaskStatus.Done ? '[x]' : task.status === TaskStatus.InProgress ? '[-]' : task.status === TaskStatus.WontDo ? '[~]' : '[ ]';
   const priority = task.priority != null ? PriorityName[task.priority] ?? '-' : '-';
   const dueDate = task.dueDate ?? '-';
   const tags = task.tags?.length ? task.tags.map(t => `#${t}`).join(' ') : '-';

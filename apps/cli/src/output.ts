@@ -27,6 +27,7 @@ export function formatCheckbox(status: number): string {
   switch (status) {
     case TaskStatus.Done: return chalk.green('[x]');
     case TaskStatus.InProgress: return chalk.yellow('[-]');
+    case TaskStatus.WontDo: return chalk.dim.strikethrough('[~]');
     default: return chalk.gray('[ ]');
   }
 }
@@ -35,6 +36,7 @@ export function formatLinkedStatus(status: number): string {
   switch (status) {
     case TaskStatus.Done: return chalk.green(' Done');
     case TaskStatus.InProgress: return chalk.yellow(' In Progress');
+    case TaskStatus.WontDo: return chalk.dim(" Won't Do");
     default: return '';
   }
 }
@@ -58,8 +60,8 @@ export function formatDueDate(
   const dueParts = dueDate.split('-').map(Number);
   const dueD = new Date(dueParts[0]!, dueParts[1]! - 1, dueParts[2]!);
 
-  // For completed tasks, freeze the label based on completion time
-  if (status === TaskStatus.Done && completedAt) {
+  // For completed/wontdo tasks, freeze the label based on completion time
+  if ((status === TaskStatus.Done || status === TaskStatus.WontDo) && completedAt) {
     const completedDate = new Date(completedAt);
     const compD = new Date(completedDate.getFullYear(), completedDate.getMonth(), completedDate.getDate());
     const lateDays = Math.floor((compD.getTime() - dueD.getTime()) / 86400000);

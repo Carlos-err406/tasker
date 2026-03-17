@@ -38,6 +38,9 @@ const STATUS_MAP: Record<string, (typeof TaskStatus)[keyof typeof TaskStatus]> =
   'in-progress': TaskStatus.InProgress,
   inprogress: TaskStatus.InProgress,
   done: TaskStatus.Done,
+  wontdo: TaskStatus.WontDo,
+  "won't-do": TaskStatus.WontDo,
+  'wont-do': TaskStatus.WontDo,
 };
 
 const PRIORITY_MAP: Record<string, Priority> = {
