@@ -17,6 +17,8 @@ import {
   applySystemSort,
   softDeleteByStatus,
   softDeleteOlderThan,
+  getTrash,
+  clearTrash,
   getSubtasks,
   unsetParent,
   getRawDb,
@@ -43,6 +45,8 @@ import {
   TASKS_APPLY_SYSTEM_SORT,
   TASKS_SOFT_DELETE_BY_STATUS,
   TASKS_SOFT_DELETE_OLDER_THAN,
+  TASKS_GET_TRASH,
+  TASKS_CLEAR_TRASH,
 } from './channels.js';
 import { log } from './utils.js';
 
@@ -290,6 +294,16 @@ export const tasksRegister: IPCRegisterFunction = (ipcMain, _widget, { db, undo 
   ipcMain.handle(TASKS_SOFT_DELETE_OLDER_THAN, (_, beforeDate: string, listName?: string) => {
     log('softDeleteOlderThan', beforeDate, listName ?? 'all');
     return $try(() => softDeleteOlderThan(db, beforeDate, listName));
+  });
+
+  ipcMain.handle(TASKS_GET_TRASH, (_, listName?: string) => {
+    log('getTrash', listName ?? 'all');
+    return $try(() => getTrash(db, listName));
+  });
+
+  ipcMain.handle(TASKS_CLEAR_TRASH, (_, listName?: string) => {
+    log('clearTrash', listName ?? 'all');
+    return $try(() => clearTrash(db, listName));
   });
 
   if (process.env['TASKER_TEST_MODE'] === '1') {

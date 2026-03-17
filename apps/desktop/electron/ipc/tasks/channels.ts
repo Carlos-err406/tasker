@@ -16,3 +16,5 @@ export const TASKS_GET_TITLES = 'tasks:getTitles';
 export const TASKS_APPLY_SYSTEM_SORT = 'tasks:applySystemSort';
 export const TASKS_SOFT_DELETE_BY_STATUS = 'tasks:softDeleteByStatus';
 export const TASKS_SOFT_DELETE_OLDER_THAN = 'tasks:softDeleteOlderThan';
+export const TASKS_GET_TRASH = 'tasks:getTrash';
+export const TASKS_CLEAR_TRASH = 'tasks:clearTrash';

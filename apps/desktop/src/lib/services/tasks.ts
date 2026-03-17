@@ -79,3 +79,11 @@ export async function softDeleteByStatus(status: number, listName?: string): Pro
 export async function softDeleteOlderThan(beforeDate: string, listName?: string): Promise<number> {
   return unwrap(IPC['tasks:softDeleteOlderThan'](beforeDate, listName));
 }
+
+export async function getTrash(listName?: string): Promise<Task[]> {
+  return unwrap(IPC['tasks:getTrash'](listName));
+}
+
+export async function clearTrash(listName?: string): Promise<number> {
+  return unwrap(IPC['tasks:clearTrash'](listName));
+}

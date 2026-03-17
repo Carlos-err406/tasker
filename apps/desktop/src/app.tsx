@@ -21,7 +21,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal } from 'lucide-react';
+import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal, Trash2 } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
 import { SortableListSection, type SortableListSectionHandle } from '@/components/SortableListSection.js';
@@ -32,6 +32,7 @@ import { LogsPanel } from '@/components/LogsPanel.js';
 import { CommandPalette } from '@/components/CommandPalette.js';
 import { DecomposePanel } from '@/components/DecomposePanel.js';
 import { SummaryPanel } from '@/components/SummaryPanel.js';
+import { TrashPanel } from '@/components/TrashPanel.js';
 
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
@@ -52,6 +53,7 @@ export default function App() {
   const [decomposeTaskId, setDecomposeTaskId] = useState<string | null>(null);
   const [summaryParams, setSummaryParams] = useState<{ listName: string; timeRange: string } | null>(null);
   const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [activeType, setActiveType] = useState<'task' | 'list' | null>(null);
   const dragOverlay = useDragOverlayClone();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -172,8 +174,10 @@ export default function App() {
   }, []);
 
   const handleEscape = useCallback(() => {
-    // ESC closes the topmost layer: summary > decompose > help > logs > filter menu > creating list > window
-    if (summaryParams) {
+    // ESC closes the topmost layer: trash > summary > decompose > help > logs > filter menu > creating list > window
+    if (showTrash) {
+      setShowTrash(false);
+    } else if (summaryParams) {
       setSummaryParams(null);
     } else if (decomposeTaskId) {
       setDecomposeTaskId(null);
@@ -188,7 +192,7 @@ export default function App() {
     } else {
       hideWindow();
     }
-  }, [summaryParams, decomposeTaskId, showHelp, showLogs, showFilterMenu, creatingList]);
+  }, [showTrash, summaryParams, decomposeTaskId, showHelp, showLogs, showFilterMenu, creatingList]);
 
   useKeyboardShortcuts({
     onUndo: store.undo,
@@ -402,6 +406,18 @@ export default function App() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              onClick={() => setShowTrash((v) => !v)}
+              className={cn('text-muted-foreground hover:text-foreground p-0.5', showTrash && 'text-foreground')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Trash</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
               onClick={handleToggleLogs}
               className="text-muted-foreground hover:text-foreground p-0.5"
             >
@@ -456,6 +472,13 @@ export default function App() {
 
       {/* Content */}
       <div data-testid="app-content" className="flex-1 overflow-auto relative">
+        {showTrash ? (
+          <TrashPanel
+            onClose={() => setShowTrash(false)}
+            onShowStatus={store.showStatus}
+            onRefresh={store.refresh}
+          />
+        ) : (
         <>
             {/* Create list inline */}
             {creatingList && (
@@ -543,6 +566,7 @@ export default function App() {
               </div>
             )}
         </>
+        )}
       </div>
 
       {/* Footer */}
