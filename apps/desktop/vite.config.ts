@@ -27,7 +27,12 @@ export default defineConfig(({ mode }) => {
           define: syncDefine,
           build: {
             rollupOptions: {
-              external: ['better-sqlite3', 'eventkit-node', /\.node$/, /^@supabase\//, 'ws'],
+              // Only NATIVE modules must be external (they can't be bundled and are
+              // shipped in app.asar.unpacked). Pure-JS deps like @supabase/supabase-js
+              // and ws are BUNDLED into main.js so they ship inside the asar — electron-builder
+              // does not reliably collect pnpm-symlinked pure-JS deps into the package.
+              // bufferutil/utf-8-validate are ws's optional native addons (absent → ws falls back).
+              external: ['better-sqlite3', 'eventkit-node', /\.node$/, 'bufferutil', 'utf-8-validate'],
             },
           },
           resolve: {
