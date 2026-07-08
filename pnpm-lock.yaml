@@ -72,6 +72,9 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@4.1.18)
+      ws:
+        specifier: ^8.18.0
+        version: 8.19.0
     devDependencies:
       '@dnd-kit/core':
         specifier: ^6.3.0

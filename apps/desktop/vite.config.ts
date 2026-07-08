@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
           define: syncDefine,
           build: {
             rollupOptions: {
-              external: ['better-sqlite3', 'eventkit-node', /\.node$/, /^@supabase\//],
+              external: ['better-sqlite3', 'eventkit-node', /\.node$/, /^@supabase\//, 'ws'],
             },
           },
           resolve: {
