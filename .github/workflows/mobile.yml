@@ -44,40 +44,20 @@ jobs:
 
   build-apk:
     name: Build APK
-    # Runs on release tags, manual dispatch, or a push to the feature branch (so we can
-    # get an APK before merging). Builds LOCALLY on the runner (Android SDK is preinstalled)
-    # via `eas build --local` — no EAS cloud queue — and uploads the APK as an artifact.
+    # Triggers an EAS CLOUD build (APK). `eas build --local` on the runner is blocked by
+    # EAS's internal pnpm install choking on the monorepo's build scripts, which we can't
+    # flag. The cloud build handles the monorepo + credentials; the eas-build-post-install
+    # hook builds @tasker/core. Since OTA (eas update) delivers JS changes, an APK rebuild
+    # is only needed for native changes, so the cloud queue is a rare, one-time cost.
+    # The finished APK is downloadable from the EAS build page (link printed in the log).
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/powersync-sync'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      # Scope to mobile + its workspace deps (core) — avoids installing desktop-only
-      # native deps (electron/eventkit-node) whose build scripts pnpm 11 refuses to run in CI.
-      - name: Install (mobile scope)
-        # --ignore-scripts: dependency build scripts (esbuild etc.) aren't needed for the
-        # Metro bundle, and pnpm 11 hard-errors on ignored ones in CI. Core's own build runs
-        # next (and again inside the EAS build via the eas-build-post-install hook).
-        run: pnpm install --filter "@tasker/mobile..." --ignore-scripts --no-frozen-lockfile
-      - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Build Android APK on the runner (no EAS queue)
+      - name: Trigger EAS cloud build (APK)
         working-directory: apps/mobile
-        run: eas build --platform android --profile preview --local --non-interactive --output "${{ github.workspace }}/tasker.apk"
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tasker-android-apk
-          path: ${{ github.workspace }}/tasker.apk
-          if-no-files-found: error
+        run: eas build --platform android --profile preview --non-interactive --no-wait
