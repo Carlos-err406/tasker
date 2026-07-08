@@ -6,6 +6,7 @@ import { getDefaultDbPath } from '@tasker/core';
 import type { IPCRegisterFunction } from '../types.js';
 import { CLIPBOARD_SAVE_IMAGE } from './channels.js';
 import { log } from './utils.js';
+import { uploadImage } from '../../sync/storage.js';
 
 function getMediaDir(): string {
   const dbPath = getDefaultDbPath();
@@ -14,23 +15,30 @@ function getMediaDir(): string {
 }
 
 export const clipboardRegister: IPCRegisterFunction = (ipcMain) => {
-  ipcMain.handle(CLIPBOARD_SAVE_IMAGE, () => {
+  ipcMain.handle(CLIPBOARD_SAVE_IMAGE, async () => {
     const image = clipboard.readImage();
     if (image.isEmpty()) {
       log('no image in clipboard');
       return null;
     }
 
-    const mediaDir = getMediaDir();
-    mkdirSync(mediaDir, { recursive: true });
-
     const timestamp = Date.now();
     const filename = `paste-${timestamp}.png`;
-    const fullPath = join(mediaDir, filename);
-
     const buffer = image.toPNG();
+
+    // Prefer Supabase Storage → public URL renders on desktop AND mobile.
+    const publicUrl = await uploadImage(buffer, filename);
+    if (publicUrl) {
+      log('uploaded to storage', publicUrl, `(${buffer.length} bytes)`);
+      return publicUrl;
+    }
+
+    // Fallback (sync disabled / offline): save locally, desktop-only rendering.
+    const mediaDir = getMediaDir();
+    mkdirSync(mediaDir, { recursive: true });
+    const fullPath = join(mediaDir, filename);
     writeFileSync(fullPath, buffer);
-    log('saved', fullPath, `(${buffer.length} bytes)`);
+    log('saved locally (offline)', fullPath, `(${buffer.length} bytes)`);
 
     // Return path with ~/ prefix for portability, URL-encoded for markdown compatibility
     const home = homedir();
