@@ -3,8 +3,9 @@ name: Mobile (Android)
 # OTA JS updates on every push to main (installed APKs self-update on next launch),
 # and a fresh APK build on release tags (needed when native code changes).
 on:
+  workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feat/powersync-sync]
     tags: ['v*']
     paths:
       - 'apps/mobile/**'
@@ -35,7 +36,10 @@ jobs:
 
   build-apk:
     name: Build APK
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs on release tags, manual dispatch, or a push to the feature branch (so we can
+    # get an APK before merging). Builds LOCALLY on the runner (Android SDK is preinstalled)
+    # via `eas build --local` — no EAS cloud queue — and uploads the APK as an artifact.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/powersync-sync'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,12 +48,22 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Build Android APK (EAS cloud)
+      - name: Build Android APK on the runner (no EAS queue)
         working-directory: apps/mobile
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        run: eas build --platform android --profile preview --local --non-interactive --output "${{ github.workspace }}/tasker.apk"
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasker-android-apk
+          path: ${{ github.workspace }}/tasker.apk
+          if-no-files-found: error
