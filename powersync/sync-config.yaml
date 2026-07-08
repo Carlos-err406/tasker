@@ -1,0 +1,32 @@
+# PowerSync sync rules for Tasker.
+# yaml-language-server: $schema=https://unpkg.com/@powersync/service-sync-rules@latest/schema/sync_rules.json
+#
+# Single shared dataset — every client syncs everything (global streams).
+# `id` derivations mirror apps/mobile/src/powersync-schema.ts + supabase-connector.ts:
+#   - lists:  PowerSync id = list name
+#   - task_dependencies / task_relations: composite id joined with "."
+#   - tasks:  id maps directly
+
+config:
+  edition: 3
+
+streams:
+  tasks:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM tasks
+
+  lists:
+    auto_subscribe: true
+    queries:
+      - SELECT name AS id, name, sort_order FROM lists
+
+  task_dependencies:
+    auto_subscribe: true
+    queries:
+      - SELECT task_id || '.' || blocks_task_id AS id, task_id, blocks_task_id FROM task_dependencies
+
+  task_relations:
+    auto_subscribe: true
+    queries:
+      - SELECT task_id_1 || '.' || task_id_2 AS id, task_id_1, task_id_2 FROM task_relations

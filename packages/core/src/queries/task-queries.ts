@@ -5,7 +5,7 @@
 
 import { eq, ne, and, desc, max, count, sql } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-import { getRawDb } from '../db.js';
+// getRawDb removed — using Drizzle cross-driver sql template + db.transaction()
 import type { Task, TaskId, ListName } from '../types/task.js';
 import type { TaskResult, BatchResult } from '../types/results.js';
 import type { TaskStatus } from '../types/task-status.js';
@@ -256,23 +256,17 @@ export function searchTasks(db: TaskerDb, query: string): Task[] {
   }
 
   // Post-filter: has:subtasks (needs child lookup)
-  if (filters.has.subtasks) {
-    const raw = getRawDb(db);
-    const parentIds = new Set(
-      (raw.prepare(`SELECT DISTINCT parent_id FROM tasks WHERE parent_id IS NOT NULL AND is_trashed = 0`).all() as any[])
-        .map(r => r.parent_id as string),
+  if (filters.has.subtasks || filters.notHas.subtasks) {
+    const parentRows = db.all<{ parent_id: string }>(
+      sql`SELECT DISTINCT parent_id FROM tasks WHERE parent_id IS NOT NULL AND is_trashed = 0`,
     );
-    results = results.filter(t => parentIds.has(t.id));
-  }
-
-  // Post-filter: notHas:subtasks — exclude tasks that have subtasks
-  if (filters.notHas.subtasks) {
-    const raw = getRawDb(db);
-    const parentIds = new Set(
-      (raw.prepare(`SELECT DISTINCT parent_id FROM tasks WHERE parent_id IS NOT NULL AND is_trashed = 0`).all() as any[])
-        .map(r => r.parent_id as string),
-    );
-    results = results.filter(t => !parentIds.has(t.id));
+    const parentIds = new Set(parentRows.map(r => r.parent_id));
+    if (filters.has.subtasks) {
+      results = results.filter(t => parentIds.has(t.id));
+    }
+    if (filters.notHas.subtasks) {
+      results = results.filter(t => !parentIds.has(t.id));
+    }
   }
 
   return sortTasksForDisplay(results);
@@ -512,19 +506,17 @@ export function deleteTask(db: TaskerDb, taskId: TaskId): TaskResult {
 
 /** Batch delete (trash) multiple tasks */
 export function deleteTasks(db: TaskerDb, taskIds: TaskId[]): BatchResult {
-  const raw = getRawDb(db);
   const results: TaskResult[] = [];
 
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (const taskId of taskIds) {
       const task = getTaskById(db, taskId);
       if (!task) { results.push({ type: 'not-found', taskId }); continue; }
       cleanupRelationshipMarkers(db, taskId);
-      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, taskId)).run();
+      tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, taskId)).run();
       results.push({ type: 'success', message: `Deleted task: ${taskId}` });
     }
   });
-  run();
 
   return { results };
 }
@@ -534,14 +526,12 @@ export function softDeleteByStatus(db: TaskerDb, status: TaskStatus, listName?: 
   const taskList = getAllTasks(db, listName).filter(t => t.status === status);
   if (taskList.length === 0) return 0;
 
-  const raw = getRawDb(db);
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (const task of taskList) {
       cleanupRelationshipMarkers(db, task.id);
-      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
+      tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
     }
   });
-  run();
 
   return taskList.length;
 }
@@ -551,24 +541,21 @@ export function softDeleteOlderThan(db: TaskerDb, beforeDate: string, listName?:
   const taskList = getAllTasks(db, listName).filter(t => t.createdAt < beforeDate);
   if (taskList.length === 0) return 0;
 
-  const raw = getRawDb(db);
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (const task of taskList) {
       cleanupRelationshipMarkers(db, task.id);
-      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
+      tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
     }
   });
-  run();
 
   return taskList.length;
 }
 
 /** Batch set status for multiple tasks */
 export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus): BatchResult {
-  const raw = getRawDb(db);
   const results: TaskResult[] = [];
 
-  const run = raw.transaction(() => {
+  db.transaction(() => {
     for (const taskId of taskIds) {
       const task = getTaskById(db, taskId);
       if (!task) { results.push({ type: 'not-found', taskId }); continue; }
@@ -579,7 +566,6 @@ export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus)
       results.push({ type: 'success', message: `Set ${taskId} to ${statusLabel(status)}` });
     }
   });
-  run();
 
   return { results };
 }
@@ -718,13 +704,11 @@ export function clearTasks(db: TaskerDb, listName?: ListName): number {
   const tasksToClear = getAllTasks(db, listName);
   if (tasksToClear.length === 0) return 0;
 
-  const raw = getRawDb(db);
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (const task of tasksToClear) {
-      db.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
+      tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
     }
   });
-  run();
 
   return tasksToClear.length;
 }
@@ -770,16 +754,16 @@ export function restoreFromTrash(db: TaskerDb, taskId: TaskId): TaskResult {
   const row = db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.isTrashed, 1))).get();
   if (!row) return { type: 'not-found', taskId };
 
-  // Recursive CTE for trashed descendants — Drizzle doesn't support WITH RECURSIVE
-  const raw = getRawDb(db);
-  const descendantIds: string[] = (raw.prepare(`
+  // Recursive CTE for trashed descendants
+  const descendantRows = db.all<{ id: string }>(sql`
     WITH RECURSIVE desc AS (
-      SELECT id FROM tasks WHERE parent_id = ? AND is_trashed = 1
+      SELECT id FROM tasks WHERE parent_id = ${taskId} AND is_trashed = 1
       UNION ALL
       SELECT t.id FROM tasks t JOIN desc d ON t.parent_id = d.id WHERE t.is_trashed = 1
     )
     SELECT id FROM desc
-  `).all(taskId) as any[]).map(r => r.id);
+  `);
+  const descendantIds: string[] = descendantRows.map(r => r.id);
 
   db.update(tasks).set({ isTrashed: 0 }).where(eq(tasks.id, taskId)).run();
   for (const descId of descendantIds) {
@@ -846,13 +830,11 @@ export function reorderTask(db: TaskerDb, taskId: TaskId, newIndex: number): voi
   ids.splice(currentIndex, 1);
   ids.splice(clamped, 0, taskId);
 
-  const raw = getRawDb(db);
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (let i = 0; i < ids.length; i++) {
-      db.update(tasks).set({ sortOrder: ids.length - 1 - i }).where(eq(tasks.id, ids[i]!)).run();
+      tx.update(tasks).set({ sortOrder: ids.length - 1 - i }).where(eq(tasks.id, ids[i]!)).run();
     }
   });
-  run();
 }
 
 // ---------------------------------------------------------------------------
@@ -861,16 +843,14 @@ export function reorderTask(db: TaskerDb, taskId: TaskId, newIndex: number): voi
 
 /** Get all descendant IDs of a task (recursive) */
 export function getAllDescendantIds(db: TaskerDb, parentId: TaskId): string[] {
-  // Recursive CTE — Drizzle doesn't support WITH RECURSIVE
-  const raw = getRawDb(db);
-  const rows = raw.prepare(`
+  const rows = db.all<{ id: string }>(sql`
     WITH RECURSIVE desc AS (
-      SELECT id FROM tasks WHERE parent_id = ? AND is_trashed = 0
+      SELECT id FROM tasks WHERE parent_id = ${parentId} AND is_trashed = 0
       UNION ALL
       SELECT t.id FROM tasks t JOIN desc d ON t.parent_id = d.id WHERE t.is_trashed = 0
     )
     SELECT id FROM desc
-  `).all(parentId) as any[];
+  `);
   return rows.map(r => r.id);
 }
 
@@ -882,16 +862,14 @@ export function getSubtasks(db: TaskerDb, parentId: TaskId): Task[] {
 
 /** Check for circular blocking */
 export function hasCircularBlocking(db: TaskerDb, blockerId: TaskId, blockedId: TaskId): boolean {
-  // Recursive CTE — Drizzle doesn't support WITH RECURSIVE
-  const raw = getRawDb(db);
-  const rows = raw.prepare(`
+  const rows = db.all<{ target: string }>(sql`
     WITH RECURSIVE chain AS (
-      SELECT blocks_task_id AS target FROM task_dependencies WHERE task_id = ?
+      SELECT blocks_task_id AS target FROM task_dependencies WHERE task_id = ${blockedId}
       UNION ALL
       SELECT td.blocks_task_id FROM task_dependencies td JOIN chain c ON td.task_id = c.target
     )
     SELECT target FROM chain
-  `).all(blockedId) as any[];
+  `);
   return rows.some(r => r.target === blockerId);
 }
 
@@ -937,13 +915,11 @@ export function getBlocks(db: TaskerDb, taskId: TaskId): Task[] {
 
 /** Get related task IDs */
 export function getRelatedIds(db: TaskerDb, taskId: TaskId): string[] {
-  // Union of both directions
-  const raw = getRawDb(db);
-  const rows = raw.prepare(`
-    SELECT task_id_2 AS id FROM task_relations WHERE task_id_1 = ?
+  const rows = db.all<{ id: string }>(sql`
+    SELECT task_id_2 AS id FROM task_relations WHERE task_id_1 = ${taskId}
     UNION
-    SELECT task_id_1 AS id FROM task_relations WHERE task_id_2 = ?
-  `).all(taskId, taskId) as any[];
+    SELECT task_id_1 AS id FROM task_relations WHERE task_id_2 = ${taskId}
+  `);
   return rows.map(r => r.id);
 }
 
@@ -1099,42 +1075,41 @@ export interface TaskRelCounts {
 export function getRelationshipCounts(db: TaskerDb, taskIds: TaskId[]): Record<string, TaskRelCounts> {
   if (taskIds.length === 0) return {};
 
-  const raw = getRawDb(db);
   const result: Record<string, TaskRelCounts> = {};
   for (const id of taskIds) {
     result[id] = { subtaskCount: 0, blocksCount: 0, blockedByCount: 0, relatedCount: 0 };
   }
 
   // Subtask counts: tasks where parent_id = taskId
-  const subtaskRows = raw.prepare(
-    `SELECT parent_id AS id, COUNT(*) AS cnt FROM tasks WHERE parent_id IS NOT NULL AND is_trashed = 0 GROUP BY parent_id`,
-  ).all() as { id: string; cnt: number }[];
+  const subtaskRows = db.all<{ id: string; cnt: number }>(
+    sql`SELECT parent_id AS id, COUNT(*) AS cnt FROM tasks WHERE parent_id IS NOT NULL AND is_trashed = 0 GROUP BY parent_id`,
+  );
   for (const r of subtaskRows) {
     if (result[r.id]) result[r.id]!.subtaskCount = r.cnt;
   }
 
-  // Blocks counts: tasks this task blocks (task_id = taskId in task_dependencies), excluding trashed targets
-  const blocksRows = raw.prepare(
-    `SELECT td.task_id AS id, COUNT(*) AS cnt FROM task_dependencies td JOIN tasks t ON td.blocks_task_id = t.id WHERE t.is_trashed = 0 GROUP BY td.task_id`,
-  ).all() as { id: string; cnt: number }[];
+  // Blocks counts: tasks this task blocks, excluding trashed targets
+  const blocksRows = db.all<{ id: string; cnt: number }>(
+    sql`SELECT td.task_id AS id, COUNT(*) AS cnt FROM task_dependencies td JOIN tasks t ON td.blocks_task_id = t.id WHERE t.is_trashed = 0 GROUP BY td.task_id`,
+  );
   for (const r of blocksRows) {
     if (result[r.id]) result[r.id]!.blocksCount = r.cnt;
   }
 
-  // BlockedBy counts: tasks blocking this task (blocks_task_id = taskId), excluding trashed blockers
-  const blockedByRows = raw.prepare(
-    `SELECT td.blocks_task_id AS id, COUNT(*) AS cnt FROM task_dependencies td JOIN tasks t ON td.task_id = t.id WHERE t.is_trashed = 0 GROUP BY td.blocks_task_id`,
-  ).all() as { id: string; cnt: number }[];
+  // BlockedBy counts: tasks blocking this task, excluding trashed blockers
+  const blockedByRows = db.all<{ id: string; cnt: number }>(
+    sql`SELECT td.blocks_task_id AS id, COUNT(*) AS cnt FROM task_dependencies td JOIN tasks t ON td.task_id = t.id WHERE t.is_trashed = 0 GROUP BY td.blocks_task_id`,
+  );
   for (const r of blockedByRows) {
     if (result[r.id]) result[r.id]!.blockedByCount = r.cnt;
   }
 
   // Related counts: both directions, excluding trashed tasks
-  const relRows = raw.prepare(
-    `SELECT tr.task_id_1 AS id, COUNT(*) AS cnt FROM task_relations tr JOIN tasks t ON tr.task_id_2 = t.id WHERE t.is_trashed = 0 GROUP BY tr.task_id_1
-     UNION ALL
-     SELECT tr.task_id_2 AS id, COUNT(*) AS cnt FROM task_relations tr JOIN tasks t ON tr.task_id_1 = t.id WHERE t.is_trashed = 0 GROUP BY tr.task_id_2`,
-  ).all() as { id: string; cnt: number }[];
+  const relRows = db.all<{ id: string; cnt: number }>(sql`
+    SELECT tr.task_id_1 AS id, COUNT(*) AS cnt FROM task_relations tr JOIN tasks t ON tr.task_id_2 = t.id WHERE t.is_trashed = 0 GROUP BY tr.task_id_1
+    UNION ALL
+    SELECT tr.task_id_2 AS id, COUNT(*) AS cnt FROM task_relations tr JOIN tasks t ON tr.task_id_1 = t.id WHERE t.is_trashed = 0 GROUP BY tr.task_id_2
+  `);
   for (const r of relRows) {
     if (result[r.id]) result[r.id]!.relatedCount += r.cnt;
   }
@@ -1151,13 +1126,12 @@ export interface TaskSummary {
 /** Batch-fetch display titles and statuses for task IDs. */
 export function getTaskTitles(db: TaskerDb, taskIds: TaskId[]): Record<string, TaskSummary> {
   if (taskIds.length === 0) return {};
-  const raw = getRawDb(db);
   const result: Record<string, TaskSummary> = {};
-  // Fetch all in one query using IN clause
-  const placeholders = taskIds.map(() => '?').join(',');
-  const rows = raw.prepare(
-    `SELECT id, description, status FROM tasks WHERE id IN (${placeholders})`,
-  ).all(...taskIds) as { id: string; description: string; status: number }[];
+  // Build dynamic IN clause using sql.join
+  const idList = sql.join(taskIds.map(id => sql`${id}`), sql`, `);
+  const rows = db.all<{ id: string; description: string; status: number }>(
+    sql`SELECT id, description, status FROM tasks WHERE id IN (${idList})`,
+  );
   for (const row of rows) {
     const display = getDisplayDescription(row.description);
     result[row.id] = {
@@ -1170,20 +1144,18 @@ export function getTaskTitles(db: TaskerDb, taskIds: TaskId[]): Record<string, T
 
 /** Apply system sort order to the database, persisting it as the user's sort order */
 export function applySystemSort(db: TaskerDb, listName?: ListName): number {
-  const raw = getRawDb(db);
   const listNames = listName ? [listName] : getAllListNames(db);
 
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (const name of listNames) {
       const listTasks = getAllTasks(db, name);
       const sorted = sortTasksForDisplay(listTasks);
       // Highest sort_order = first in display (sorted[0])
       for (let i = 0; i < sorted.length; i++) {
-        db.update(tasks).set({ sortOrder: sorted.length - 1 - i }).where(eq(tasks.id, sorted[i]!.id)).run();
+        tx.update(tasks).set({ sortOrder: sorted.length - 1 - i }).where(eq(tasks.id, sorted[i]!.id)).run();
       }
     }
   });
-  run();
 
   return listNames.length;
 }

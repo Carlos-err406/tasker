@@ -197,7 +197,7 @@ export default function App() {
   useKeyboardShortcuts({
     onUndo: store.undo,
     onRedo: store.redo,
-    onRefresh: store.refresh,
+    onRefresh: async () => { store.showStatus('Refreshing...'); await store.refresh(); store.showStatus('Refreshed'); },
     onFocusSearch: () => searchRef.current?.focus(),
     onToggleHelp: handleToggleHelp,
     onToggleLogs: handleToggleLogs,

@@ -6,7 +6,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import type { TaskerDb } from '../db.js';
-import { getRawDb, getDbPath } from '../db.js';
+import { getRawDb, getDbPath } from '../db-node.js';
 import type { UndoManager } from '../undo/undo-manager.js';
 
 const MAX_VERSION_BACKUPS = 10;

@@ -8,6 +8,14 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./db": {
+      "types": "./dist/db.d.ts",
+      "default": "./dist/db.js"
+    },
+    "./db-node": {
+      "types": "./dist/db-node.d.ts",
+      "default": "./dist/db-node.js"
+    },
     "./schema": {
       "types": "./dist/schema/index.d.ts",
       "default": "./dist/schema/index.js"
@@ -28,6 +36,10 @@
       "types": "./dist/undo/index.d.ts",
       "default": "./dist/undo/index.js"
     },
+    "./sync": {
+      "types": "./dist/sync.d.ts",
+      "default": "./dist/sync.js"
+    },
     "./backup": {
       "types": "./dist/backup/index.d.ts",
       "default": "./dist/backup/index.js"
@@ -47,6 +59,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.30",
     "@ai-sdk/provider": "^3.0.8",
+    "@libsql/client": "^0.17.0",
     "ai": "^6.0.95",
     "better-sqlite3": "npm:libsql@^0.5.22",
     "drizzle-orm": "^0.38.0"

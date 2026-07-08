@@ -5,7 +5,7 @@
 
 import { eq } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-import { getRawDb } from '../db.js';
+// getRawDb removed — using Drizzle cross-driver db.transaction()
 import { undoHistory } from '../schema/undo-history.js';
 import type { UndoCommand, CompositeCmd } from './undo-commands.js';
 import { getCommandDescription } from './undo-commands.js';
@@ -159,13 +159,11 @@ export class UndoManager {
   }
 
   private save(): void {
-    const raw = getRawDb(this.db);
-
-    const run = raw.transaction(() => {
-      this.db.delete(undoHistory).run();
+    this.db.transaction((tx) => {
+      tx.delete(undoHistory).run();
 
       for (const cmd of this.undoStack) {
-        this.db.insert(undoHistory).values({
+        tx.insert(undoHistory).values({
           stackType: 'undo',
           commandJson: JSON.stringify(cmd),
           createdAt: cmd.executedAt,
@@ -173,13 +171,12 @@ export class UndoManager {
       }
 
       for (const cmd of this.redoStack) {
-        this.db.insert(undoHistory).values({
+        tx.insert(undoHistory).values({
           stackType: 'redo',
           commandJson: JSON.stringify(cmd),
           createdAt: cmd.executedAt,
         }).run();
       }
     });
-    run();
   }
 }

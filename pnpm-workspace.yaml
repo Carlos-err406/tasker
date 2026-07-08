@@ -2,4 +2,15 @@ packages:
   - packages/*
   - apps/*
 
-onlyBuiltDependencies: eventkit-node
+onlyBuiltDependencies:
+  - eventkit-node
+  - esbuild
+  - electron
+
+# Slow/flaky connection: download one package at a time with a long timeout.
+# Large native tarballs (op-sqlite ~40MB, expo-sqlite ~33MB) exceed the 60s
+# default when fetched in parallel on a low-bandwidth link.
+# (see memory: pnpm11-config-slow-network)
+networkConcurrency: 1
+fetchTimeout: 600000
+fetchRetries: 6

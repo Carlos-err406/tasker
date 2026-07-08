@@ -4,7 +4,7 @@
 
 import { eq, and, count, max } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-import { getRawDb } from '../db.js';
+// getRawDb removed — using Drizzle cross-driver db.transaction()
 import type { ListName } from '../types/task.js';
 import { lists } from '../schema/lists.js';
 import { tasks } from '../schema/tasks.js';
@@ -27,6 +27,38 @@ export function getAllListNames(db: TaskerDb): string[] {
     return [DEFAULT_LIST, ...names.filter(n => n !== DEFAULT_LIST)];
   }
   return names;
+}
+
+/** Metadata for a list, returned by getListsWithMetadata */
+export interface ListMetadata {
+  name: string;
+  isCollapsed: boolean;
+  hideCompleted: boolean;
+  sortOrder: number;
+}
+
+/** Get all lists with their metadata in a single query (avoids N+1) */
+export function getListsWithMetadata(db: TaskerDb): ListMetadata[] {
+  const rows = db.select({
+    name: lists.name,
+    isCollapsed: lists.isCollapsed,
+    hideCompleted: lists.hideCompleted,
+    sortOrder: lists.sortOrder,
+  }).from(lists).orderBy(lists.sortOrder).all();
+
+  const result = rows.map(r => ({
+    name: r.name,
+    isCollapsed: r.isCollapsed === 1,
+    hideCompleted: r.hideCompleted === 1,
+    sortOrder: r.sortOrder as number,
+  }));
+
+  // Ensure "tasks" default list is present
+  if (result.length === 0 || !result.some(r => r.name === DEFAULT_LIST)) {
+    result.unshift({ name: DEFAULT_LIST, isCollapsed: false, hideCompleted: false, sortOrder: 0 });
+  }
+
+  return result;
 }
 
 /** Check if a list has any non-trashed tasks */
@@ -93,14 +125,11 @@ export function reorderList(db: TaskerDb, listName: ListName, newIndex: number):
   allNames.splice(currentIndex, 1);
   allNames.splice(clamped, 0, listName);
 
-  // Use raw transaction for batch update efficiency
-  const raw = getRawDb(db);
-  const run = raw.transaction(() => {
+  db.transaction((tx) => {
     for (let i = 0; i < allNames.length; i++) {
-      db.update(lists).set({ sortOrder: i }).where(eq(lists.name, allNames[i]!)).run();
+      tx.update(lists).set({ sortOrder: i }).where(eq(lists.name, allNames[i]!)).run();
     }
   });
-  run();
 }
 
 /** Get the index of a list in the sort order */
