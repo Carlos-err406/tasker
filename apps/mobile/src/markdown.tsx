@@ -94,6 +94,48 @@ function InlineLine({ text }: { text: string }) {
   );
 }
 
+// ─── GFM tables ──────────────────────────────────────────────────────────────
+
+/** Split a `| a | b |` row into trimmed cells (leading/trailing pipes optional). */
+function splitTableRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|')) s = s.slice(0, -1);
+  return s.split('|').map((c) => c.trim());
+}
+
+/** A delimiter row: every cell is dashes with optional alignment colons, e.g. `---`, `:--`, `--:`. */
+function isTableDelimiter(line: string): boolean {
+  if (!line.includes('|') && !line.includes('-')) return false;
+  const cells = splitTableRow(line);
+  return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c));
+}
+
+function MarkdownTable({ header, rows }: { header: string[]; rows: string[][] }) {
+  const cols = Math.max(header.length, ...rows.map((r) => r.length), 1);
+  const pad = (r: string[]) => Array.from({ length: cols }, (_, i) => r[i] ?? '');
+  return (
+    <View style={ms.table}>
+      <View style={[ms.tableRow, ms.tableHeaderRow]}>
+        {pad(header).map((cell, i) => (
+          <View key={i} style={ms.tableCell}>
+            <Text style={ms.tableHeaderText}><InlineLine text={cell} /></Text>
+          </View>
+        ))}
+      </View>
+      {rows.map((row, r) => (
+        <View key={r} style={ms.tableRow}>
+          {pad(row).map((cell, c) => (
+            <View key={c} style={ms.tableCell}>
+              <Text style={ms.tableCellText}><InlineLine text={cell} /></Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function MarkdownImage({ url, alt }: { url: string; alt: string }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,6 +232,19 @@ export const Markdown = memo(function Markdown({ content, style }: MarkdownProps
       continue;
     }
 
+    // GFM table: a header row followed by a delimiter row (|---|---|)
+    if (line.includes('|') && i + 1 < lines.length && isTableDelimiter(lines[i + 1]!)) {
+      const header = splitTableRow(line);
+      i += 2; // consume header + delimiter
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i]!.trim() !== '' && lines[i]!.includes('|')) {
+        rows.push(splitTableRow(lines[i]!));
+        i++;
+      }
+      elements.push(<MarkdownTable key={`tbl-${i}`} header={header} rows={rows} />);
+      continue;
+    }
+
     // Empty line
     if (line.trim() === '') {
       i++;
@@ -224,6 +279,12 @@ const ms = StyleSheet.create({
   bullet: { color: C.dim, fontSize: 12, lineHeight: 18 },
   listText: { flex: 1, color: C.muted, fontSize: 12, lineHeight: 18 },
   para: { color: C.muted, fontSize: 12, lineHeight: 18, marginTop: 2 },
+  table: { borderWidth: StyleSheet.hairlineWidth, borderColor: '#27272a', borderRadius: 6, marginVertical: 4, overflow: 'hidden' },
+  tableRow: { flexDirection: 'row' },
+  tableHeaderRow: { backgroundColor: '#18181b' },
+  tableCell: { flex: 1, paddingHorizontal: 6, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: '#27272a' },
+  tableHeaderText: { color: C.text, fontWeight: '700', fontSize: 11 },
+  tableCellText: { color: C.muted, fontSize: 11 },
   image: { width: '100%', borderRadius: 6, marginVertical: 4 } as any,
   imageLoader: { height: 80, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#18181b', borderRadius: 6, marginVertical: 4 },
   imageFail: { color: C.dim, fontSize: 10, marginVertical: 4 },
