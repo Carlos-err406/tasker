@@ -6,6 +6,7 @@ onlyBuiltDependencies:
   - eventkit-node
   - esbuild
   - electron
+  - libsql
 
 # Slow/flaky connection: download one package at a time with a long timeout.
 # Large native tarballs (op-sqlite ~40MB, expo-sqlite ~33MB) exceed the 60s
