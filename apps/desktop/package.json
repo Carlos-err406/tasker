@@ -21,6 +21,7 @@
     "@radix-ui/react-context-menu": "^2.2.16",
     "@supabase/supabase-js": "^2.99.3",
     "@tasker/core": "workspace:*",
+    "better-sqlite3": "npm:libsql@^0.5.22",
     "chokidar": "^4.0.0",
     "cmdk": "^1.1.1",
     "electron-traywindow-positioner": "^1.2.0",
