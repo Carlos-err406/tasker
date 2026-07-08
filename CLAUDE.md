@@ -107,6 +107,9 @@ To add a new component: `pnpm dlx shadcn@latest add <component>` from `apps/desk
 | `@dnd-kit/sortable` | desktop | Drag-and-drop reordering |
 | `chokidar` | desktop | DB file watcher |
 | `vite-plugin-electron` | desktop | Electron + Vite integration |
+| `@supabase/supabase-js` + `ws` | desktop + mobile | Supabase client / Realtime (cloud sync) |
+| `@powersync/react-native` | mobile | Local-first sync engine (mobile ⇄ Supabase) |
+| `expo-updates` | mobile | OTA self-update |
 
 ## Architecture Notes
 
@@ -119,6 +122,17 @@ Operations like `renameTask`, `setTaskDueDate`, `setTaskPriority` must NOT call 
 Main process (Node.js) → preload (contextBridge) → renderer services → React store (`useReducer`).
 
 Status changes use optimistic local updates (no `refresh()` call) to avoid re-sorting. Relationship status badges are updated locally in the `UPDATE_TASK_STATUS` reducer. Full `refresh()` happens on `popup:hidden` so re-sorting occurs while invisible.
+
+### Cloud sync (Supabase)
+All clients share one **Supabase Postgres** database (the 4 synced tables: `tasks`, `lists`, `task_dependencies`, `task_relations`). Config lives in each app's `.env` (gitignored) and is baked in at build time. `updated_at` is bumped by a Supabase `BEFORE INSERT/UPDATE` trigger (authoritative, ISO-8601) for last-write-wins.
+
+- **Mobile** (`apps/mobile`) syncs via **PowerSync** (its own local SQLite ⇄ Supabase). See [[mobile-app-powersync-state]] memory / `docs/plans/2026-03-20-*`.
+- **Desktop** (`apps/desktop/electron/sync/`) syncs its local `tasker.db` directly with Supabase — **no PowerSync** (the `@powersync/node` Electron crash blocked that). PUSH: SQLite triggers append writes to a local `sync_outbox`, drained to Supabase every ~2.5s. PULL: a Supabase Realtime `postgres_changes` subscription (needs a `ws` WebSocket + `realtime.setAuth()` on Node) applies remote changes and broadcasts `db:changed`. Loop guard via `sync_state.applying_remote`. Sync is a no-op under `TASKER_TEST_MODE=1`. Design: `docs/plans/2026-07-08-feat-desktop-supabase-sync-plan.md`. Smoke test: `apps/desktop/scripts/sync-smoke.mjs`.
+- The **CLI** shares `tasker.db` with desktop; its writes sync too (the outbox triggers persist in the DB file) whenever the desktop app is running.
+- Externalized **pure-JS** main-process deps (`@supabase/supabase-js`, `ws`) must be **bundled** by Vite (not externalized) — electron-builder doesn't collect pnpm-symlinked pure-JS deps into the package. Only native modules stay external.
+
+### Mobile builds & OTA (`apps/mobile`)
+EAS build (`eas.json`) + OTA self-update via `expo-updates` (auto-checks `u.expo.dev` on launch). CI (`.github/workflows/mobile.yml`, `EXPO_TOKEN` secret): push to `main` → OTA JS update; release tag `v*` → APK build. `preview` profile outputs an installable APK.
 
 ## E2E Tests (Desktop)
 
