@@ -44,14 +44,17 @@ jobs:
 
   build-apk:
     name: Build APK
-    # Triggers an EAS CLOUD build (APK). `eas build --local` on the runner is blocked by
-    # EAS's internal pnpm install choking on the monorepo's build scripts, which we can't
-    # flag. The cloud build handles the monorepo + credentials; the eas-build-post-install
-    # hook builds @tasker/core. Since OTA (eas update) delivers JS changes, an APK rebuild
-    # is only needed for native changes, so the cloud queue is a rare, one-time cost.
-    # The finished APK is downloadable from the EAS build page (link printed in the log).
+    # Builds the APK ENTIRELY on the GitHub runner (Android SDK preinstalled) via
+    # `expo prebuild` + Gradle — no EAS cloud, no queue, no EAS-internal installer.
+    # Uploads the APK as a downloadable artifact. Release variant is debug-signed (Expo's
+    # default) so it installs via sideload. Env vars bake the (non-secret) Supabase creds
+    # into the JS bundle. @tasker/core is built first and used straight off the runner FS.
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/powersync-sync'
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_POWERSYNC_URL: https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com
+      EXPO_PUBLIC_SUPABASE_URL: https://pwiyqxspyoxcbcwdjbxz.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -59,14 +62,21 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      # node_modules must exist so `eas build` can analyze the project (resolve the
-      # expo-router config plugin + compute the fingerprint) before submitting to the cloud.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
       - run: pnpm install --filter "@tasker/mobile..." --ignore-scripts --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-      - name: Trigger EAS cloud build (APK)
+      - name: Prebuild Android project
         working-directory: apps/mobile
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        run: npx expo prebuild --platform android --no-install
+      - name: Assemble release APK (Gradle)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasker-android-apk
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
