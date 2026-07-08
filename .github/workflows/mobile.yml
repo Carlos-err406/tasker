@@ -26,7 +26,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --no-frozen-lockfile
+      # Scope to mobile + its workspace deps (core) — avoids installing desktop-only
+      # native deps (electron/eventkit-node) whose build scripts pnpm 11 refuses to run in CI.
+      - run: pnpm install --filter "@tasker/mobile..." --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
@@ -54,7 +56,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: pnpm install --no-frozen-lockfile
+      # Scope to mobile + its workspace deps (core) — avoids installing desktop-only
+      # native deps (electron/eventkit-node) whose build scripts pnpm 11 refuses to run in CI.
+      - run: pnpm install --filter "@tasker/mobile..." --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
