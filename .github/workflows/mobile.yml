@@ -11,6 +11,8 @@ on:
       - 'apps/mobile/**'
       - 'packages/core/**'
       - '.github/workflows/mobile.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
 
 jobs:
   ota-update:
