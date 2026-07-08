@@ -7,7 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tasker",
     "userInterfaceStyle": "automatic",
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/a9be7cad-183f-466c-aff7-ea77af0a8d0f",
       "fallbackToCacheTimeout": 0
@@ -38,7 +40,9 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "@journeyapps/react-native-quick-sqlite"
+      "@journeyapps/react-native-quick-sqlite",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
