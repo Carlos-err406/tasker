@@ -29,11 +29,10 @@ jobs:
       # Scope to mobile + its workspace deps (core) — avoids installing desktop-only
       # native deps (electron/eventkit-node) whose build scripts pnpm 11 refuses to run in CI.
       - name: Install (mobile scope)
-        # CI=false: GitHub sets CI=true, which makes pnpm 11 hard-error on ignored build
-        # scripts (esbuild etc., not needed for the Metro bundle). Downgrade to a warning.
-        run: pnpm install --filter "@tasker/mobile..." --no-frozen-lockfile
-        env:
-          CI: 'false'
+        # --ignore-scripts: dependency build scripts (esbuild etc.) aren't needed for the
+        # Metro bundle, and pnpm 11 hard-errors on ignored ones in CI. Core's own build runs
+        # next (and again inside the EAS build via the eas-build-post-install hook).
+        run: pnpm install --filter "@tasker/mobile..." --ignore-scripts --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
@@ -64,11 +63,10 @@ jobs:
       # Scope to mobile + its workspace deps (core) — avoids installing desktop-only
       # native deps (electron/eventkit-node) whose build scripts pnpm 11 refuses to run in CI.
       - name: Install (mobile scope)
-        # CI=false: GitHub sets CI=true, which makes pnpm 11 hard-error on ignored build
-        # scripts (esbuild etc., not needed for the Metro bundle). Downgrade to a warning.
-        run: pnpm install --filter "@tasker/mobile..." --no-frozen-lockfile
-        env:
-          CI: 'false'
+        # --ignore-scripts: dependency build scripts (esbuild etc.) aren't needed for the
+        # Metro bundle, and pnpm 11 hard-errors on ignored ones in CI. Core's own build runs
+        # next (and again inside the EAS build via the eas-build-post-install hook).
+        run: pnpm install --filter "@tasker/mobile..." --ignore-scripts --no-frozen-lockfile
       - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
