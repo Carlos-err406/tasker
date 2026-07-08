@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS lists (
     name TEXT PRIMARY KEY,
     is_collapsed INTEGER DEFAULT 0,
     hide_completed INTEGER DEFAULT 0,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "tasks" (
@@ -37,7 +38,8 @@ CREATE TABLE IF NOT EXISTS "tasks" (
     is_trashed INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
     completed_at TEXT,
-    parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE
+    parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+    updated_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_list_name ON tasks(list_name);

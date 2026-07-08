@@ -1,0 +1,4 @@
+# local env files (secrets/creds baked at build time)
+.env
+.env.*
+!.env.example

@@ -893,6 +893,7 @@ export function getBlockedBy(db: TaskerDb, taskId: TaskId): Task[] {
     id: tasks.id, description: tasks.description, status: tasks.status, createdAt: tasks.createdAt,
     listName: tasks.listName, dueDate: tasks.dueDate, priority: tasks.priority, tags: tasks.tags,
     isTrashed: tasks.isTrashed, sortOrder: tasks.sortOrder, completedAt: tasks.completedAt, parentId: tasks.parentId,
+    updatedAt: tasks.updatedAt,
   }).from(tasks)
     .innerJoin(taskDependencies, eq(taskDependencies.taskId, tasks.id))
     .where(and(eq(taskDependencies.blocksTaskId, taskId), eq(tasks.isTrashed, 0)))
@@ -906,6 +907,7 @@ export function getBlocks(db: TaskerDb, taskId: TaskId): Task[] {
     id: tasks.id, description: tasks.description, status: tasks.status, createdAt: tasks.createdAt,
     listName: tasks.listName, dueDate: tasks.dueDate, priority: tasks.priority, tags: tasks.tags,
     isTrashed: tasks.isTrashed, sortOrder: tasks.sortOrder, completedAt: tasks.completedAt, parentId: tasks.parentId,
+    updatedAt: tasks.updatedAt,
   }).from(tasks)
     .innerJoin(taskDependencies, eq(taskDependencies.blocksTaskId, tasks.id))
     .where(and(eq(taskDependencies.taskId, taskId), eq(tasks.isTrashed, 0)))

@@ -9,6 +9,8 @@ import { startReminderSync, stopReminderSync } from './lib/reminder-sync/index.j
 import { startDueDateNotifier, stopDueDateNotifier } from './lib/due-date-notifier.js';
 import { migrateJsonSettings } from './lib/migrate-json-settings.js';
 import { initLogCapture } from './lib/log-buffer.js';
+import { startSupabaseSync, stopSupabaseSync } from './sync/supabase-sync.js';
+import { syncEnabled } from './sync/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -110,6 +112,13 @@ app.whenReady().then(() => {
     startDueDateNotifier(db, {
       onNotificationClick: (searchQuery) => openPopupWithSearch(searchQuery),
     });
+
+    // Start cloud sync with Supabase (no-op if credentials are absent)
+    if (syncEnabled()) {
+      startSupabaseSync(db, getPopupWindow).catch((err) =>
+        console.error('[tasker-desktop] sync failed to start:', err),
+      );
+    }
   }
 });
 
@@ -121,4 +130,5 @@ app.on('before-quit', () => {
   stopDbWatcher();
   stopReminderSync();
   stopDueDateNotifier();
+  stopSupabaseSync();
 });

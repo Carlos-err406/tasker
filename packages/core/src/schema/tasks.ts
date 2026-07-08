@@ -24,6 +24,8 @@ export const tasks = sqliteTable('tasks', {
   parentId: text('parent_id').references((): any => tasks.id, {
     onDelete: 'cascade',
   }),
+  /** ISO timestamp of the last write; maintained by the desktop sync layer for last-write-wins. */
+  updatedAt: text('updated_at'),
 }, (table) => [
   index('idx_tasks_list_name').on(table.listName),
   index('idx_tasks_is_trashed').on(table.isTrashed),
