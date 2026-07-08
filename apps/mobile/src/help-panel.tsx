@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Animated, Dimensions, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Undo2, Redo2, ChevronsDownUp, ArrowUpDown, Plus, Info, Hand, CheckSquare, Trash2, ArrowDown, Eye, ChevronDown, Calendar, Hash, CircleSlash, CircleCheck, CircleDot, Circle, Minus } from 'lucide-react-native';
+import * as Updates from 'expo-updates';
 
 const C = { bg: '#09090b', card: '#18181b', border: '#27272a', text: '#fafafa', muted: '#71717a', dim: '#52525b', mono: '#a1a1aa', blue: '#3b82f6', green: '#4ade80', amber: '#fbbf24' };
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -34,6 +35,52 @@ function CodeRow({ code, desc }: { code: string; desc: string }) {
       <Text style={s.codeLabel}>{code}</Text>
       <Text style={s.rowDesc}>{desc}</Text>
     </View>
+  );
+}
+
+function UpdateInfo() {
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const version = Updates.runtimeVersion ?? '—';
+  const source = Updates.isEmbeddedLaunch ? 'embedded (APK)' : 'OTA update';
+  const updateId = Updates.updateId ? Updates.updateId.slice(0, 8) : '—';
+  const created = Updates.createdAt ? Updates.createdAt.toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '—';
+
+  const check = async () => {
+    setBusy(true);
+    setStatus('Checking…');
+    try {
+      const res = await Updates.checkForUpdateAsync();
+      if (res.isAvailable) {
+        setStatus('Downloading…');
+        await Updates.fetchUpdateAsync();
+        setStatus('Restarting…');
+        await Updates.reloadAsync();
+      } else {
+        setStatus('Up to date ✓');
+      }
+    } catch (e: any) {
+      setStatus('Failed: ' + (e?.message ?? 'error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="Version">
+      <Row label="App version" desc={version} />
+      <Row label="Running" desc={`${source} · ${updateId}`} />
+      <Row label="Published" desc={created} />
+      {Updates.isEnabled ? (
+        <Pressable onPress={check} disabled={busy} style={({ pressed }) => [s.updateBtn, (pressed || busy) && { opacity: 0.6 }]}>
+          <Text style={s.updateBtnText}>{busy ? 'Working…' : 'Check for updates'}</Text>
+        </Pressable>
+      ) : (
+        <Text style={s.updateStatus}>Updates disabled (dev build)</Text>
+      )}
+      {status && <Text style={s.updateStatus}>{status}</Text>}
+    </Section>
   );
 }
 
@@ -174,6 +221,8 @@ export function HelpPanel({ visible, onClose }: { visible: boolean; onClose: () 
                 Tasks support inline metadata, subtask hierarchies, blocking dependencies, and related task links.
               </Text>
             </Section>
+
+            <UpdateInfo />
           </ScrollView>
         </Animated.View>
       </View>
@@ -197,4 +246,7 @@ const s = StyleSheet.create({
   rowDesc: { flex: 1, fontSize: 12, color: C.muted },
   codeLabel: { width: 140, fontSize: 12, color: C.mono, fontFamily: 'monospace' },
   aboutText: { fontSize: 12, color: C.dim, lineHeight: 18 },
+  updateBtn: { marginTop: 12, backgroundColor: C.card, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  updateBtnText: { fontSize: 13, color: C.blue, fontWeight: '600' },
+  updateStatus: { fontSize: 12, color: C.muted, marginTop: 8, textAlign: 'center' },
 });
