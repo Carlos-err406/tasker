@@ -40,7 +40,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Publish OTA update
         working-directory: apps/mobile
-        run: eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
+        # --platform android only: the web bundle (static render) breaks on @powersync/react-native,
+        # and web isn't a target. Default --platform=all would include it and fail.
+        run: eas update --branch preview --platform android --message "${{ github.event.head_commit.message }}" --non-interactive
 
   build-apk:
     name: Build APK
