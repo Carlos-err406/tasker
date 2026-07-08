@@ -71,6 +71,8 @@ jobs:
       - name: Prebuild Android project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --no-install
+      - name: Raise Gradle JVM memory (Expo default caps Metaspace at 512m → OOM)
+        run: printf '\norg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=2g\n' >> apps/mobile/android/gradle.properties
       - name: Assemble release APK (Gradle)
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease --no-daemon
