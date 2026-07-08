@@ -54,6 +54,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # node_modules must exist so `eas build` can analyze the project (resolve the
+      # expo-router config plugin + compute the fingerprint) before submitting to the cloud.
+      - run: pnpm install --filter "@tasker/mobile..." --ignore-scripts --no-frozen-lockfile
+      - run: pnpm --filter @tasker/core run build
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
