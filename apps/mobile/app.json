@@ -7,6 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tasker",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": { "policy": "appVersion" },
+    "updates": {
+      "url": "https://u.expo.dev/a9be7cad-183f-466c-aff7-ea77af0a8d0f",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -37,6 +42,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a9be7cad-183f-466c-aff7-ea77af0a8d0f"
+      }
+    },
+    "owner": "carlosd.vilaseca"
   }
 }

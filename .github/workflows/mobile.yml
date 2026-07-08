@@ -1,0 +1,55 @@
+name: Mobile (Android)
+
+# OTA JS updates on every push to main (installed APKs self-update on next launch),
+# and a fresh APK build on release tags (needed when native code changes).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/core/**'
+      - '.github/workflows/mobile.yml'
+
+jobs:
+  ota-update:
+    name: OTA update (JS)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter @tasker/core run build
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish OTA update
+        working-directory: apps/mobile
+        run: eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
+
+  build-apk:
+    name: Build APK
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter @tasker/core run build
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Build Android APK (EAS cloud)
+        working-directory: apps/mobile
+        run: eas build --platform android --profile preview --non-interactive --no-wait
