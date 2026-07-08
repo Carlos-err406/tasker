@@ -75,9 +75,22 @@ jobs:
         run: npx expo prebuild --platform android --no-install
       - name: Raise Gradle JVM memory (Expo default caps Metaspace at 512m → OOM)
         run: printf '\norg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=2g\n' >> apps/mobile/android/gradle.properties
-      - name: Assemble release APK (Gradle)
+      - name: Decode release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      - name: Assemble release APK (Gradle, signed with stable keystore)
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+        env:
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        # android.injected.signing.* overrides the generated build.gradle signingConfig so the
+        # release APK is signed with our stable keystore → future builds install over cleanly.
+        run: |
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.keystore" \
+            -Pandroid.injected.signing.store.password="$KS_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
