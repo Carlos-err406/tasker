@@ -35,6 +35,20 @@ function resolveImageSrc(src: string | undefined): string | undefined {
   return src;
 }
 
+function resolveMediaSrc(src: string | undefined): string | undefined {
+  return resolveImageSrc(src);
+}
+
+function isVideoUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url, "https://tasker.local");
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(parsed.pathname);
+  } catch {
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)(?:[?#].*)?$/i.test(url);
+  }
+}
+
 function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   const resolvedSrc = resolveImageSrc(src);
   const [loading, setLoading] = useState(true);
@@ -93,6 +107,36 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   );
 }
 
+function VideoPreviewWithContextMenu({ href, label }: { href: string; label?: string }) {
+  const resolvedSrc = resolveMediaSrc(href);
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
+          <video
+            src={resolvedSrc}
+            controls
+            preload="metadata"
+            data-testid="markdown-video-preview"
+            aria-label={label || "Video preview"}
+            onClick={(e) => e.stopPropagation()}
+            className="block max-w-full max-h-64 rounded border border-border bg-black"
+          />
+        </span>
+      </ContextMenuTrigger>
+      <ContextMenuContent collisionPadding={8}>
+        <ContextMenuItem onSelect={() => openExternal(href)}>
+          Open video
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => navigator.clipboard.writeText(href)}>
+          Copy video URL
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
 async function createPngBlob(blob: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -103,6 +147,10 @@ async function createPngBlob(blob: Blob): Promise<Blob> {
 
 function LinkWithContextMenu({ href, children }: { href?: string; children?: ReactNode }) {
   const textContent = getTextContent(children);
+
+  if (href && isVideoUrl(href)) {
+    return <VideoPreviewWithContextMenu href={href} label={textContent} />;
+  }
 
   return (
     <ContextMenu>

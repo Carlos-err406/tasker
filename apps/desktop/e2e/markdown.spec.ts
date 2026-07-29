@@ -27,6 +27,28 @@ test.describe('Markdown', () => {
     await expect(link).toHaveAttribute('href', 'https://example.com');
   });
 
+  test('renders direct video links as inline previews', async ({ page }) => {
+    await addTask(page, 'Title\nWatch [clip](https://example.com/demo.mp4?token=abc)');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    const video = taskItem.locator('[data-testid="markdown-video-preview"]');
+
+    await expect(video).toBeVisible();
+    await expect(video).toHaveAttribute('controls', '');
+    await expect(video).toHaveAttribute('src', 'https://example.com/demo.mp4?token=abc');
+    await expect(taskItem.locator('a')).toHaveCount(0);
+  });
+
+  test('renders bare video urls as inline previews', async ({ page }) => {
+    await addTask(page, 'Title\nhttps://example.com/demo.webm');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    const video = taskItem.locator('[data-testid="markdown-video-preview"]');
+
+    await expect(video).toBeVisible();
+    await expect(video).toHaveAttribute('src', 'https://example.com/demo.webm');
+  });
+
   test('renders nested list with non-breaking space indentation', async ({ page }) => {
     // Simulate task with \u00A0 (non-breaking space) indentation — common from C# import
     await addTask(page, 'Title\n- [ ] playlist\n\u00A0 - [ ] downloads\n\u00A0 - [ ] shares');
