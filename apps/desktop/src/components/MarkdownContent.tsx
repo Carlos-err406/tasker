@@ -5,7 +5,7 @@ import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 /** Minimal hast Element shape for accessing AST position info. */
 interface HastElement { position?: { start: { line: number } } }
-import { CheckSquare, Square, Loader2, Copy, Check } from "lucide-react";
+import { CheckSquare, Square, Loader2, Copy, Check, Play } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -49,7 +49,12 @@ function isVideoUrl(url: string | undefined): boolean {
   }
 }
 
-function getYouTubeEmbedUrl(url: string | undefined): string | null {
+interface YouTubePreviewData {
+  videoId: string;
+  thumbnailUrl: string;
+}
+
+function getYouTubePreviewData(url: string | undefined): YouTubePreviewData | null {
   if (!url) return null;
 
   try {
@@ -69,7 +74,10 @@ function getYouTubeEmbedUrl(url: string | undefined): string | null {
     }
 
     if (!videoId || !/^[\w-]{6,}$/.test(videoId)) return null;
-    return `https://www.youtube.com/embed/${videoId}`;
+    return {
+      videoId,
+      thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    };
   } catch {
     return null;
   }
@@ -135,42 +143,119 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
 
 function DirectVideoPreview({ href, label }: { href: string; label?: string }) {
   const resolvedSrc = resolveMediaSrc(href);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   return (
-    <video
-      src={resolvedSrc}
-      controls
-      preload="metadata"
+    <span
       data-testid="markdown-video-preview"
-      aria-label={label || "Video preview"}
-      onClick={(e) => e.stopPropagation()}
-      className="block max-w-full max-h-64 rounded border border-border bg-black"
-    />
+      className="relative block max-w-full overflow-hidden rounded border border-border bg-black"
+    >
+      {loading && !error && (
+        <span
+          data-testid="markdown-video-loading"
+          className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-black/70 text-[11px] text-muted-foreground"
+        >
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading video...
+        </span>
+      )}
+      {error && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openExternal(href);
+          }}
+          className="flex min-h-28 w-full flex-col items-center justify-center gap-1 bg-muted/40 px-3 py-4 text-center text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          <span>Could not load video preview</span>
+          <span className="underline">Open video</span>
+        </button>
+      )}
+      {!error && (
+        <video
+          src={resolvedSrc}
+          controls
+          preload="metadata"
+          aria-label={label || "Video preview"}
+          onLoadedMetadata={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="block max-h-64 max-w-full bg-black"
+        />
+      )}
+    </span>
   );
 }
 
-function YouTubePreview({ embedUrl, label }: { embedUrl: string; label?: string }) {
+function YouTubePreview({ href, preview, label }: { href: string; preview: YouTubePreviewData; label?: string }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
   return (
-    <iframe
-      src={embedUrl}
-      title={label || "YouTube video preview"}
+    <button
+      type="button"
       data-testid="markdown-video-preview"
-      loading="lazy"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      onClick={(e) => e.stopPropagation()}
-      className="block w-full max-w-full aspect-video rounded border border-border bg-black"
-    />
+      aria-label={label ? `Open ${label} on YouTube` : "Open video on YouTube"}
+      onClick={(e) => {
+        e.stopPropagation();
+        openExternal(href);
+      }}
+      className="group relative block aspect-video w-full max-w-full overflow-hidden rounded border border-border bg-muted/40 text-left"
+    >
+      {loading && !error && (
+        <span
+          data-testid="markdown-video-loading"
+          className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-[11px] text-muted-foreground"
+        >
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading YouTube preview...
+        </span>
+      )}
+      {error ? (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-3 text-center text-[11px] text-muted-foreground group-hover:text-foreground">
+          <Play className="size-7 rounded-full border border-muted-foreground/50 p-1.5" />
+          <span>Preview unavailable</span>
+          <span className="underline">Open on YouTube</span>
+        </span>
+      ) : (
+        <img
+          src={preview.thumbnailUrl}
+          alt=""
+          data-testid="markdown-video-thumbnail"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+          className={`h-full w-full object-cover transition-opacity ${loading ? "opacity-0" : "opacity-80 group-hover:opacity-100"}`}
+        />
+      )}
+      {!error && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <span className="flex size-11 items-center justify-center rounded-full bg-black/70 text-white shadow">
+            <Play className="ml-0.5 size-5 fill-current" />
+          </span>
+        </span>
+      )}
+      <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5 text-[11px] font-medium text-white">
+        Open on YouTube
+      </span>
+    </button>
   );
 }
 
-function VideoPreviewWithContextMenu({ href, label, embedUrl }: { href: string; label?: string; embedUrl?: string }) {
+function VideoPreviewWithContextMenu({ href, label, youtubePreview }: { href: string; label?: string; youtubePreview?: YouTubePreviewData }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
-          {embedUrl
-            ? <YouTubePreview embedUrl={embedUrl} label={label} />
+          {youtubePreview
+            ? <YouTubePreview href={href} preview={youtubePreview} label={label} />
             : <DirectVideoPreview href={href} label={label} />}
         </span>
       </ContextMenuTrigger>
@@ -196,10 +281,10 @@ async function createPngBlob(blob: Blob): Promise<Blob> {
 
 function LinkWithContextMenu({ href, children }: { href?: string; children?: ReactNode }) {
   const textContent = getTextContent(children);
-  const youtubeEmbedUrl = getYouTubeEmbedUrl(href);
+  const youtubePreview = getYouTubePreviewData(href);
 
-  if (href && (isVideoUrl(href) || youtubeEmbedUrl)) {
-    return <VideoPreviewWithContextMenu href={href} label={textContent} embedUrl={youtubeEmbedUrl ?? undefined} />;
+  if (href && (isVideoUrl(href) || youtubePreview)) {
+    return <VideoPreviewWithContextMenu href={href} label={textContent} youtubePreview={youtubePreview ?? undefined} />;
   }
 
   return (

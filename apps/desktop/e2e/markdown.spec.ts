@@ -31,9 +31,10 @@ test.describe('Markdown', () => {
     await addTask(page, 'Title\nWatch [clip](https://example.com/demo.mp4?token=abc)');
 
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
-    const video = taskItem.locator('[data-testid="markdown-video-preview"]');
+    const preview = taskItem.locator('[data-testid="markdown-video-preview"]');
+    const video = preview.locator('video');
 
-    await expect(video).toBeVisible();
+    await expect(preview).toBeVisible();
     await expect(video).toHaveAttribute('controls', '');
     await expect(video).toHaveAttribute('src', 'https://example.com/demo.mp4?token=abc');
     await expect(taskItem.locator('a')).toHaveCount(0);
@@ -43,9 +44,10 @@ test.describe('Markdown', () => {
     await addTask(page, 'Title\nhttps://example.com/demo.webm');
 
     const taskItem = page.locator('[data-testid^="task-item-"]').first();
-    const video = taskItem.locator('[data-testid="markdown-video-preview"]');
+    const preview = taskItem.locator('[data-testid="markdown-video-preview"]');
+    const video = preview.locator('video');
 
-    await expect(video).toBeVisible();
+    await expect(preview).toBeVisible();
     await expect(video).toHaveAttribute('src', 'https://example.com/demo.webm');
   });
 
@@ -56,7 +58,9 @@ test.describe('Markdown', () => {
     const preview = taskItem.locator('[data-testid="markdown-video-preview"]');
 
     await expect(preview).toBeVisible();
-    await expect(preview).toHaveAttribute('src', 'https://www.youtube.com/embed/wc9PJn3JLX0');
+    await expect(preview).toHaveText(/Open on YouTube/);
+    await expect(taskItem.locator('[data-testid="markdown-video-thumbnail"]')).toHaveAttribute('src', 'https://i.ytimg.com/vi/wc9PJn3JLX0/hqdefault.jpg');
+    await expect(taskItem.locator('iframe')).toHaveCount(0);
     await expect(taskItem.locator('a')).toHaveCount(0);
   });
 
