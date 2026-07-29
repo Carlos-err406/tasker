@@ -4,6 +4,7 @@ import { getPublicPath } from './config.js';
 import { createPopupWindow, VISIBLE_WIDTH } from './window.js';
 import { getSettings, updateSettings } from './reminder-sync/index.js';
 import { getSettings as getDueDateSettings, setEnabled as setDueDateEnabled } from './due-date-notifier.js';
+import { getLaunchAtLoginState, setLaunchAtLogin } from './login-item.js';
 
 let tray: Tray | null = null;
 let popup: BrowserWindow | null = null;
@@ -20,9 +21,30 @@ export function createTray(db?: import('@tasker/core').TaskerDb): Tray {
   tray.on('right-click', () => {
     const reminderSettings = getSettings(dbRef!);
     const dueDateSettings = getDueDateSettings(dbRef!);
+    const launchAtLogin = getLaunchAtLoginState();
     const contextMenu = Menu.buildFromTemplate([
       { label: 'Open', click: () => togglePopup() },
       { type: 'separator' },
+      {
+        label: 'Launch at Login',
+        type: 'checkbox',
+        enabled: launchAtLogin.supported,
+        checked: launchAtLogin.openAtLogin,
+        click: (menuItem) => {
+          const state = setLaunchAtLogin(menuItem.checked);
+          if (state.requiresApproval) {
+            new Notification({
+              title: 'Tasker Launch at Login',
+              body: 'Allow Tasker in System Settings > General > Login Items to finish enabling it.',
+            }).show();
+          } else {
+            new Notification({
+              title: 'Tasker Launch at Login',
+              body: state.openAtLogin ? 'Enabled' : 'Disabled',
+            }).show();
+          }
+        },
+      },
       {
         label: 'Reminder Sync',
         type: 'checkbox',
