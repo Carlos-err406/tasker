@@ -579,20 +579,42 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
   const oldParsed = parseDescription(task.description);
   const newParsed = parseDescription(trimmed);
 
+  const hasNewMetadata = newParsed.lastLineIsMetadataOnly;
   // Preserve existing due date if the date marker text hasn't changed
-  const newDueDate = (newParsed.dueDateRaw === oldParsed.dueDateRaw) ? task.dueDate : newParsed.dueDate;
+  const newDueDate = hasNewMetadata
+    ? (newParsed.dueDateRaw === oldParsed.dueDateRaw ? task.dueDate : newParsed.dueDate)
+    : task.dueDate;
+  const newPriority = hasNewMetadata ? newParsed.priority : task.priority;
+  const newTags = hasNewMetadata ? (newParsed.tags.length > 0 ? newParsed.tags : null) : task.tags;
+  const newParentId = hasNewMetadata ? newParsed.parentId : task.parentId;
+  const newBlocksIds = hasNewMetadata ? newParsed.blocksIds : oldParsed.blocksIds;
+  const newSubtaskIds = hasNewMetadata ? newParsed.hasSubtaskIds : oldParsed.hasSubtaskIds;
+  const newBlockedByIds = hasNewMetadata ? newParsed.blockedByIds : oldParsed.blockedByIds;
+  const newRelatedIds = hasNewMetadata ? newParsed.relatedIds : oldParsed.relatedIds;
+
+  const syncedDescription = syncMetadataToDescription(
+    trimmed,
+    newPriority,
+    newDueDate,
+    newTags,
+    newParentId,
+    newBlocksIds,
+    newSubtaskIds,
+    newBlockedByIds,
+    newRelatedIds,
+  );
 
   let renamedTask: Task = {
     ...task,
-    description: trimmed,
-    priority: newParsed.priority,
+    description: syncedDescription,
+    priority: newPriority,
     dueDate: newDueDate,
-    tags: newParsed.tags.length > 0 ? newParsed.tags : null,
-    parentId: newParsed.lastLineIsMetadataOnly ? newParsed.parentId : task.parentId,
+    tags: newTags,
+    parentId: newParentId,
   };
 
   // Validate new parent
-  if (newParsed.lastLineIsMetadataOnly && newParsed.parentId) {
+  if (hasNewMetadata && newParsed.parentId) {
     const parent = getTaskById(db, newParsed.parentId);
     if (!parent || parent.id === taskId) {
       renamedTask = { ...renamedTask, parentId: null };
@@ -645,7 +667,7 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
     }
   }
 
-  if (newParsed.lastLineIsMetadataOnly) {
+  if (hasNewMetadata) {
     // Sync blocking relationships
     const currentBlocksIds = getBlocksIds(db, taskId);
     syncBlockingRelationships(db, taskId, currentBlocksIds, newParsed.blocksIds);
@@ -1419,4 +1441,3 @@ function syncRelatedRelationships(db: TaskerDb, taskId: TaskId, oldIds: string[]
     }
   }
 }
-

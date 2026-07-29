@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestDb, type TaskerDb } from '../../src/db.js';
+import type { TaskerDb } from '../../src/db.js';
+import { createTestDb } from '../../src/db-node.js';
 import {
   addTask,
   getTaskById,
@@ -158,6 +159,32 @@ describe('renameTask', () => {
     const updated = getTaskById(db, task.id)!;
     expect(updated.priority).toBe(Priority.High);
     expect(updated.tags).toContain('urgent');
+  });
+
+  it('preserves existing metadata on plain rename', () => {
+    const { task } = addTask(db, 'task', 'tasks');
+    setTaskPriority(db, task.id, Priority.High);
+    setTaskDueDate(db, task.id, '2026-02-09');
+
+    renameTask(db, task.id, 'renamed task');
+
+    const updated = getTaskById(db, task.id)!;
+    expect(updated.description).toBe('renamed task\np1 @2026-02-09');
+    expect(updated.priority).toBe(Priority.High);
+    expect(updated.dueDate).toBe('2026-02-09');
+  });
+
+  it('preserves related markers and tags on plain rename', () => {
+    const { task: a } = addTask(db, 'first', 'tasks');
+    const { task: b } = addTask(db, 'second', 'tasks');
+    renameTask(db, a.id, `first\n~${b.id} #movie`);
+
+    renameTask(db, a.id, 'first renamed');
+
+    const updated = getTaskById(db, a.id)!;
+    expect(updated.description).toBe(`first renamed\n~${b.id} #movie`);
+    expect(updated.tags).toEqual(['movie']);
+    expect(getRelatedIds(db, a.id)).toContain(b.id);
   });
 
   it('preserves sort_order on rename (no bump to top)', () => {
