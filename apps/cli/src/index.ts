@@ -27,6 +27,13 @@ import { createBackupCommand } from './commands/backup.js';
 import { createDepsCommand } from './commands/deps.js';
 import { createWontDoCommand } from './commands/wontdo.js';
 
+const CLI_VERSION = '3.13.0';
+
+if (process.argv.includes('--version') || process.argv.includes('-V')) {
+  console.log(CLI_VERSION);
+  process.exit(0);
+}
+
 // Initialize database
 const dbPath = getDefaultDbPath();
 const db = createDb(dbPath);
@@ -40,7 +47,7 @@ const backup = new BackupManager(backupDir, db);
 const program = new Command()
   .name('tasker')
   .description('Lightweight task manager')
-  .version('3.0.0')
+  .version(CLI_VERSION)
   .option('-l, --list <name>', 'Filter to a specific list')
   .option('-a, --all', 'Show all lists (disable auto-detection)');
 
