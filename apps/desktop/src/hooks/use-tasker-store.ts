@@ -157,8 +157,11 @@ export function useTaskerStore() {
     }, 3000);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (overrides?: { searchQuery?: string; filterList?: string | null }) => {
     try {
+      const searchQuery = overrides?.searchQuery ?? state.searchQuery;
+      const filterList = overrides && 'filterList' in overrides ? overrides.filterList : state.filterList;
+
       const [lists, defaultList] = await Promise.all([
         listService.getAllLists(),
         listService.getDefaultList(),
@@ -187,12 +190,12 @@ export function useTaskerStore() {
       dispatch({ type: 'SET_HIDE_COMPLETED_MAP', map: hideCompletedMap });
 
       // Load tasks
-      let tasks = state.searchQuery
-        ? await taskService.searchTasks(state.searchQuery)
-        : await taskService.getAllTasks(state.filterList ?? undefined);
+      let tasks = searchQuery
+        ? await taskService.searchTasks(searchQuery)
+        : await taskService.getAllTasks(filterList ?? undefined);
 
       // Reset filter if the filtered list is now empty
-      if (tasks.length === 0 && state.filterList && !state.searchQuery) {
+      if (tasks.length === 0 && filterList && !searchQuery) {
         dispatch({ type: 'SET_FILTER_LIST', list: null });
         tasks = await taskService.getAllTasks();
       }
@@ -335,12 +338,17 @@ export function useTaskerStore() {
       try {
         await taskService.deleteTask(taskId, cascade);
         showStatus('Deleted');
-        await refresh();
+        if (state.filterList && !state.searchQuery) {
+          dispatch({ type: 'SET_FILTER_LIST', list: null });
+          await refresh({ filterList: null });
+        } else {
+          await refresh();
+        }
       } catch (err) {
         showStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [refresh, showStatus],
+    [refresh, showStatus, state.filterList, state.searchQuery],
   );
 
   const moveTaskAction = useCallback(

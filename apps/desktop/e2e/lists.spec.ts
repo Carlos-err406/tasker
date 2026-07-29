@@ -114,6 +114,34 @@ test.describe('Lists', () => {
     await expect(page.locator('[data-testid^="task-name-"]').first()).toHaveText('Default task');
   });
 
+  test('reset list filter when deleting a task in a non-empty filtered list', async ({ page }) => {
+    await page.locator('[data-testid="new-list-button"]').click();
+    const listInput = page.locator('input[placeholder="List name..."]');
+    await listInput.fill('work');
+    await listInput.press('Enter');
+
+    await addTask(page, 'First work task', 'work');
+    await addTask(page, 'Second work task', 'work');
+    await addTask(page, 'Default task', 'tasks');
+
+    await page.locator('[data-testid="filter-dropdown-toggle"]').click();
+    await page.locator('[data-testid="filter-option-work"]').click();
+
+    await expect(page.locator('[data-testid="filter-dropdown-toggle"]')).toHaveText(/work/);
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
+
+    const taskItem = page.locator('[data-testid^="task-item-"]', { hasText: 'First work task' });
+    await taskItem.click({ button: 'right' });
+    const menu = page.locator('[role="menu"]');
+    await menu.waitFor({ state: 'visible' });
+    await menu.getByRole('menuitem', { name: 'Delete' }).dispatchEvent('click');
+
+    await expect(page.locator('[data-testid="filter-dropdown-toggle"]')).toHaveText(/All Lists/);
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
+    await expect(page.getByText('Second work task')).toBeVisible();
+    await expect(page.getByText('Default task')).toBeVisible();
+  });
+
   test('hide and show completed tasks', async ({ page }) => {
     await addTask(page, 'Pending task');
     await addTask(page, 'Done task');
