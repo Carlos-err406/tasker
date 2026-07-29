@@ -49,12 +49,10 @@ export default function App() {
   const [creatingList, setCreatingList] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [decomposeTaskId, setDecomposeTaskId] = useState<string | null>(null);
   const [summaryParams, setSummaryParams] = useState<{ listName: string; timeRange: string } | null>(null);
   const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [activeType, setActiveType] = useState<'task' | 'list' | null>(null);
   const dragOverlay = useDragOverlayClone();
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
@@ -232,12 +230,8 @@ export default function App() {
     document.body.classList.add('is-dragging');
     const pointerY = (event.activatorEvent as PointerEvent).clientY;
     if (id.startsWith('list::')) {
-      setActiveId(id);
-      setActiveType('list');
       dragOverlay.showClone(id.slice(6), 'list', pointerY);
     } else {
-      setActiveId(id);
-      setActiveType('task');
       dragOverlay.showClone(id, 'task', pointerY);
     }
   }, [dragOverlay]);
@@ -247,8 +241,6 @@ export default function App() {
       const { active, over } = event;
       document.body.classList.remove('is-dragging');
       dragOverlay.hideClone();
-      setActiveId(null);
-      setActiveType(null);
 
       if (!over || active.id === over.id) return;
 
@@ -282,8 +274,6 @@ export default function App() {
   const handleDragCancel = useCallback(() => {
     document.body.classList.remove('is-dragging');
     dragOverlay.hideClone();
-    setActiveId(null);
-    setActiveType(null);
   }, [dragOverlay]);
 
   // Filter dropdown
@@ -618,4 +608,3 @@ export default function App() {
     </TooltipProvider>
   );
 }
-

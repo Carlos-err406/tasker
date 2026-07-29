@@ -93,13 +93,11 @@ export function useDragOverlayClone() {
     document.body.appendChild(wrapper);
     cloneRef.current = wrapper;
 
-    // Use pointerrawupdate for lowest-latency input (fires at hardware rate),
-    // fall back to pointermove for browsers that don't support it.
-    if ('onpointerrawupdate' in window) {
-      window.addEventListener('pointerrawupdate' as any, onPointerUpdate.current, { passive: true });
-    } else {
-      window.addEventListener('pointermove', onPointerUpdate.current, { passive: true });
-    }
+    // Use pointerrawupdate for lowest-latency input when available, while
+    // keeping the listener typed as pointermove for TypeScript DOM libs that
+    // do not expose pointerrawupdate yet.
+    const pointerEventName = ('onpointerrawupdate' in globalThis ? 'pointerrawupdate' : 'pointermove') as 'pointermove';
+    window.addEventListener(pointerEventName, onPointerUpdate.current, { passive: true });
   }, []);
 
   const hideClone = useCallback(() => {

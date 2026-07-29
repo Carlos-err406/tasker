@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Task } from '@tasker/core/types';
 import { parseTaskDescription, syncMetadataToDescription } from '@tasker/core/parsers';
 import { addTask } from '@/lib/services/tasks.js';
-import { cn } from '@/lib/utils.js';
 import { MarkdownContent } from '@/components/MarkdownContent.js';
 import { Button } from '@/components/ui/button.js';
 import { Textarea } from '@/components/ui/textarea.js';

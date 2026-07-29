@@ -124,7 +124,6 @@ export function showPopup(): void {
   // Reposition relative to tray
   if (tray) {
     const trayBounds = tray.getBounds();
-    const popupBounds = popup.getBounds();
     let x = Math.round(
       trayBounds.x + trayBounds.width / 2 - VISIBLE_WIDTH / 2,
     );

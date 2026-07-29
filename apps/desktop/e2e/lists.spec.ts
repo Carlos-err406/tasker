@@ -38,6 +38,31 @@ test.describe('Lists', () => {
     ).toHaveText('Work task');
   });
 
+  test('rename a list from the list menu', async ({ page }) => {
+    await page.locator('[data-testid="new-list-button"]').click();
+    const listInput = page.locator('input[placeholder="List name..."]');
+    await listInput.fill('work');
+    await listInput.press('Enter');
+
+    const header = page.locator('[data-testid="list-header-work"]');
+    await header.locator('button', { has: page.locator('svg.lucide-ellipsis') }).click();
+
+    const menu = page.locator('[role="menu"]');
+    await menu.waitFor({ state: 'visible' });
+    await menu.getByRole('menuitem', { name: 'Rename' }).click();
+
+    const nameInput = page.locator('[data-testid="list-name-input-work"]');
+    await expect(nameInput).toBeVisible();
+    await expect(nameInput).toBeFocused();
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.type('projects');
+    await page.keyboard.press('Enter');
+
+    await expect(page.locator('[data-testid="list-section-projects"]')).toBeVisible();
+    await expect(page.locator('[data-testid="list-section-work"]')).toHaveCount(0);
+  });
+
   test('collapse and expand a list', async ({ page }) => {
     await addTask(page, 'Visible task');
 

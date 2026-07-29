@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
-import { ArrowLeft, Circle, CircleDot, CircleCheck, ChevronsUp, ChevronUp, ChevronDown, Minus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Circle, CircleDot, CircleCheck, CircleSlash, ChevronsUp, ChevronUp, ChevronDown, Minus, Sparkles, Trash2 } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -96,6 +96,7 @@ const STATUS_ICONS: Record<TaskStatus, ReactElement> = {
   [TaskStatus.Pending]: <Circle className="h-3 w-3 text-muted-foreground" />,
   [TaskStatus.InProgress]: <CircleDot className="h-3 w-3 text-amber-400" />,
   [TaskStatus.Done]: <CircleCheck className="h-3 w-3 text-green-400" />,
+  [TaskStatus.WontDo]: <CircleSlash className="h-3 w-3 text-zinc-400" />,
 };
 
 // ---- Component ----

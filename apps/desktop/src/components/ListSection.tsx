@@ -85,6 +85,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
   const addInputRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const focusNameInputRef = useRef(false);
 
   // Sync lmAvailable when the parent re-checks availability (e.g. on popup shown)
   useEffect(() => {
@@ -181,9 +182,19 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
 
   const startEditName = () => {
     setNameValue(listName);
+    focusNameInputRef.current = true;
     setEditingName(true);
-    setTimeout(() => nameInputRef.current?.focus(), 50);
   };
+
+  useEffect(() => {
+    if (!editingName || !focusNameInputRef.current) return;
+
+    requestAnimationFrame(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+      focusNameInputRef.current = false;
+    });
+  }, [editingName]);
 
   const submitNameEdit = () => {
     const trimmed = nameValue.trim();
@@ -210,6 +221,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
           {editingName ? (
             <Input
               ref={nameInputRef}
+              data-testid={`list-name-input-${listName}`}
               value={nameValue}
               onChange={(e) => setNameValue(e.target.value)}
               onKeyDown={(e) => {
@@ -217,6 +229,9 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 if (e.key === 'Enter') submitNameEdit();
                 if (e.key === 'Escape') setEditingName(false);
               }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               onBlur={submitNameEdit}
               className="h-auto bg-background py-0 text-sm"
             />
@@ -260,7 +275,14 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 <Ellipsis className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="end" collisionPadding={8}>
+            <DropdownMenuContent
+              side="bottom"
+              align="end"
+              collisionPadding={8}
+              onCloseAutoFocus={(event) => {
+                if (focusNameInputRef.current) event.preventDefault();
+              }}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="block">

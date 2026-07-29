@@ -72,7 +72,7 @@ export async function applySystemSort(listName?: string): Promise<number> {
   return unwrap(IPC['tasks:applySystemSort'](listName));
 }
 
-export async function softDeleteByStatus(status: number, listName?: string): Promise<number> {
+export async function softDeleteByStatus(status: TaskStatus, listName?: string): Promise<number> {
   return unwrap(IPC['tasks:softDeleteByStatus'](status, listName));
 }
 
