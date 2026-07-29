@@ -64,6 +64,19 @@ test.describe('Markdown', () => {
     await expect(taskItem.locator('a')).toHaveCount(0);
   });
 
+  test('hides split trailing relationship metadata', async ({ page }) => {
+    await addTask(page, 'Related target');
+    const targetItem = page.locator('[data-testid^="task-item-"]').first();
+    const targetTestId = await targetItem.getAttribute('data-testid');
+    const targetId = targetTestId!.replace('task-item-', '');
+
+    await addTask(page, `Leap!\n\nhttps://example.com/demo.webm\n\n~${targetId}\n#movie`);
+
+    const leapItem = page.locator('[data-testid^="task-item-"]', { hasText: 'Leap!' });
+    await expect(leapItem).toBeVisible();
+    await expect(leapItem).not.toContainText(`~${targetId}`);
+  });
+
   test('renders nested list with non-breaking space indentation', async ({ page }) => {
     // Simulate task with \u00A0 (non-breaking space) indentation — common from C# import
     await addTask(page, 'Title\n- [ ] playlist\n\u00A0 - [ ] downloads\n\u00A0 - [ ] shares');

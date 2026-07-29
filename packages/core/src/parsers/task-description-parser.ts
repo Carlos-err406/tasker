@@ -1,6 +1,6 @@
 /**
  * Parses inline metadata from task descriptions.
- * Only parses the LAST LINE if it contains ONLY metadata markers.
+ * Parses trailing lines if they contain ONLY metadata markers.
  * Keeps original text intact (does not strip markers).
  * Supports: p1/p2/p3 (priority), @date (due date), #tag (tags),
  * ^abc (parent), !abc (blocks), -^abc (has subtask), -!abc (blocked by), ~abc (related)
@@ -67,9 +67,31 @@ function stripMetadata(line: string): string {
   return s;
 }
 
+function trailingMetadataRange(lines: string[]): { start: number; end: number; text: string } | null {
+  let end = lines.length - 1;
+  while (end >= 0 && lines[end]!.trim() === '') end--;
+  if (end < 0) return null;
+
+  let start = end;
+  while (start >= 0) {
+    const line = lines[start]!;
+    if (line.trim() === '' || stripMetadata(line).trim() !== '') break;
+    start--;
+  }
+
+  start += 1;
+  if (start > end) return null;
+
+  return {
+    start,
+    end,
+    text: lines.slice(start, end + 1).join(' '),
+  };
+}
+
 /**
- * Parse a task description, extracting metadata from the last line
- * if it contains only metadata markers.
+ * Parse a task description, extracting metadata from trailing lines
+ * if they contain only metadata markers.
  */
 export function parse(input: string, now?: Date): ParsedTask {
   if (!input.trim()) {
@@ -89,12 +111,10 @@ export function parse(input: string, now?: Date): ParsedTask {
   }
 
   const lines = input.split('\n');
-  const lastLine = lines[lines.length - 1]!;
+  const metadataRange = trailingMetadataRange(lines);
+  const metadataText = metadataRange?.text ?? '';
 
-  // Check if last line is metadata-only
-  const isMetadataOnly = stripMetadata(lastLine).trim() === '';
-
-  if (!isMetadataOnly) {
+  if (!metadataRange) {
     return {
       description: input,
       priority: null,
@@ -112,7 +132,7 @@ export function parse(input: string, now?: Date): ParsedTask {
 
   // Extract priority
   let priority: Priority | null = null;
-  const priorityMatch = PRIORITY_RE.exec(lastLine);
+  const priorityMatch = PRIORITY_RE.exec(metadataText);
   if (priorityMatch) {
     switch (priorityMatch[1]) {
       case '1': priority = P.High; break;
@@ -124,30 +144,30 @@ export function parse(input: string, now?: Date): ParsedTask {
   // Extract due date
   let dueDate: string | null = null;
   let dueDateRaw: string | null = null;
-  const dueDateMatch = DUE_DATE_RE.exec(lastLine);
+  const dueDateMatch = DUE_DATE_RE.exec(metadataText);
   if (dueDateMatch) {
     dueDateRaw = dueDateMatch[1]!;
     dueDate = parseDate(dueDateRaw, now);
   }
 
   // Extract tags
-  const tags = allMatches(TAG_RE, lastLine);
+  const tags = allMatches(TAG_RE, metadataText);
 
   // Extract parent reference (single)
-  const parentMatch = PARENT_REF_RE.exec(lastLine);
+  const parentMatch = PARENT_REF_RE.exec(metadataText);
   const parentId = parentMatch ? parentMatch[1]! : null;
 
   // Extract blocking references (multiple)
-  const blocksIds = allMatches(BLOCKS_REF_RE, lastLine);
+  const blocksIds = allMatches(BLOCKS_REF_RE, metadataText);
 
   // Extract inverse parent references (multiple)
-  const hasSubtaskIds = allMatches(INV_PARENT_RE, lastLine);
+  const hasSubtaskIds = allMatches(INV_PARENT_RE, metadataText);
 
   // Extract inverse blocker references (multiple)
-  const blockedByIds = allMatches(INV_BLOCKER_RE, lastLine);
+  const blockedByIds = allMatches(INV_BLOCKER_RE, metadataText);
 
   // Extract related references (multiple)
-  const relatedIds = allMatches(RELATED_REF_RE, lastLine);
+  const relatedIds = allMatches(RELATED_REF_RE, metadataText);
 
   return {
     description: input,
@@ -165,7 +185,7 @@ export function parse(input: string, now?: Date): ParsedTask {
 }
 
 /**
- * Gets the description for display purposes (hides metadata-only last line).
+ * Gets the description for display purposes (hides trailing metadata-only lines).
  * Single-line descriptions that are only metadata are still shown (otherwise task would be empty).
  */
 export function getDisplayDescription(description: string): string {
@@ -178,11 +198,10 @@ export function getDisplayDescription(description: string): string {
     return description;
   }
 
-  // Multi-line - check if last line is metadata-only
-  const lastLine = lines[lines.length - 1]!;
-  if (stripMetadata(lastLine).trim() === '') {
-    // Last line is metadata-only, exclude it
-    return lines.slice(0, -1).join('\n').trimEnd();
+  // Multi-line - check if trailing lines are metadata-only
+  const metadataRange = trailingMetadataRange(lines);
+  if (metadataRange) {
+    return lines.slice(0, metadataRange.start).join('\n').trimEnd();
   }
 
   return description.trimEnd();
@@ -205,8 +224,7 @@ export function syncMetadataToDescription(
   relatedIds?: string[] | null,
 ): string {
   const lines = description.split('\n');
-  const lastLine = lines[lines.length - 1]!;
-  const hasMetadataLine = stripMetadata(lastLine).trim() === '';
+  const metadataRange = trailingMetadataRange(lines);
 
   // Build the new metadata line (deduplicate IDs to prevent corruption from undo replays)
   const unique = (ids: string[]) => [...new Set(ids)];
@@ -228,12 +246,12 @@ export function syncMetadataToDescription(
 
   const newMetaLine = parts.join(' ');
 
-  if (hasMetadataLine) {
+  if (metadataRange) {
     if (!newMetaLine) {
-      // Remove the metadata line entirely
-      lines.pop();
+      // Remove the metadata block entirely
+      lines.splice(metadataRange.start, metadataRange.end - metadataRange.start + 1);
     } else {
-      lines[lines.length - 1] = newMetaLine;
+      lines.splice(metadataRange.start, metadataRange.end - metadataRange.start + 1, newMetaLine);
     }
   } else if (newMetaLine) {
     lines.push(newMetaLine);

@@ -206,6 +206,13 @@ describe('parse', () => {
     expect(result.priority).toBe(Priority.High);
     expect(result.tags).toContain('tag');
   });
+
+  it('extracts metadata split across multiple trailing lines', () => {
+    const result = parse('build API\n\nnotes\n\n~abc\n#tag', NOW);
+    expect(result.relatedIds).toEqual(['abc']);
+    expect(result.tags).toEqual(['tag']);
+    expect(result.lastLineIsMetadataOnly).toBe(true);
+  });
 });
 
 describe('getDisplayDescription', () => {
@@ -231,6 +238,10 @@ describe('getDisplayDescription', () => {
 
   it('hides related tokens', () => {
     expect(getDisplayDescription('My task\n~abc ~def')).toBe('My task');
+  });
+
+  it('hides trailing metadata split across multiple lines', () => {
+    expect(getDisplayDescription('My task\n\nhttps://example.com\n\n~abc\n#movie')).toBe('My task\n\nhttps://example.com');
   });
 
   it('hides all marker types', () => {
@@ -289,6 +300,12 @@ describe('syncMetadataToDescription', () => {
     expect(
       syncMetadataToDescription('task', null, null, null, null, null, null, null, ['abc', 'def']),
     ).toBe('task\n~abc ~def');
+  });
+
+  it('updates metadata split across multiple trailing lines', () => {
+    expect(
+      syncMetadataToDescription('task\n~abc\n#movie', null, null, ['movie'], null, null, null, null, ['abc', 'def']),
+    ).toBe('task\n~abc ~def #movie');
   });
 
   it('produces correct order for related + other metadata', () => {
