@@ -49,6 +49,17 @@ test.describe('Markdown', () => {
     await expect(video).toHaveAttribute('src', 'https://example.com/demo.webm');
   });
 
+  test('renders YouTube Shorts urls as inline previews', async ({ page }) => {
+    await addTask(page, 'Title\nhttps://www.youtube.com/shorts/wc9PJn3JLX0?feature=share');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    const preview = taskItem.locator('[data-testid="markdown-video-preview"]');
+
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute('src', 'https://www.youtube.com/embed/wc9PJn3JLX0');
+    await expect(taskItem.locator('a')).toHaveCount(0);
+  });
+
   test('renders nested list with non-breaking space indentation', async ({ page }) => {
     // Simulate task with \u00A0 (non-breaking space) indentation — common from C# import
     await addTask(page, 'Title\n- [ ] playlist\n\u00A0 - [ ] downloads\n\u00A0 - [ ] shares');

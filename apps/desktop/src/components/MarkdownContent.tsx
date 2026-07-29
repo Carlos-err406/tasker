@@ -49,6 +49,32 @@ function isVideoUrl(url: string | undefined): boolean {
   }
 }
 
+function getYouTubeEmbedUrl(url: string | undefined): string | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, "");
+    let videoId: string | null = null;
+
+    if (hostname === "youtu.be") {
+      videoId = parsed.pathname.split("/").filter(Boolean)[0] ?? null;
+    } else if (hostname === "youtube.com" || hostname === "m.youtube.com") {
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      if (parts[0] === "shorts" || parts[0] === "embed") {
+        videoId = parts[1] ?? null;
+      } else if (parsed.pathname === "/watch") {
+        videoId = parsed.searchParams.get("v");
+      }
+    }
+
+    if (!videoId || !/^[\w-]{6,}$/.test(videoId)) return null;
+    return `https://www.youtube.com/embed/${videoId}`;
+  } catch {
+    return null;
+  }
+}
+
 function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   const resolvedSrc = resolveImageSrc(src);
   const [loading, setLoading] = useState(true);
@@ -107,22 +133,45 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   );
 }
 
-function VideoPreviewWithContextMenu({ href, label }: { href: string; label?: string }) {
+function DirectVideoPreview({ href, label }: { href: string; label?: string }) {
   const resolvedSrc = resolveMediaSrc(href);
 
+  return (
+    <video
+      src={resolvedSrc}
+      controls
+      preload="metadata"
+      data-testid="markdown-video-preview"
+      aria-label={label || "Video preview"}
+      onClick={(e) => e.stopPropagation()}
+      className="block max-w-full max-h-64 rounded border border-border bg-black"
+    />
+  );
+}
+
+function YouTubePreview({ embedUrl, label }: { embedUrl: string; label?: string }) {
+  return (
+    <iframe
+      src={embedUrl}
+      title={label || "YouTube video preview"}
+      data-testid="markdown-video-preview"
+      loading="lazy"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      onClick={(e) => e.stopPropagation()}
+      className="block w-full max-w-full aspect-video rounded border border-border bg-black"
+    />
+  );
+}
+
+function VideoPreviewWithContextMenu({ href, label, embedUrl }: { href: string; label?: string; embedUrl?: string }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
-          <video
-            src={resolvedSrc}
-            controls
-            preload="metadata"
-            data-testid="markdown-video-preview"
-            aria-label={label || "Video preview"}
-            onClick={(e) => e.stopPropagation()}
-            className="block max-w-full max-h-64 rounded border border-border bg-black"
-          />
+          {embedUrl
+            ? <YouTubePreview embedUrl={embedUrl} label={label} />
+            : <DirectVideoPreview href={href} label={label} />}
         </span>
       </ContextMenuTrigger>
       <ContextMenuContent collisionPadding={8}>
@@ -147,9 +196,10 @@ async function createPngBlob(blob: Blob): Promise<Blob> {
 
 function LinkWithContextMenu({ href, children }: { href?: string; children?: ReactNode }) {
   const textContent = getTextContent(children);
+  const youtubeEmbedUrl = getYouTubeEmbedUrl(href);
 
-  if (href && isVideoUrl(href)) {
-    return <VideoPreviewWithContextMenu href={href} label={textContent} />;
+  if (href && (isVideoUrl(href) || youtubeEmbedUrl)) {
+    return <VideoPreviewWithContextMenu href={href} label={textContent} embedUrl={youtubeEmbedUrl ?? undefined} />;
   }
 
   return (
