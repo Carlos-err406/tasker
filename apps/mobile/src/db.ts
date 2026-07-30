@@ -22,31 +22,43 @@ export const powerSyncDb = new PowerSyncDatabase({
 });
 
 let initialized = false;
+let connectStarted = false;
 
 export async function initSync() {
-  if (initialized) return;
-  await powerSyncDb.init();
+  if (!initialized) {
+    await powerSyncDb.init();
 
-  // Create local-only tables (not synced by PowerSync)
-  await powerSyncDb.execute(`
-    CREATE TABLE IF NOT EXISTS config (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
-  await powerSyncDb.execute(`
-    CREATE TABLE IF NOT EXISTS undo_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      stack_type TEXT NOT NULL CHECK(stack_type IN ('undo', 'redo')),
-      command_json TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-  await powerSyncDb.execute(`
-    INSERT OR IGNORE INTO lists (id, name, sort_order) VALUES ('tasks', 'tasks', 0);
-  `);
+    // Create local-only tables (not synced by PowerSync)
+    await powerSyncDb.execute(`
+      CREATE TABLE IF NOT EXISTS config (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+    await powerSyncDb.execute(`
+      CREATE TABLE IF NOT EXISTS undo_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stack_type TEXT NOT NULL CHECK(stack_type IN ('undo', 'redo')),
+        command_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    await powerSyncDb.execute(`
+      INSERT OR IGNORE INTO lists (id, name, sort_order) VALUES ('tasks', 'tasks', 0);
+    `);
+
+    initialized = true;
+  }
+
+  if (connectStarted || powerSyncDb.currentStatus.connected || powerSyncDb.currentStatus.connecting) {
+    return;
+  }
+
+  connectStarted = true;
 
   const connector = new SupabaseConnector();
-  await powerSyncDb.connect(connector);
-  initialized = true;
+  void powerSyncDb.connect(connector).catch((err) => {
+    connectStarted = false;
+    console.warn('PowerSync connect error:', err instanceof Error ? err.message : String(err));
+  });
 }

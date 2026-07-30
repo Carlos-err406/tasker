@@ -109,6 +109,36 @@ function formatStatusValue(value: unknown): string {
   return String(value);
 }
 
+function getSyncEndpoint(): string {
+  const endpoint = process.env.EXPO_PUBLIC_POWERSYNC_URL;
+  if (!endpoint) return 'Missing';
+  return endpoint.replace(/^https?:\/\//, '');
+}
+
+function getLastSyncAge(lastSyncedAt: Date | string | undefined): string {
+  if (!lastSyncedAt) return 'never';
+  const lastSync = lastSyncedAt instanceof Date ? lastSyncedAt : new Date(lastSyncedAt);
+  const diffMs = Date.now() - lastSync.getTime();
+  if (!Number.isFinite(diffMs)) return 'unknown';
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60_000));
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 48) return `${diffHours}h ago`;
+  return `${Math.floor(diffHours / 24)}d ago`;
+}
+
+async function getUploadQueueCount(): Promise<string | number> {
+  const statsMethod = (powerSyncDb as any).getUploadQueueStats;
+  if (typeof statsMethod !== 'function') return 'unavailable';
+
+  try {
+    const stats = await statsMethod.call(powerSyncDb);
+    return stats?.count ?? '—';
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 function SyncInfo() {
   const [status, setStatus] = useState('Loading…');
   const [rows, setRows] = useState<Array<{ label: string; desc: string }>>([]);
@@ -119,23 +149,24 @@ function SyncInfo() {
       const [taskCounts, listCounts, uploadStats] = await Promise.all([
         powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total, SUM(CASE WHEN is_trashed = 0 THEN 1 ELSE 0 END) AS active FROM tasks'),
         powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total FROM lists'),
-        powerSyncDb.getUploadQueueStats().catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
+        getUploadQueueCount(),
       ]);
       const syncStatus = powerSyncDb.currentStatus;
       const dataFlow = syncStatus.dataFlowStatus;
       const downloadProgress = syncStatus.downloadProgress;
       const uploadError = dataFlow.uploadError?.message;
       const downloadError = dataFlow.downloadError?.message;
-      const uploadCount = 'error' in uploadStats ? uploadStats.error : uploadStats.count;
 
       const nextRows = [
+        { label: 'Endpoint', desc: getSyncEndpoint() },
         { label: 'Connected', desc: formatStatusValue(syncStatus.connected) },
         { label: 'Connecting', desc: formatStatusValue(syncStatus.connecting) },
         { label: 'Has synced', desc: formatStatusValue(syncStatus.hasSynced) },
         { label: 'Last sync', desc: formatStatusValue(syncStatus.lastSyncedAt) },
+        { label: 'Sync age', desc: getLastSyncAge(syncStatus.lastSyncedAt) },
         { label: 'Downloading', desc: formatStatusValue(dataFlow.downloading) },
         { label: 'Download rows', desc: downloadProgress ? `${downloadProgress.downloadedOperations}/${downloadProgress.totalOperations}` : '—' },
-        { label: 'Upload queue', desc: formatStatusValue(uploadCount) },
+        { label: 'Upload queue', desc: formatStatusValue(uploadStats) },
         { label: 'Tasks', desc: `${taskCounts?.active ?? 0} active / ${taskCounts?.total ?? 0} total` },
         { label: 'Lists', desc: formatStatusValue(listCounts?.total ?? 0) },
         { label: 'Download error', desc: downloadError ?? '—' },
