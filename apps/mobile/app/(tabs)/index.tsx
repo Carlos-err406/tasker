@@ -54,7 +54,7 @@ function getDescriptionPreview(task: Task): string | null {
   return rest.slice(start, end + 1).join('\n');
 }
 
-const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit }: { task: Task; onToggle: (id: string, s: number) => void; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
+const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit }: { task: Task; onToggle: (id: string, s: TaskStatus) => void; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
   const done = task.status === TaskStatus.Done;
   const wontDo = task.status === TaskStatus.WontDo;
   const inProg = task.status === TaskStatus.InProgress;
@@ -174,7 +174,7 @@ function InlineInput({ placeholder, onSubmit, onCancel, buttonLabel }: { placeho
   );
 }
 
-function ListSection({ listName, tasks, collapsed, hideCompleted, isDefault, onToggleCollapsed, onToggleHideCompleted, onToggleStatus, onDelete, onAdd, onDeleteList, onEdit }: { listName: string; tasks: Task[]; collapsed: boolean; hideCompleted: boolean; isDefault: boolean; onToggleCollapsed: () => void; onToggleHideCompleted: () => void; onToggleStatus: (id: string, s: number) => void; onDelete: (id: string) => void; onAdd: (desc: string, list: string) => void; onDeleteList: (name: string) => void; onEdit: (id: string) => void }) {
+function ListSection({ listName, tasks, collapsed, hideCompleted, isDefault, onToggleCollapsed, onToggleHideCompleted, onToggleStatus, onDelete, onAdd, onDeleteList, onEdit }: { listName: string; tasks: Task[]; collapsed: boolean; hideCompleted: boolean; isDefault: boolean; onToggleCollapsed: () => void; onToggleHideCompleted: () => void; onToggleStatus: (id: string, s: TaskStatus) => void; onDelete: (id: string) => void; onAdd: (desc: string, list: string) => void; onDeleteList: (name: string) => void; onEdit: (id: string) => void }) {
   const [adding, setAdding] = useState(false);
   const [confirmDeleteList, setConfirmDeleteList] = useState(false);
   const doneCount = tasks.filter(t => t.status === TaskStatus.Done || t.status === TaskStatus.WontDo).length;
@@ -282,10 +282,6 @@ export default function ListsScreen() {
         }}
         getItemType={(item) => item.type}
         keyExtractor={(item) => item.type === 'header' ? `h-${item.name}` : item.task.id}
-        estimatedItemSize={52}
-        overrideItemLayout={(layout, item) => {
-          layout.size = item.type === 'header' ? 44 : 52;
-        }}
         drawDistance={300}
         keyboardShouldPersistTaps="handled"
         refreshing={refreshing}

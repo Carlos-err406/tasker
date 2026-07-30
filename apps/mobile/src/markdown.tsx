@@ -4,7 +4,7 @@
  * [links](url), ```code blocks```, - [ ] checkboxes, # headings
  */
 
-import { memo, useState } from 'react';
+import { memo, useState, type ReactElement } from 'react';
 import { Text, View, Image, ActivityIndicator, StyleSheet, Linking } from 'react-native';
 
 const C = {
@@ -168,7 +168,7 @@ function MarkdownImage({ url, alt }: { url: string; alt: string }) {
 
 export const Markdown = memo(function Markdown({ content, style }: MarkdownProps) {
   const lines = content.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: ReactElement[] = [];
   let i = 0;
 
   while (i < lines.length) {
