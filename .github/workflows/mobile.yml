@@ -19,6 +19,10 @@ jobs:
     name: OTA update (JS)
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/powersync-sync'
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_POWERSYNC_URL: https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com
+      EXPO_PUBLIC_SUPABASE_URL: https://pwiyqxspyoxcbcwdjbxz.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

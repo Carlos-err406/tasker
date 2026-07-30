@@ -77,6 +77,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   client: SupabaseClient;
 
   constructor() {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !POWERSYNC_URL) {
+      throw new Error('Missing mobile sync configuration');
+    }
+
     this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 

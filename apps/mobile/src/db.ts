@@ -21,7 +21,6 @@ export const powerSyncDb = new PowerSyncDatabase({
     : { dbFilename: 'tasker-powersync.db' },
 });
 
-const connector = new SupabaseConnector();
 let initialized = false;
 
 export async function initSync() {
@@ -47,6 +46,7 @@ export async function initSync() {
     INSERT OR IGNORE INTO lists (id, name, sort_order) VALUES ('tasks', 'tasks', 0);
   `);
 
-  initialized = true;
+  const connector = new SupabaseConnector();
   await powerSyncDb.connect(connector);
+  initialized = true;
 }
