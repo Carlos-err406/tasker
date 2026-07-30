@@ -41,6 +41,7 @@ function CodeRow({ code, desc }: { code: string; desc: string }) {
 function UpdateInfo() {
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [restartReady, setRestartReady] = useState(false);
 
   const version = Updates.runtimeVersion ?? '—';
   const channel = Updates.channel ?? '—';
@@ -50,14 +51,15 @@ function UpdateInfo() {
 
   const check = async () => {
     setBusy(true);
+    setRestartReady(false);
     setStatus('Checking…');
     try {
       const res = await Updates.checkForUpdateAsync();
       if (res.isAvailable) {
         setStatus('Downloading…');
         await Updates.fetchUpdateAsync();
-        setStatus('Restarting…');
-        await Updates.reloadAsync();
+        setRestartReady(true);
+        setStatus('Update downloaded. Restart when ready.');
       } else {
         setStatus('Up to date ✓');
       }
@@ -68,6 +70,17 @@ function UpdateInfo() {
     }
   };
 
+  const restart = async () => {
+    setBusy(true);
+    setStatus('Restarting…');
+    setTimeout(() => {
+      void Updates.reloadAsync().catch((e: any) => {
+        setBusy(false);
+        setStatus('Restart failed: ' + (e?.message ?? 'error'));
+      });
+    }, 250);
+  };
+
   return (
     <Section title="Version">
       <Row label="App version" desc={version} />
@@ -75,8 +88,10 @@ function UpdateInfo() {
       <Row label="Running" desc={`${source} · ${updateId}`} />
       <Row label="Published" desc={created} />
       {Updates.isEnabled ? (
-        <Pressable onPress={check} disabled={busy} style={({ pressed }) => [s.updateBtn, (pressed || busy) && { opacity: 0.6 }]}>
-          <Text style={s.updateBtnText}>{busy ? 'Working…' : 'Check for updates'}</Text>
+        <Pressable onPress={restartReady ? restart : check} disabled={busy} style={({ pressed }) => [s.updateBtn, restartReady && s.restartBtn, (pressed || busy) && { opacity: 0.6 }]}>
+          <Text style={[s.updateBtnText, restartReady && s.restartBtnText]}>
+            {busy ? 'Working…' : restartReady ? 'Restart to update' : 'Check for updates'}
+          </Text>
         </Pressable>
       ) : (
         <Text style={s.updateStatus}>Updates disabled (dev build)</Text>
@@ -250,5 +265,7 @@ const s = StyleSheet.create({
   aboutText: { fontSize: 12, color: C.dim, lineHeight: 18 },
   updateBtn: { marginTop: 12, backgroundColor: C.card, borderWidth: StyleSheet.hairlineWidth, borderColor: C.border, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   updateBtnText: { fontSize: 13, color: C.blue, fontWeight: '600' },
+  restartBtn: { backgroundColor: C.blue, borderColor: C.blue },
+  restartBtnText: { color: C.text },
   updateStatus: { fontSize: 12, color: C.muted, marginTop: 8, textAlign: 'center' },
 });
