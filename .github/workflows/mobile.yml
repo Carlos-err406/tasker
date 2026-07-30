@@ -41,8 +41,8 @@ jobs:
       - name: Ensure preview update channel points to preview branch
         working-directory: apps/mobile
         run: |
-          eas channel:create preview --branch preview --non-interactive || \
-            eas channel:edit preview --branch preview --non-interactive
+          eas channel:create preview --non-interactive || true
+          eas channel:edit preview --branch preview --non-interactive
       - name: Publish OTA update
         working-directory: apps/mobile
         # --platform android only: the web bundle (static render) breaks on @powersync/react-native,
