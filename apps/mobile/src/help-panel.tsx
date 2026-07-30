@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Animated, Dimensions, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Undo2, Redo2, ChevronsDownUp, ArrowUpDown, Plus, Info, Hand, CheckSquare, Trash2, ArrowDown, Eye, ChevronDown, Calendar, Hash, CircleSlash, CircleCheck, CircleDot, Circle, Minus } from 'lucide-react-native';
 import * as Updates from 'expo-updates';
+import { powerSyncDb } from './db';
 
 const C = { bg: '#09090b', card: '#18181b', border: '#27272a', text: '#fafafa', muted: '#71717a', dim: '#52525b', mono: '#a1a1aa', blue: '#3b82f6', green: '#4ade80', amber: '#fbbf24' };
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -97,6 +98,73 @@ function UpdateInfo() {
         <Text style={s.updateStatus}>Updates disabled (dev build)</Text>
       )}
       {status && <Text style={s.updateStatus}>{status}</Text>}
+    </Section>
+  );
+}
+
+function formatStatusValue(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 19) + 'Z';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (value === undefined || value === null) return '—';
+  return String(value);
+}
+
+function SyncInfo() {
+  const [status, setStatus] = useState('Loading…');
+  const [rows, setRows] = useState<Array<{ label: string; desc: string }>>([]);
+
+  const refresh = useCallback(async () => {
+    setStatus('Checking…');
+    try {
+      const [taskCounts, listCounts, uploadStats] = await Promise.all([
+        powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total, SUM(CASE WHEN is_trashed = 0 THEN 1 ELSE 0 END) AS active FROM tasks'),
+        powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total FROM lists'),
+        powerSyncDb.getUploadQueueStats().catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
+      ]);
+      const syncStatus = powerSyncDb.currentStatus;
+      const dataFlow = syncStatus.dataFlowStatus;
+      const downloadProgress = syncStatus.downloadProgress;
+      const uploadError = dataFlow.uploadError?.message;
+      const downloadError = dataFlow.downloadError?.message;
+      const uploadCount = 'error' in uploadStats ? uploadStats.error : uploadStats.count;
+
+      const nextRows = [
+        { label: 'Connected', desc: formatStatusValue(syncStatus.connected) },
+        { label: 'Connecting', desc: formatStatusValue(syncStatus.connecting) },
+        { label: 'Has synced', desc: formatStatusValue(syncStatus.hasSynced) },
+        { label: 'Last sync', desc: formatStatusValue(syncStatus.lastSyncedAt) },
+        { label: 'Downloading', desc: formatStatusValue(dataFlow.downloading) },
+        { label: 'Download rows', desc: downloadProgress ? `${downloadProgress.downloadedOperations}/${downloadProgress.totalOperations}` : '—' },
+        { label: 'Upload queue', desc: formatStatusValue(uploadCount) },
+        { label: 'Tasks', desc: `${taskCounts?.active ?? 0} active / ${taskCounts?.total ?? 0} total` },
+        { label: 'Lists', desc: formatStatusValue(listCounts?.total ?? 0) },
+        { label: 'Download error', desc: downloadError ?? '—' },
+        { label: 'Upload error', desc: uploadError ?? '—' },
+      ];
+
+      console.info('[TaskerSync]', JSON.stringify(nextRows));
+      setRows(nextRows);
+      setStatus('Updated');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('[TaskerSync] diagnostics failed:', message);
+      setStatus('Failed: ' + message);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return (
+    <Section title="Sync">
+      {rows.map((row) => (
+        <Row key={row.label} label={row.label} desc={row.desc} />
+      ))}
+      <Pressable onPress={refresh} style={({ pressed }) => [s.updateBtn, pressed && { opacity: 0.6 }]}>
+        <Text style={s.updateBtnText}>Refresh sync status</Text>
+      </Pressable>
+      <Text style={s.updateStatus}>{status}</Text>
     </Section>
   );
 }
@@ -240,6 +308,7 @@ export function HelpPanel({ visible, onClose }: { visible: boolean; onClose: () 
             </Section>
 
             <UpdateInfo />
+            <SyncInfo />
           </ScrollView>
         </Animated.View>
       </View>
