@@ -15,6 +15,8 @@ import { powerSyncDb, initSync } from './db';
 
 interface ListMetadata { name: string; isCollapsed: boolean; hideCompleted: boolean; sortOrder: number; }
 
+const SYNCED_TABLES = ['tasks', 'lists', 'task_dependencies', 'task_relations'];
+
 /** Map a raw DB row to a Task object (column names → camelCase) */
 function rowToTask(r: any): Task {
   return {
@@ -127,7 +129,7 @@ async function dbAddTask(description: string, listName: string): Promise<Task> {
   return {
     id, description, status: TS.Pending, createdAt: now, listName,
     dueDate: parsed.dueDate ?? null, priority: parsed.priority ?? null,
-    tags: parsed.tags?.length ? JSON.stringify(parsed.tags) : null,
+    tags: parsed.tags?.length ? parsed.tags : null,
     isTrashed: 0, sortOrder, completedAt: null, parentId: parsed.parentId ?? null,
   };
 }
@@ -285,7 +287,7 @@ const initialState: StoreState = {
 
 export function useStore() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showStatus = useCallback((message: string) => {
     dispatch({ type: 'SET_STATUS_MESSAGE', message });
@@ -320,15 +322,54 @@ export function useStore() {
     }
   }, [state.searchQuery, showStatus]);
 
-  // On mount: initialize PowerSync, then refresh
+  // On mount: initialize PowerSync, render cached data, then keep the UI in step
+  // with rows downloaded by PowerSync after the initial connection.
   useEffect(() => {
+    let disposed = false;
+    let disposeChanges: (() => void) | undefined;
+    const firstSyncAbort = new AbortController();
+    const firstSyncTimeout = setTimeout(() => firstSyncAbort.abort(), 15_000);
+
     initSync()
-      .then(() => refresh())
+      .then(async () => {
+        if (disposed) return;
+
+        disposeChanges = powerSyncDb.onChange(
+          {
+            onChange: () => {
+              if (!disposed) void refresh();
+            },
+            onError: (error) => {
+              console.warn('PowerSync watch error:', error.message);
+            },
+          },
+          { tables: SYNCED_TABLES, throttleMs: 100 },
+        );
+
+        await refresh();
+
+        powerSyncDb.waitForFirstSync(firstSyncAbort.signal)
+          .then(() => {
+            if (!disposed) void refresh();
+          })
+          .catch((err) => {
+            if (!firstSyncAbort.signal.aborted) {
+              console.warn('PowerSync first sync error:', err instanceof Error ? err.message : String(err));
+            }
+          })
+          .finally(() => clearTimeout(firstSyncTimeout));
+      })
       .catch((err) => {
         console.warn('Sync init error:', err instanceof Error ? err.message : String(err));
         refresh();
       });
-  }, []);
+    return () => {
+      disposed = true;
+      firstSyncAbort.abort();
+      clearTimeout(firstSyncTimeout);
+      disposeChanges?.();
+    };
+  }, [refresh]);
 
   // Task operations
   const addTask = useCallback(
