@@ -43,6 +43,7 @@ function UpdateInfo() {
   const [busy, setBusy] = useState(false);
 
   const version = Updates.runtimeVersion ?? '—';
+  const channel = Updates.channel ?? '—';
   const source = Updates.isEmbeddedLaunch ? 'embedded (APK)' : 'OTA update';
   const updateId = Updates.updateId ? Updates.updateId.slice(0, 8) : '—';
   const created = Updates.createdAt ? Updates.createdAt.toISOString().slice(0, 16).replace('T', ' ') + 'Z' : '—';
@@ -70,6 +71,7 @@ function UpdateInfo() {
   return (
     <Section title="Version">
       <Row label="App version" desc={version} />
+      <Row label="Channel" desc={channel} />
       <Row label="Running" desc={`${source} · ${updateId}`} />
       <Row label="Published" desc={created} />
       {Updates.isEnabled ? (
