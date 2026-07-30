@@ -86,6 +86,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const addInputRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const focusNameInputRef = useRef(false);
+  const preventMenuAutoFocusRef = useRef(false);
 
   // Sync lmAvailable when the parent re-checks availability (e.g. on popup shown)
   useEffect(() => {
@@ -183,6 +184,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   const startEditName = () => {
     setNameValue(listName);
     focusNameInputRef.current = true;
+    preventMenuAutoFocusRef.current = true;
     setEditingName(true);
   };
 
@@ -280,7 +282,10 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
               align="end"
               collisionPadding={8}
               onCloseAutoFocus={(event) => {
-                if (focusNameInputRef.current) event.preventDefault();
+                if (preventMenuAutoFocusRef.current) {
+                  event.preventDefault();
+                  preventMenuAutoFocusRef.current = false;
+                }
               }}
             >
               <Tooltip>

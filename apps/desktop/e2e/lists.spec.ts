@@ -50,6 +50,7 @@ test.describe('Lists', () => {
     const menu = page.locator('[role="menu"]');
     await menu.waitFor({ state: 'visible' });
     await menu.getByRole('menuitem', { name: 'Rename' }).click();
+    await page.waitForTimeout(300);
 
     const nameInput = page.locator('[data-testid="list-name-input-work"]');
     await expect(nameInput).toBeVisible();
