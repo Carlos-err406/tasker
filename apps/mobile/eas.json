@@ -15,7 +15,6 @@
       "channel": "preview",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_POWERSYNC_URL": "https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com",
         "EXPO_PUBLIC_SUPABASE_URL": "https://pwiyqxspyoxcbcwdjbxz.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET"
       }
@@ -24,7 +23,6 @@
       "channel": "production",
       "android": { "buildType": "app-bundle" },
       "env": {
-        "EXPO_PUBLIC_POWERSYNC_URL": "https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com",
         "EXPO_PUBLIC_SUPABASE_URL": "https://pwiyqxspyoxcbcwdjbxz.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET"
       }

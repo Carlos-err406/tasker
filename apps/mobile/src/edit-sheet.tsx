@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Circle, CircleDot, CircleCheck, CircleSlash } from 'lucide-react-native';
 import { TaskStatus } from '@tasker/core/types';
 import { parseTaskDescription } from '@tasker/core/parsers';
-import { powerSyncDb } from './db';
+import { localDb } from './db';
 
 const C = { bg: '#09090b', card: '#18181b', border: '#27272a', text: '#fafafa', muted: '#71717a', dim: '#52525b', blue: '#3b82f6', green: '#4ade80', amber: '#fbbf24', zinc400: '#a1a1aa' };
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -37,7 +37,7 @@ export function EditSheet({ taskId, onClose, onRefresh }: EditSheetProps) {
   // Load task data when taskId changes
   useEffect(() => {
     if (!taskId) return;
-    powerSyncDb.getOptional<any>('SELECT * FROM tasks WHERE id = ?', [taskId]).then(t => {
+    localDb.getOptional<any>('SELECT * FROM tasks WHERE id = ?', [taskId]).then(t => {
       if (t) {
         setDesc(t.description);
         setOrigDesc(t.description);
@@ -67,7 +67,7 @@ export function EditSheet({ taskId, onClose, onRefresh }: EditSheetProps) {
       const v = desc.trim();
       if (v && v !== origDesc) {
         const parsed = parseTaskDescription(v);
-        powerSyncDb.execute(
+        localDb.execute(
           'UPDATE tasks SET description = ?, due_date = ?, priority = ?, tags = ? WHERE id = ?',
           [v, parsed.dueDate ?? null, parsed.priority ?? null, parsed.tags?.length ? JSON.stringify(parsed.tags) : null, taskId],
         );
@@ -106,7 +106,7 @@ export function EditSheet({ taskId, onClose, onRefresh }: EditSheetProps) {
   const changeStatus = (s: number) => {
     if (!taskId) return;
     const completedAt = (s === TaskStatus.Done || s === TaskStatus.WontDo) ? new Date().toISOString() : null;
-    powerSyncDb.execute('UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?', [s, completedAt, taskId]);
+    localDb.execute('UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?', [s, completedAt, taskId]);
     setCurrentStatus(s);
     onRefresh();
   };

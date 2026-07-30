@@ -12,7 +12,7 @@ import { ConfirmDialog } from '../../src/confirm-dialog';
 import { HelpPanel } from '../../src/help-panel';
 import { EditSheet } from '../../src/edit-sheet';
 import { SwipeAction } from '../../src/swipe-action';
-import { powerSyncDb } from '../../src/db';
+import { localDb } from '../../src/db';
 import { Markdown } from '../../src/markdown';
 
 const C = { bg: '#09090b', card: '#18181b', border: '#27272a', text: '#fafafa', muted: '#71717a', dim: '#52525b', green: '#4ade80', amber: '#fbbf24', red: '#ef4444', blue: '#3b82f6', orange: '#f97316', zinc400: '#a1a1aa' };
@@ -69,7 +69,7 @@ const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit }: { 
   useEffect(() => {
     if (refIds.length === 0) return;
     const placeholders = refIds.map(() => '?').join(',');
-    powerSyncDb.getAll<any>(`SELECT id, description, status FROM tasks WHERE id IN (${placeholders})`, refIds).then(rows => {
+    localDb.getAll<{ id: string; description: string; status: number }>(`SELECT id, description, status FROM tasks WHERE id IN (${placeholders})`, refIds).then((rows) => {
       const details: Record<string, { title: string; status: number }> = {};
       for (const r of rows) {
         details[r.id] = { title: getDisplayDescription(r.description).split('\n')[0]!, status: r.status };

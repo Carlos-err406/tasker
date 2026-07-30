@@ -5,7 +5,7 @@ name: Mobile (Android)
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/powersync-sync]
+    branches: [main]
     tags: ['v*']
     paths:
       - 'apps/mobile/**'
@@ -17,10 +17,9 @@ on:
 jobs:
   ota-update:
     name: OTA update (JS)
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/powersync-sync'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
-      EXPO_PUBLIC_POWERSYNC_URL: https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com
       EXPO_PUBLIC_SUPABASE_URL: https://pwiyqxspyoxcbcwdjbxz.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET
     steps:
@@ -49,8 +48,8 @@ jobs:
           eas channel:edit preview --branch preview --non-interactive
       - name: Publish OTA update
         working-directory: apps/mobile
-        # --platform android only: the web bundle (static render) breaks on @powersync/react-native,
-        # and web isn't a target. Default --platform=all would include it and fail.
+        # --platform android only: web isn't a target, and native mobile modules can
+        # break Metro's static web render.
         run: eas update --branch preview --platform android --message "${{ github.event.head_commit.message }}" --non-interactive
 
   build-apk:
@@ -60,10 +59,9 @@ jobs:
     # Uploads the APK as a downloadable artifact. Release variant is debug-signed (Expo's
     # default) so it installs via sideload. Env vars bake the (non-secret) Supabase creds
     # into the JS bundle. @tasker/core is built first and used straight off the runner FS.
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/powersync-sync'
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
-      EXPO_PUBLIC_POWERSYNC_URL: https://69bc1a54f2dc1cca3f5058f4.powersync.journeyapps.com
       EXPO_PUBLIC_SUPABASE_URL: https://pwiyqxspyoxcbcwdjbxz.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_lm3gHsZ1adKpolqLf25oGg_SgEI6hET
     steps:

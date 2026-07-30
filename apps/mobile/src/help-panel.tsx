@@ -3,7 +3,8 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Animated, Dimensi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Undo2, Redo2, ChevronsDownUp, ArrowUpDown, Plus, Info, Hand, CheckSquare, Trash2, ArrowDown, Eye, ChevronDown, Calendar, Hash, CircleSlash, CircleCheck, CircleDot, Circle, Minus } from 'lucide-react-native';
 import * as Updates from 'expo-updates';
-import { powerSyncDb } from './db';
+import { localDb } from './db';
+import { getCustomSyncStatus } from './custom-sync';
 
 const C = { bg: '#09090b', card: '#18181b', border: '#27272a', text: '#fafafa', muted: '#71717a', dim: '#52525b', mono: '#a1a1aa', blue: '#3b82f6', green: '#4ade80', amber: '#fbbf24' };
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -110,7 +111,7 @@ function formatStatusValue(value: unknown): string {
 }
 
 function getSyncEndpoint(): string {
-  const endpoint = process.env.EXPO_PUBLIC_POWERSYNC_URL;
+  const endpoint = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!endpoint) return 'Missing';
   return endpoint.replace(/^https?:\/\//, '');
 }
@@ -127,18 +128,6 @@ function getLastSyncAge(lastSyncedAt: Date | string | undefined): string {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
-async function getUploadQueueCount(): Promise<string | number> {
-  const statsMethod = (powerSyncDb as any).getUploadQueueStats;
-  if (typeof statsMethod !== 'function') return 'unavailable';
-
-  try {
-    const stats = await statsMethod.call(powerSyncDb);
-    return stats?.count ?? '—';
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-}
-
 function SyncInfo() {
   const [status, setStatus] = useState('Loading…');
   const [rows, setRows] = useState<Array<{ label: string; desc: string }>>([]);
@@ -146,31 +135,23 @@ function SyncInfo() {
   const refresh = useCallback(async () => {
     setStatus('Checking…');
     try {
-      const [taskCounts, listCounts, uploadStats] = await Promise.all([
-        powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total, SUM(CASE WHEN is_trashed = 0 THEN 1 ELSE 0 END) AS active FROM tasks'),
-        powerSyncDb.getOptional<any>('SELECT COUNT(*) AS total FROM lists'),
-        getUploadQueueCount(),
+      const [taskCounts, listCounts, syncStatus] = await Promise.all([
+        localDb.getOptional<any>('SELECT COUNT(*) AS total, SUM(CASE WHEN is_trashed = 0 THEN 1 ELSE 0 END) AS active FROM tasks'),
+        localDb.getOptional<any>('SELECT COUNT(*) AS total FROM lists'),
+        getCustomSyncStatus(),
       ]);
-      const syncStatus = powerSyncDb.currentStatus;
-      const dataFlow = syncStatus.dataFlowStatus;
-      const downloadProgress = syncStatus.downloadProgress;
-      const uploadError = dataFlow.uploadError?.message;
-      const downloadError = dataFlow.downloadError?.message;
 
       const nextRows = [
         { label: 'Endpoint', desc: getSyncEndpoint() },
         { label: 'Connected', desc: formatStatusValue(syncStatus.connected) },
         { label: 'Connecting', desc: formatStatusValue(syncStatus.connecting) },
-        { label: 'Has synced', desc: formatStatusValue(syncStatus.hasSynced) },
-        { label: 'Last sync', desc: formatStatusValue(syncStatus.lastSyncedAt) },
-        { label: 'Sync age', desc: getLastSyncAge(syncStatus.lastSyncedAt) },
-        { label: 'Downloading', desc: formatStatusValue(dataFlow.downloading) },
-        { label: 'Download rows', desc: downloadProgress ? `${downloadProgress.downloadedOperations}/${downloadProgress.totalOperations}` : '—' },
-        { label: 'Upload queue', desc: formatStatusValue(uploadStats) },
+        { label: 'Initialized', desc: formatStatusValue(syncStatus.initialized) },
+        { label: 'Last sync', desc: syncStatus.lastSyncAt ?? '—' },
+        { label: 'Sync age', desc: getLastSyncAge(syncStatus.lastSyncAt) },
+        { label: 'Upload queue', desc: formatStatusValue(syncStatus.uploadQueue) },
         { label: 'Tasks', desc: `${taskCounts?.active ?? 0} active / ${taskCounts?.total ?? 0} total` },
         { label: 'Lists', desc: formatStatusValue(listCounts?.total ?? 0) },
-        { label: 'Download error', desc: downloadError ?? '—' },
-        { label: 'Upload error', desc: uploadError ?? '—' },
+        { label: 'Last error', desc: syncStatus.lastError ?? '—' },
       ];
 
       console.info('[TaskerSync]', JSON.stringify(nextRows));

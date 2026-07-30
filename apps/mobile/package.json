@@ -10,12 +10,6 @@
     "eas-build-post-install": "pnpm --filter @tasker/core run build"
   },
   "dependencies": {
-    "@journeyapps/react-native-quick-sqlite": "^2.5.1",
-    "@op-engineering/op-sqlite": "^15.2.7",
-    "@powersync/adapter-sql-js": "^0.0.16",
-    "@powersync/drizzle-driver": "^0.7.3",
-    "@powersync/op-sqlite": "^0.9.3",
-    "@powersync/react-native": "^1.32.0",
     "@react-navigation/native": "^7.1.33",
     "@shopify/flash-list": "^2.0.2",
     "@supabase/supabase-js": "^2.99.3",

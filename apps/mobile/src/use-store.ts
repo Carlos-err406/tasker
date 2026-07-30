@@ -1,7 +1,7 @@
 /**
  * Central task store for the mobile app.
- * Uses PowerSync's async raw SQL for all database operations.
- * PowerSync handles sync with Supabase Postgres automatically.
+ * Uses local SQLite for all database operations. Supabase sync runs in the
+ * background so the UI remains offline-first.
  */
 
 import { useCallback, useEffect, useReducer, useRef } from 'react';
@@ -9,13 +9,12 @@ import type { Task, TaskStatus } from '@tasker/core/types';
 import { TaskStatus as TS } from '@tasker/core/types';
 import { generateId } from '@tasker/core/queries';
 import { parseTaskDescription, getDisplayDescription } from '@tasker/core/parsers';
-import { powerSyncDb, initSync } from './db';
+import { initSync, localDb } from './db';
+import { startCustomSync, stopCustomSync } from './custom-sync';
 
 // ─── Types & Helpers ────────────────────────────────────────────────────────
 
 interface ListMetadata { name: string; isCollapsed: boolean; hideCompleted: boolean; sortOrder: number; }
-
-const SYNCED_TABLES = ['tasks', 'lists', 'task_dependencies', 'task_relations'];
 
 /** Map a raw DB row to a Task object (column names → camelCase) */
 function rowToTask(r: any): Task {
@@ -35,17 +34,17 @@ function rowToTask(r: any): Task {
   };
 }
 
-// ─── Async DB operations (PowerSync raw SQL) ────────────────────────────────
+// ─── Async DB operations (local SQLite raw SQL) ─────────────────────────────
 
 async function dbGetAllTasks(): Promise<Task[]> {
-  const rows = await powerSyncDb.getAll<any>(
+  const rows = await localDb.getAll<any>(
     'SELECT * FROM tasks WHERE is_trashed = 0 ORDER BY sort_order DESC',
   );
   return rows.map(rowToTask);
 }
 
 async function dbSearchTasks(query: string): Promise<Task[]> {
-  const rows = await powerSyncDb.getAll<any>(
+  const rows = await localDb.getAll<any>(
     'SELECT * FROM tasks WHERE is_trashed = 0 AND description LIKE ? ORDER BY sort_order DESC',
     [`%${query}%`],
   );
@@ -53,14 +52,13 @@ async function dbSearchTasks(query: string): Promise<Task[]> {
 }
 
 async function dbGetListsWithMetadata(): Promise<ListMetadata[]> {
-  // Lists table in PowerSync: id (= name), name, sort_order
   // is_collapsed and hide_completed are local-only (stored in config as JSON)
-  const rows = await powerSyncDb.getAll<any>(
-    'SELECT id, name, sort_order FROM lists ORDER BY sort_order',
+  const rows = await localDb.getAll<any>(
+    'SELECT name, sort_order FROM lists ORDER BY sort_order',
   );
 
   // Load local UI prefs from config
-  const prefsRow = await powerSyncDb.getOptional<any>(
+  const prefsRow = await localDb.getOptional<any>(
     "SELECT value FROM config WHERE key = 'list_prefs'",
   );
   const prefs: Record<string, { collapsed?: boolean; hideCompleted?: boolean }> = prefsRow
@@ -68,9 +66,9 @@ async function dbGetListsWithMetadata(): Promise<ListMetadata[]> {
     : {};
 
   const result = rows.map((r: any) => ({
-    name: r.name ?? r.id,
-    isCollapsed: prefs[r.name ?? r.id]?.collapsed ?? false,
-    hideCompleted: prefs[r.name ?? r.id]?.hideCompleted ?? false,
+    name: r.name,
+    isCollapsed: prefs[r.name]?.collapsed ?? false,
+    hideCompleted: prefs[r.name]?.hideCompleted ?? false,
     sortOrder: r.sort_order ?? 0,
   }));
 
@@ -82,20 +80,20 @@ async function dbGetListsWithMetadata(): Promise<ListMetadata[]> {
 }
 
 async function dbGetDefaultList(): Promise<string> {
-  const row = await powerSyncDb.getOptional<any>(
+  const row = await localDb.getOptional<any>(
     "SELECT value FROM config WHERE key = 'default_list'",
   );
   return row?.value ?? 'tasks';
 }
 
 async function dbSetListPref(name: string, key: 'collapsed' | 'hideCompleted', value: boolean): Promise<void> {
-  const prefsRow = await powerSyncDb.getOptional<any>(
+  const prefsRow = await localDb.getOptional<any>(
     "SELECT value FROM config WHERE key = 'list_prefs'",
   );
   const prefs: Record<string, any> = prefsRow ? JSON.parse(prefsRow.value) : {};
   if (!prefs[name]) prefs[name] = {};
   prefs[name][key] = value;
-  await powerSyncDb.execute(
+  await localDb.execute(
     "INSERT OR REPLACE INTO config (key, value) VALUES ('list_prefs', ?)",
     [JSON.stringify(prefs)],
   );
@@ -109,19 +107,19 @@ async function dbAddTask(description: string, listName: string): Promise<Task> {
   const parsed = parseTaskDescription(description);
 
   // Ensure list exists
-  await powerSyncDb.execute(
-    'INSERT OR IGNORE INTO lists (id, name, sort_order) VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
-    [listName, listName],
+  await localDb.execute(
+    'INSERT OR IGNORE INTO lists (name, sort_order) VALUES (?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
+    [listName],
   );
 
   // Get next sort_order
-  const maxRow = await powerSyncDb.getOptional<any>(
+  const maxRow = await localDb.getOptional<any>(
     'SELECT COALESCE(MAX(sort_order), -1) + 1 as next FROM tasks WHERE list_name = ? AND is_trashed = 0',
     [listName],
   );
   const sortOrder = maxRow?.next ?? 0;
 
-  await powerSyncDb.execute(
+  await localDb.execute(
     'INSERT INTO tasks (id, description, status, created_at, list_name, due_date, priority, tags, is_trashed, sort_order, completed_at, parent_id) VALUES (?, ?, 0, ?, ?, ?, ?, ?, 0, ?, NULL, ?)',
     [id, description, now, listName, parsed.dueDate ?? null, parsed.priority ?? null, parsed.tags?.length ? JSON.stringify(parsed.tags) : null, sortOrder, parsed.parentId ?? null],
   );
@@ -136,63 +134,62 @@ async function dbAddTask(description: string, listName: string): Promise<Task> {
 
 async function dbSetStatus(taskId: string, status: TaskStatus): Promise<void> {
   const completedAt = (status === TS.Done || status === TS.WontDo) ? new Date().toISOString() : null;
-  await powerSyncDb.execute(
+  await localDb.execute(
     'UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?',
     [status, completedAt, taskId],
   );
 }
 
 async function dbDeleteTask(taskId: string): Promise<void> {
-  await powerSyncDb.execute('UPDATE tasks SET is_trashed = 1 WHERE id = ?', [taskId]);
+  await localDb.execute('UPDATE tasks SET is_trashed = 1 WHERE id = ?', [taskId]);
 }
 
 async function dbRenameTask(taskId: string, description: string): Promise<void> {
   const parsed = parseTaskDescription(description);
-  await powerSyncDb.execute(
+  await localDb.execute(
     'UPDATE tasks SET description = ?, due_date = ?, priority = ?, tags = ? WHERE id = ?',
     [description, parsed.dueDate ?? null, parsed.priority ?? null, parsed.tags?.length ? JSON.stringify(parsed.tags) : null, taskId],
   );
 }
 
 async function dbMoveTask(taskId: string, targetList: string): Promise<void> {
-  await powerSyncDb.execute(
-    'INSERT OR IGNORE INTO lists (id, name, sort_order) VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
-    [targetList, targetList],
+  await localDb.execute(
+    'INSERT OR IGNORE INTO lists (name, sort_order) VALUES (?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
+    [targetList],
   );
-  await powerSyncDb.execute('UPDATE tasks SET list_name = ? WHERE id = ?', [targetList, taskId]);
+  await localDb.execute('UPDATE tasks SET list_name = ? WHERE id = ?', [targetList, taskId]);
 }
 
 async function dbCreateList(name: string): Promise<void> {
-  await powerSyncDb.execute(
-    'INSERT INTO lists (id, name, sort_order) VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
-    [name, name],
+  await localDb.execute(
+    'INSERT INTO lists (name, sort_order) VALUES (?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM lists))',
+    [name],
   );
 }
 
 async function dbDeleteList(name: string): Promise<void> {
-  await powerSyncDb.execute('DELETE FROM tasks WHERE list_name = ?', [name]);
-  await powerSyncDb.execute('DELETE FROM lists WHERE id = ?', [name]);
+  await localDb.execute('DELETE FROM tasks WHERE list_name = ?', [name]);
+  await localDb.execute('DELETE FROM lists WHERE name = ?', [name]);
 }
 
 async function dbRenameList(oldName: string, newName: string): Promise<void> {
-  // PowerSync uses id as PK, and tasks reference list_name
-  await powerSyncDb.execute('UPDATE tasks SET list_name = ? WHERE list_name = ?', [newName, oldName]);
-  await powerSyncDb.execute('INSERT INTO lists (id, name, sort_order) SELECT ?, ?, sort_order FROM lists WHERE id = ?', [newName, newName, oldName]);
-  await powerSyncDb.execute('DELETE FROM lists WHERE id = ?', [oldName]);
+  await localDb.execute('INSERT INTO lists (name, sort_order) SELECT ?, sort_order FROM lists WHERE name = ?', [newName, oldName]);
+  await localDb.execute('UPDATE tasks SET list_name = ? WHERE list_name = ?', [newName, oldName]);
+  await localDb.execute('DELETE FROM lists WHERE name = ?', [oldName]);
 }
 
 async function dbGetTrash(): Promise<Task[]> {
-  const rows = await powerSyncDb.getAll<any>('SELECT * FROM tasks WHERE is_trashed = 1 ORDER BY sort_order DESC');
+  const rows = await localDb.getAll<any>('SELECT * FROM tasks WHERE is_trashed = 1 ORDER BY sort_order DESC');
   return rows.map(rowToTask);
 }
 
 async function dbRestoreFromTrash(taskId: string): Promise<void> {
-  await powerSyncDb.execute('UPDATE tasks SET is_trashed = 0 WHERE id = ?', [taskId]);
+  await localDb.execute('UPDATE tasks SET is_trashed = 0 WHERE id = ?', [taskId]);
 }
 
 async function dbClearTrash(): Promise<number> {
-  const rows = await powerSyncDb.getAll<any>('SELECT id FROM tasks WHERE is_trashed = 1');
-  await powerSyncDb.execute('DELETE FROM tasks WHERE is_trashed = 1');
+  const rows = await localDb.getAll<any>('SELECT id FROM tasks WHERE is_trashed = 1');
+  await localDb.execute('DELETE FROM tasks WHERE is_trashed = 1');
   return rows.length;
 }
 
@@ -288,6 +285,11 @@ const initialState: StoreState = {
 export function useStore() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchQueryRef = useRef(state.searchQuery);
+
+  useEffect(() => {
+    searchQueryRef.current = state.searchQuery;
+  }, [state.searchQuery]);
 
   const showStatus = useCallback((message: string) => {
     dispatch({ type: 'SET_STATUS_MESSAGE', message });
@@ -310,8 +312,9 @@ export function useStore() {
       const hideMap = new Map(listMeta.map((l) => [l.name, l.hideCompleted]));
       dispatch({ type: 'SET_HIDE_COMPLETED_MAP', map: hideMap });
 
-      const tasks = state.searchQuery
-        ? await dbSearchTasks(state.searchQuery)
+      const searchQuery = searchQueryRef.current;
+      const tasks = searchQuery
+        ? await dbSearchTasks(searchQuery)
         : await dbGetAllTasks();
 
       dispatch({ type: 'SET_TASKS', tasks });
@@ -320,44 +323,22 @@ export function useStore() {
     } finally {
       dispatch({ type: 'SET_LOADING', loading: false });
     }
-  }, [state.searchQuery, showStatus]);
+  }, [showStatus]);
 
-  // On mount: initialize PowerSync, render cached data, then keep the UI in step
-  // with rows downloaded by PowerSync after the initial connection.
+  // On mount: initialize local SQLite, render cached data, then keep the UI in
+  // step with rows pulled by custom Supabase sync.
   useEffect(() => {
     let disposed = false;
-    let disposeChanges: (() => void) | undefined;
-    const firstSyncAbort = new AbortController();
-    const firstSyncTimeout = setTimeout(() => firstSyncAbort.abort(), 15_000);
 
     initSync()
       .then(async () => {
         if (disposed) return;
 
-        disposeChanges = powerSyncDb.onChange(
-          {
-            onChange: () => {
-              if (!disposed) void refresh();
-            },
-            onError: (error) => {
-              console.warn('PowerSync watch error:', error.message);
-            },
-          },
-          { tables: SYNCED_TABLES, throttleMs: 100 },
-        );
-
         await refresh();
 
-        powerSyncDb.waitForFirstSync(firstSyncAbort.signal)
-          .then(() => {
-            if (!disposed) void refresh();
-          })
-          .catch((err) => {
-            if (!firstSyncAbort.signal.aborted) {
-              console.warn('PowerSync first sync error:', err instanceof Error ? err.message : String(err));
-            }
-          })
-          .finally(() => clearTimeout(firstSyncTimeout));
+        await startCustomSync(() => {
+          if (!disposed) void refresh();
+        });
       })
       .catch((err) => {
         console.warn('Sync init error:', err instanceof Error ? err.message : String(err));
@@ -365,11 +346,21 @@ export function useStore() {
       });
     return () => {
       disposed = true;
-      firstSyncAbort.abort();
-      clearTimeout(firstSyncTimeout);
-      disposeChanges?.();
+      stopCustomSync();
     };
   }, [refresh]);
+
+  // Refresh local reads when the search query changes.
+  useEffect(() => {
+    initSync()
+      .then(() => {
+        if (state.loading) return;
+        return refresh();
+      })
+      .catch((err) => {
+        console.warn('Refresh error:', err instanceof Error ? err.message : String(err));
+      });
+  }, [state.searchQuery, state.loading, refresh]);
 
   // Task operations
   const addTask = useCallback(
@@ -454,11 +445,11 @@ export function useStore() {
   );
 
   const undoAction = useCallback(async () => {
-    showStatus('Undo not yet supported with PowerSync');
+    showStatus('Undo not yet supported on mobile');
   }, [showStatus]);
 
   const redoAction = useCallback(async () => {
-    showStatus('Redo not yet supported with PowerSync');
+    showStatus('Redo not yet supported on mobile');
   }, [showStatus]);
 
   const createList = useCallback(
@@ -531,7 +522,7 @@ export function useStore() {
   }, [state.lists, state.collapsedLists]);
 
   const applySystemSort = useCallback(async () => {
-    showStatus('System sort not yet supported with PowerSync');
+    showStatus('System sort not yet supported on mobile');
   }, [showStatus]);
 
   const setSearch = useCallback((query: string) => {

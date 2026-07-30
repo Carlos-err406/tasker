@@ -43,7 +43,6 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "@journeyapps/react-native-quick-sqlite",
       "expo-font",
       "expo-web-browser"
     ],
