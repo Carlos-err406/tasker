@@ -4,7 +4,7 @@
  * [links](url), ```code blocks```, - [ ] checkboxes, # headings
  */
 
-import { memo, useEffect, useState, type ReactElement, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Text, View, Image, ActivityIndicator, StyleSheet, Linking, Pressable } from 'react-native';
 import { Image as ImageIcon, ImageOff, Images, Play, Video } from 'lucide-react-native';
 
@@ -21,9 +21,14 @@ interface MarkdownProps {
   content: string;
   style?: any;
   showMediaPreviews?: boolean;
+  mediaPreviewScope?: string;
+  mediaPreviewResetSignal?: number;
 }
 
 type MediaKind = 'image' | 'video';
+type MediaPreviewOverride = { expanded: boolean; resetSignal: number };
+
+const mediaPreviewOverrides = new Map<string, MediaPreviewOverride>();
 
 interface YouTubePreviewData {
   videoId: string;
@@ -162,29 +167,48 @@ function MediaPreviewFrame({
   kind,
   label,
   defaultExpanded,
+  previewKey,
+  resetSignal,
   children,
 }: {
   kind: MediaKind;
   label?: string;
   defaultExpanded: boolean;
+  previewKey: string;
+  resetSignal: number;
   children: ReactNode;
 }) {
-  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(null);
+  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(() => {
+    const saved = mediaPreviewOverrides.get(previewKey);
+    return saved?.resetSignal === resetSignal ? saved.expanded : null;
+  });
+  const didMountRef = useRef(false);
   const expanded = overrideExpanded ?? defaultExpanded;
   const Icon = kind === 'image' ? ImageIcon : Video;
   const ExpandIcon = kind === 'image' ? Images : Video;
   const noun = kind === 'image' ? 'image' : 'video';
 
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    mediaPreviewOverrides.delete(previewKey);
     setOverrideExpanded(null);
-  }, [defaultExpanded]);
+  }, [previewKey, resetSignal]);
+
+  const setExplicitExpanded = useCallback((next: boolean) => {
+    mediaPreviewOverrides.set(previewKey, { expanded: next, resetSignal });
+    setOverrideExpanded(next);
+  }, [previewKey, resetSignal]);
 
   if (!expanded) {
     return (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Show ${noun} preview`}
-        onPress={() => setOverrideExpanded(true)}
+        onPress={() => setExplicitExpanded(true)}
         style={ms.mediaCollapsed}
       >
         <Icon size={14} color={C.muted} />
@@ -200,7 +224,7 @@ function MediaPreviewFrame({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Hide ${noun} preview`}
-        onPress={() => setOverrideExpanded(false)}
+        onPress={() => setExplicitExpanded(false)}
         style={ms.mediaHideButton}
       >
         <ImageOff size={14} color="#fff" />
@@ -251,13 +275,31 @@ function MarkdownTable({ header, rows }: { header: string[]; rows: string[][] })
   );
 }
 
-function MarkdownImage({ url, alt, showMediaPreviews }: { url: string; alt: string; showMediaPreviews: boolean }) {
+function MarkdownImage({
+  url,
+  alt,
+  showMediaPreviews,
+  previewScope,
+  resetSignal,
+}: {
+  url: string;
+  alt: string;
+  showMediaPreviews: boolean;
+  previewScope: string;
+  resetSignal: number;
+}) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   return (
-    <MediaPreviewFrame kind="image" label={alt ? `Image: ${alt}` : undefined} defaultExpanded={showMediaPreviews}>
+    <MediaPreviewFrame
+      kind="image"
+      label={alt ? `Image: ${alt}` : undefined}
+      defaultExpanded={showMediaPreviews}
+      previewKey={`${previewScope}:image:${url}`}
+      resetSignal={resetSignal}
+    >
       {error ? (
         <Text style={ms.imageFail}>Failed to load image</Text>
       ) : (
@@ -290,17 +332,27 @@ function MarkdownVideoPreview({
   label,
   youtube,
   showMediaPreviews,
+  previewScope,
+  resetSignal,
 }: {
   url: string;
   label?: string;
   youtube?: YouTubePreviewData;
   showMediaPreviews: boolean;
+  previewScope: string;
+  resetSignal: number;
 }) {
   const [loading, setLoading] = useState(!!youtube);
   const [error, setError] = useState(false);
 
   return (
-    <MediaPreviewFrame kind="video" label={label ? `Video: ${label}` : undefined} defaultExpanded={showMediaPreviews}>
+    <MediaPreviewFrame
+      kind="video"
+      label={label ? `Video: ${label}` : undefined}
+      defaultExpanded={showMediaPreviews}
+      previewKey={`${previewScope}:video:${url}`}
+      resetSignal={resetSignal}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={youtube ? 'Open video on YouTube' : 'Open video'}
@@ -349,7 +401,13 @@ function MarkdownVideoPreview({
   );
 }
 
-export const Markdown = memo(function Markdown({ content, style, showMediaPreviews = true }: MarkdownProps) {
+export const Markdown = memo(function Markdown({
+  content,
+  style,
+  showMediaPreviews = true,
+  mediaPreviewScope = 'global',
+  mediaPreviewResetSignal = 0,
+}: MarkdownProps) {
   const lines = content.split('\n');
   const elements: ReactElement[] = [];
   let i = 0;
@@ -360,7 +418,16 @@ export const Markdown = memo(function Markdown({ content, style, showMediaPrevie
     // Image on its own line: ![alt](url)
     const imgMatch = line.match(/^!\[([^\]]*)\]\(((?:[^()]*|\([^()]*\))*)\)\s*$/);
     if (imgMatch) {
-      elements.push(<MarkdownImage key={`img-${i}`} url={imgMatch[2]!} alt={imgMatch[1]!} showMediaPreviews={showMediaPreviews} />);
+      elements.push(
+        <MarkdownImage
+          key={`img-${i}`}
+          url={imgMatch[2]!}
+          alt={imgMatch[1]!}
+          showMediaPreviews={showMediaPreviews}
+          previewScope={mediaPreviewScope}
+          resetSignal={mediaPreviewResetSignal}
+        />,
+      );
       i++;
       continue;
     }
@@ -382,6 +449,8 @@ export const Markdown = memo(function Markdown({ content, style, showMediaPrevie
           label={mediaLink.label}
           youtube={mediaLink.youtube}
           showMediaPreviews={showMediaPreviews}
+          previewScope={mediaPreviewScope}
+          resetSignal={mediaPreviewResetSignal}
         />,
       );
       i++;

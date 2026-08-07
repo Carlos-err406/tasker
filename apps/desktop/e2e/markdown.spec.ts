@@ -91,6 +91,23 @@ test.describe('Markdown', () => {
     await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
   });
 
+  test('opening create task keeps individual preview state', async ({ page }) => {
+    await addTask(page, 'Title\n![sample](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==)');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await taskItem.locator('[data-testid="markdown-image-preview-hide"]').click({ force: true });
+
+    const collapsed = taskItem.locator('[data-testid="markdown-image-preview-collapsed"]');
+    await expect(collapsed).toBeVisible();
+
+    const header = page.locator('[data-testid="list-header-tasks"]');
+    await header.locator('button', { has: page.locator('svg.lucide-plus') }).click();
+
+    await expect(page.locator('[data-testid="add-task-input-tasks"]')).toBeVisible();
+    await expect(collapsed).toBeVisible();
+    await expect(taskItem.locator('img[alt="sample"]')).toHaveCount(0);
+  });
+
   test('global media preview toggle overrides individual preview state', async ({ page }) => {
     await addTask(page, 'Title\n![sample](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==)');
 

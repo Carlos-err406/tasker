@@ -56,6 +56,7 @@ export default function App() {
   const [showMediaPreviews, setShowMediaPreviews] = useState(() => {
     return window.localStorage.getItem('tasker:showMediaPreviews') !== 'false';
   });
+  const [mediaPreviewResetSignal, setMediaPreviewResetSignal] = useState(0);
   const dragOverlay = useDragOverlayClone();
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
@@ -390,7 +391,10 @@ export default function App() {
           <TooltipTrigger asChild>
             <button
               data-testid="media-preview-toggle"
-              onClick={() => setShowMediaPreviews((v) => !v)}
+              onClick={() => {
+                setShowMediaPreviews((v) => !v);
+                setMediaPreviewResetSignal((v) => v + 1);
+              }}
               className={cn('text-muted-foreground hover:text-foreground p-0.5', !showMediaPreviews && 'text-foreground')}
               aria-label={showMediaPreviews ? 'Hide media previews' : 'Show media previews'}
               aria-pressed={showMediaPreviews}
@@ -564,6 +568,7 @@ export default function App() {
                       lmStudioAvailable={lmStudioAvailable}
                       onTagClick={(tag) => setSearchInput(`tag:${tag}`)}
                       showMediaPreviews={showMediaPreviews}
+                      mediaPreviewResetSignal={mediaPreviewResetSignal}
                       hideCompleted={store.hideCompletedLists.has(listName)}
                       onToggleHideCompleted={() => store.toggleHideCompleted(listName)}
                     />

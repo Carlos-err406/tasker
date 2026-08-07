@@ -71,7 +71,21 @@ async function setShowMediaPreviewsPref(value: boolean): Promise<void> {
   );
 }
 
-const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit, showMediaPreviews }: { task: Task; onToggle: (id: string, s: TaskStatus) => void; onDelete: (id: string) => void; onEdit: (id: string) => void; showMediaPreviews: boolean }) {
+const TaskItem = memo(function TaskItem({
+  task,
+  onToggle,
+  onDelete,
+  onEdit,
+  showMediaPreviews,
+  mediaPreviewResetSignal,
+}: {
+  task: Task;
+  onToggle: (id: string, s: TaskStatus) => void;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  showMediaPreviews: boolean;
+  mediaPreviewResetSignal: number;
+}) {
   const done = task.status === TaskStatus.Done;
   const wontDo = task.status === TaskStatus.WontDo;
   const inProg = task.status === TaskStatus.InProgress;
@@ -119,7 +133,13 @@ const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit, show
 
         {/* Description preview (markdown) */}
         {preview && (
-          <Markdown content={preview} style={{ marginTop: 3 }} showMediaPreviews={showMediaPreviews} />
+          <Markdown
+            content={preview}
+            style={{ marginTop: 3 }}
+            showMediaPreviews={showMediaPreviews}
+            mediaPreviewScope={task.id}
+            mediaPreviewResetSignal={mediaPreviewResetSignal}
+          />
         )}
 
         {/* Relationships */}
@@ -228,6 +248,7 @@ export default function ListsScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [showMediaPreviews, setShowMediaPreviews] = useState(true);
+  const [mediaPreviewResetSignal, setMediaPreviewResetSignal] = useState(0);
 
   useEffect(() => {
     getShowMediaPreviews()
@@ -239,6 +260,7 @@ export default function ListsScreen() {
     setShowMediaPreviews((current) => {
       const next = !current;
       void setShowMediaPreviewsPref(next);
+      setMediaPreviewResetSignal((signal) => signal + 1);
       return next;
     });
   }, []);
@@ -319,7 +341,16 @@ export default function ListsScreen() {
               />
             );
           }
-          return <TaskItem task={item.task} onToggle={store.toggleStatus} onDelete={store.deleteTask} onEdit={setEditingTaskId} showMediaPreviews={showMediaPreviews} />;
+          return (
+            <TaskItem
+              task={item.task}
+              onToggle={store.toggleStatus}
+              onDelete={store.deleteTask}
+              onEdit={setEditingTaskId}
+              showMediaPreviews={showMediaPreviews}
+              mediaPreviewResetSignal={mediaPreviewResetSignal}
+            />
+          );
         }}
         getItemType={(item) => item.type}
         keyExtractor={(item) => item.type === 'header' ? `h-${item.name}` : item.task.id}
@@ -327,7 +358,7 @@ export default function ListsScreen() {
         keyboardShouldPersistTaps="handled"
         refreshing={refreshing}
         onRefresh={onRefresh}
-        extraData={{ collapsedLists: store.collapsedLists, showMediaPreviews }}
+        extraData={{ collapsedLists: store.collapsedLists, showMediaPreviews, mediaPreviewResetSignal }}
       />
       <View style={s.statusBar}>
         <Text style={s.statusText}>{store.statusMessage || `${store.pendingCount} pending, ${store.totalCount} total`}</Text>

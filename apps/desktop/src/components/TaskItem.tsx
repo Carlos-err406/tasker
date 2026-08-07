@@ -51,6 +51,7 @@ interface TaskItemProps {
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
+  mediaPreviewResetSignal?: number;
 }
 
 export const TaskItem = memo(function TaskItem({
@@ -69,6 +70,7 @@ export const TaskItem = memo(function TaskItem({
   lmStudioAvailable,
   onTagClick,
   showMediaPreviews = true,
+  mediaPreviewResetSignal = 0,
 }: TaskItemProps) {
   const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
 
@@ -328,6 +330,8 @@ export const TaskItem = memo(function TaskItem({
                     content={descPreview}
                     onToggleCheckbox={handleToggleCheckbox}
                     showMediaPreviews={showMediaPreviews}
+                    mediaPreviewScope={task.id}
+                    mediaPreviewResetSignal={mediaPreviewResetSignal}
                   />
                 )}
 

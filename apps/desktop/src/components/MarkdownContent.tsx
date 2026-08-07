@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, createContext, useContext, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -18,6 +18,9 @@ import { openExternal } from "@/lib/services/window";
 const CheckboxLineCtx = createContext<number | null>(null);
 
 type MediaKind = "image" | "video";
+type MediaPreviewOverride = { expanded: boolean; resetSignal: number };
+
+const mediaPreviewOverrides = new Map<string, MediaPreviewOverride>();
 
 function getTextContent(node: ReactNode): string {
   if (typeof node === "string") return node;
@@ -89,22 +92,41 @@ function MediaPreviewFrame({
   kind,
   label,
   defaultExpanded,
+  previewKey,
+  resetSignal,
   children,
 }: {
   kind: MediaKind;
   label?: string;
   defaultExpanded: boolean;
+  previewKey: string;
+  resetSignal: number;
   children: ReactNode;
 }) {
-  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(null);
+  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(() => {
+    const saved = mediaPreviewOverrides.get(previewKey);
+    return saved?.resetSignal === resetSignal ? saved.expanded : null;
+  });
+  const didMountRef = useRef(false);
   const expanded = overrideExpanded ?? defaultExpanded;
   const Icon = kind === "image" ? ImageIcon : Video;
   const ExpandIcon = kind === "image" ? Images : Video;
   const noun = kind === "image" ? "image" : "video";
 
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    mediaPreviewOverrides.delete(previewKey);
     setOverrideExpanded(null);
-  }, [defaultExpanded]);
+  }, [previewKey, resetSignal]);
+
+  const setExplicitExpanded = useCallback((next: boolean) => {
+    mediaPreviewOverrides.set(previewKey, { expanded: next, resetSignal });
+    setOverrideExpanded(next);
+  }, [previewKey, resetSignal]);
 
   if (!expanded) {
     return (
@@ -114,7 +136,7 @@ function MediaPreviewFrame({
         aria-label={`Show ${noun} preview`}
         onClick={(e) => {
           e.stopPropagation();
-          setOverrideExpanded(true);
+          setExplicitExpanded(true);
         }}
         className="my-1 flex w-full items-center gap-2 rounded border border-border/70 bg-muted/20 px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-border hover:bg-muted/35 hover:text-foreground"
       >
@@ -134,7 +156,7 @@ function MediaPreviewFrame({
         aria-label={`Hide ${noun} preview`}
         onClick={(e) => {
           e.stopPropagation();
-          setOverrideExpanded(false);
+          setExplicitExpanded(false);
         }}
         className="absolute right-1 top-1 z-20 flex size-6 items-center justify-center rounded bg-black/60 text-white opacity-0 shadow transition-opacity hover:bg-black/75 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-white/70 group-hover/media:opacity-100"
       >
@@ -144,7 +166,19 @@ function MediaPreviewFrame({
   );
 }
 
-function ImageWithContextMenu({ src, alt, showMediaPreviews }: { src?: string; alt?: string; showMediaPreviews: boolean }) {
+function ImageWithContextMenu({
+  src,
+  alt,
+  showMediaPreviews,
+  previewScope,
+  resetSignal,
+}: {
+  src?: string;
+  alt?: string;
+  showMediaPreviews: boolean;
+  previewScope: string;
+  resetSignal: number;
+}) {
   const resolvedSrc = resolveImageSrc(src);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -163,7 +197,13 @@ function ImageWithContextMenu({ src, alt, showMediaPreviews }: { src?: string; a
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
-          <MediaPreviewFrame kind="image" label={alt ? `Image: ${alt}` : undefined} defaultExpanded={showMediaPreviews}>
+          <MediaPreviewFrame
+            kind="image"
+            label={alt ? `Image: ${alt}` : undefined}
+            defaultExpanded={showMediaPreviews}
+            previewKey={`${previewScope}:image:${src ?? alt ?? ""}`}
+            resetSignal={resetSignal}
+          >
             {loading && !error && (
               <span className="flex items-center justify-center py-3 text-muted-foreground/50">
                 <Loader2 className="size-4 animate-spin" />
@@ -317,17 +357,27 @@ function VideoPreviewWithContextMenu({
   label,
   youtubePreview,
   showMediaPreviews,
+  previewScope,
+  resetSignal,
 }: {
   href: string;
   label?: string;
   youtubePreview?: YouTubePreviewData;
   showMediaPreviews: boolean;
+  previewScope: string;
+  resetSignal: number;
 }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
-          <MediaPreviewFrame kind="video" label={label ? `Video: ${label}` : undefined} defaultExpanded={showMediaPreviews}>
+          <MediaPreviewFrame
+            kind="video"
+            label={label ? `Video: ${label}` : undefined}
+            defaultExpanded={showMediaPreviews}
+            previewKey={`${previewScope}:video:${href}`}
+            resetSignal={resetSignal}
+          >
             {youtubePreview
               ? <YouTubePreview href={href} preview={youtubePreview} label={label} />
               : <DirectVideoPreview href={href} label={label} />}
@@ -358,16 +408,29 @@ function LinkWithContextMenu({
   href,
   children,
   showMediaPreviews,
+  previewScope,
+  resetSignal,
 }: {
   href?: string;
   children?: ReactNode;
   showMediaPreviews: boolean;
+  previewScope: string;
+  resetSignal: number;
 }) {
   const textContent = getTextContent(children);
   const youtubePreview = getYouTubePreviewData(href);
 
   if (href && (isVideoUrl(href) || youtubePreview)) {
-    return <VideoPreviewWithContextMenu href={href} label={textContent} youtubePreview={youtubePreview ?? undefined} showMediaPreviews={showMediaPreviews} />;
+    return (
+      <VideoPreviewWithContextMenu
+        href={href}
+        label={textContent}
+        youtubePreview={youtubePreview ?? undefined}
+        showMediaPreviews={showMediaPreviews}
+        previewScope={previewScope}
+        resetSignal={resetSignal}
+      />
+    );
   }
 
   return (
@@ -455,9 +518,17 @@ interface MarkdownContentProps {
   /** Called with the line number (within `content`) of the toggled checkbox. */
   onToggleCheckbox?: (contentLineNumber: number) => void;
   showMediaPreviews?: boolean;
+  mediaPreviewScope?: string;
+  mediaPreviewResetSignal?: number;
 }
 
-export function MarkdownContent({ content, onToggleCheckbox, showMediaPreviews = true }: MarkdownContentProps) {
+export function MarkdownContent({
+  content,
+  onToggleCheckbox,
+  showMediaPreviews = true,
+  mediaPreviewScope = "global",
+  mediaPreviewResetSignal = 0,
+}: MarkdownContentProps) {
   // Normalize non-breaking spaces (\u00A0) to regular spaces so markdown
   // parsers recognize indentation for nested lists.
   const processed = preprocessCheckboxes(content.replace(/\u00A0/g, ' '));
@@ -466,11 +537,28 @@ export function MarkdownContent({ content, onToggleCheckbox, showMediaPreviews =
   // The li component reads its AST source line and provides it via context;
   // the input component consumes the context to know which checkbox it represents.
   const components: Components = {
-    img: ({ src, alt }) => <ImageWithContextMenu src={src} alt={alt} showMediaPreviews={showMediaPreviews} />,
+    img: ({ src, alt }) => (
+      <ImageWithContextMenu
+        src={src}
+        alt={alt}
+        showMediaPreviews={showMediaPreviews}
+        previewScope={mediaPreviewScope}
+        resetSignal={mediaPreviewResetSignal}
+      />
+    ),
     table: ({ children }) => <table className="w-full">{children}</table>,
     th: ({ children }) => <th className="border p-1 border-border">{children}</th>,
     td: ({ children }) => <td className="border p-1 border-border">{children}</td>,
-    a: ({ href, children }) => <LinkWithContextMenu href={href} showMediaPreviews={showMediaPreviews}>{children}</LinkWithContextMenu>,
+    a: ({ href, children }) => (
+      <LinkWithContextMenu
+        href={href}
+        showMediaPreviews={showMediaPreviews}
+        previewScope={mediaPreviewScope}
+        resetSignal={mediaPreviewResetSignal}
+      >
+        {children}
+      </LinkWithContextMenu>
+    ),
     strong: ({ children }) => <strong className="font-semibold text-foreground/80">{children}</strong>,
     em: ({ children }) => <em>{children}</em>,
     code: ({ children }) => (

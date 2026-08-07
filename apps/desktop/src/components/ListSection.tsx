@@ -44,6 +44,7 @@ interface ListSectionProps {
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
+  mediaPreviewResetSignal?: number;
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
 }
@@ -75,6 +76,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   lmStudioAvailable,
   onTagClick,
   showMediaPreviews = true,
+  mediaPreviewResetSignal = 0,
   hideCompleted,
   onToggleHideCompleted,
   dragHandleListeners,
@@ -397,6 +399,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 lmStudioAvailable={lmStudioAvailable}
                 onTagClick={onTagClick}
                 showMediaPreviews={showMediaPreviews}
+                mediaPreviewResetSignal={mediaPreviewResetSignal}
               />
             ))}
           </SortableContext>

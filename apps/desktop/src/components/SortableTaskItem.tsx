@@ -20,6 +20,7 @@ interface SortableTaskItemProps {
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
+  mediaPreviewResetSignal?: number;
 }
 
 export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
