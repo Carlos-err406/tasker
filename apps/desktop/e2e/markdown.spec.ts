@@ -91,6 +91,22 @@ test.describe('Markdown', () => {
     await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
   });
 
+  test('global media preview toggle overrides individual preview state', async ({ page }) => {
+    await addTask(page, 'Title\n![sample](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==)');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
+
+    await taskItem.locator('[data-testid="markdown-image-preview-hide"]').click({ force: true });
+    await expect(taskItem.locator('[data-testid="markdown-image-preview-collapsed"]')).toBeVisible();
+
+    await page.locator('[data-testid="media-preview-toggle"]').click();
+    await expect(taskItem.locator('[data-testid="markdown-image-preview-collapsed"]')).toBeVisible();
+
+    await page.locator('[data-testid="media-preview-toggle"]').click();
+    await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
+  });
+
   test('renders YouTube Shorts urls as inline previews', async ({ page }) => {
     await addTask(page, 'Title\nhttps://www.youtube.com/shorts/wc9PJn3JLX0?feature=share');
 

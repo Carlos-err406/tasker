@@ -4,7 +4,7 @@
  * [links](url), ```code blocks```, - [ ] checkboxes, # headings
  */
 
-import { memo, useState, type ReactElement, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactElement, type ReactNode } from 'react';
 import { Text, View, Image, ActivityIndicator, StyleSheet, Linking, Pressable } from 'react-native';
 import { Image as ImageIcon, ImageOff, Images, Play, Video } from 'lucide-react-native';
 
@@ -174,6 +174,10 @@ function MediaPreviewFrame({
   const Icon = kind === 'image' ? ImageIcon : Video;
   const ExpandIcon = kind === 'image' ? Images : Video;
   const noun = kind === 'image' ? 'image' : 'video';
+
+  useEffect(() => {
+    setOverrideExpanded(null);
+  }, [defaultExpanded]);
 
   if (!expanded) {
     return (

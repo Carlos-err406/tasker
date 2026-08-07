@@ -1,4 +1,4 @@
-import { useState, useCallback, createContext, useContext, type ReactNode } from "react";
+import { useState, useCallback, useEffect, createContext, useContext, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -101,6 +101,10 @@ function MediaPreviewFrame({
   const Icon = kind === "image" ? ImageIcon : Video;
   const ExpandIcon = kind === "image" ? Images : Video;
   const noun = kind === "image" ? "image" : "video";
+
+  useEffect(() => {
+    setOverrideExpanded(null);
+  }, [defaultExpanded]);
 
   if (!expanded) {
     return (
