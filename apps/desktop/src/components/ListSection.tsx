@@ -124,7 +124,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
   if (hiddenDoneCount > 0) summaryParts.push(`+${hiddenDoneCount} done`);
   const summary = summaryParts.join(', ');
 
-  const startAdd = (initialValue?: string) => {
+  const startAdd = useCallback((initialValue?: string) => {
     setAdding(true);
     setAddValue(initialValue ?? '');
     // Expand if collapsed
@@ -145,9 +145,13 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
         el.focus();
       }
     }, 50);
-  };
+  }, [collapsed, onToggleCollapsed]);
 
   useImperativeHandle(ref, () => ({ startAdding: startAdd }), [startAdd]);
+
+  const handleCreateSubtask = useCallback((taskId: string) => {
+    startAdd(`\n^${taskId}`);
+  }, [startAdd]);
 
   const submitAdd = () => {
     const trimmed = addValue.trim();
@@ -394,7 +398,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(funct
                 onMove={onMove}
                 onShowStatus={onShowStatus}
                 onNavigateToTask={onNavigateToTask}
-                onCreateSubtask={(taskId) => startAdd(`\n^${taskId}`)}
+                onCreateSubtask={handleCreateSubtask}
                 onDecompose={onDecompose}
                 lmStudioAvailable={lmStudioAvailable}
                 onTagClick={onTagClick}

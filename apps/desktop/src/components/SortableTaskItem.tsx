@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task, TaskStatus } from '@tasker/core/types';
@@ -23,7 +24,7 @@ interface SortableTaskItemProps {
   mediaPreviewResetSignal?: number;
 }
 
-export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
+export const SortableTaskItem = memo(function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
@@ -47,4 +48,4 @@ export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
       <TaskItem task={task} {...rest} />
     </div>
   );
-}
+});
