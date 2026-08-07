@@ -50,6 +50,7 @@ interface TaskItemProps {
   onDecompose?: (taskId: string) => void;
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
+  showMediaPreviews?: boolean;
 }
 
 export const TaskItem = memo(function TaskItem({
@@ -67,6 +68,7 @@ export const TaskItem = memo(function TaskItem({
   onDecompose,
   lmStudioAvailable,
   onTagClick,
+  showMediaPreviews = true,
 }: TaskItemProps) {
   const [lmAvailable, setLmAvailable] = useState(lmStudioAvailable ?? false);
 
@@ -321,7 +323,13 @@ export const TaskItem = memo(function TaskItem({
                 </div>
 
                 {/* Description preview */}
-                {descPreview && <MarkdownContent content={descPreview} onToggleCheckbox={handleToggleCheckbox} />}
+                {descPreview && (
+                  <MarkdownContent
+                    content={descPreview}
+                    onToggleCheckbox={handleToggleCheckbox}
+                    showMediaPreviews={showMediaPreviews}
+                  />
+                )}
 
                 {/* Relationship lines */}
                 {relDetails?.parent && (

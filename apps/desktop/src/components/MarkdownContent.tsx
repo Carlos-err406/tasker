@@ -5,7 +5,7 @@ import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 /** Minimal hast Element shape for accessing AST position info. */
 interface HastElement { position?: { start: { line: number } } }
-import { CheckSquare, Square, Loader2, Copy, Check, Play } from "lucide-react";
+import { CheckSquare, Square, Loader2, Copy, Check, Play, Image as ImageIcon, ImageOff, Images, Video } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -16,6 +16,8 @@ import { openExternal } from "@/lib/services/window";
 
 /** Context to pass the source line number from a task-list `<li>` to its checkbox `<input>`. */
 const CheckboxLineCtx = createContext<number | null>(null);
+
+type MediaKind = "image" | "video";
 
 function getTextContent(node: ReactNode): string {
   if (typeof node === "string") return node;
@@ -83,7 +85,62 @@ function getYouTubePreviewData(url: string | undefined): YouTubePreviewData | nu
   }
 }
 
-function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
+function MediaPreviewFrame({
+  kind,
+  label,
+  defaultExpanded,
+  children,
+}: {
+  kind: MediaKind;
+  label?: string;
+  defaultExpanded: boolean;
+  children: ReactNode;
+}) {
+  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(null);
+  const expanded = overrideExpanded ?? defaultExpanded;
+  const Icon = kind === "image" ? ImageIcon : Video;
+  const ExpandIcon = kind === "image" ? Images : Video;
+  const noun = kind === "image" ? "image" : "video";
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        data-testid={`markdown-${kind}-preview-collapsed`}
+        aria-label={`Show ${noun} preview`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOverrideExpanded(true);
+        }}
+        className="my-1 flex w-full items-center gap-2 rounded border border-border/70 bg-muted/20 px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-border hover:bg-muted/35 hover:text-foreground"
+      >
+        <Icon className="size-3.5 flex-shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{label || `${noun[0]!.toUpperCase()}${noun.slice(1)} preview hidden`}</span>
+        <ExpandIcon className="size-3.5 flex-shrink-0" aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <span className="relative my-1 block w-full">
+      {children}
+      <button
+        type="button"
+        data-testid={`markdown-${kind}-preview-hide`}
+        aria-label={`Hide ${noun} preview`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOverrideExpanded(false);
+        }}
+        className="absolute right-1 top-1 z-20 flex size-6 items-center justify-center rounded bg-black/60 text-white opacity-0 shadow transition-opacity hover:bg-black/75 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-white/70 group-hover/media:opacity-100"
+      >
+        <ImageOff className="size-3.5" />
+      </button>
+    </span>
+  );
+}
+
+function ImageWithContextMenu({ src, alt, showMediaPreviews }: { src?: string; alt?: string; showMediaPreviews: boolean }) {
   const resolvedSrc = resolveImageSrc(src);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -101,29 +158,31 @@ function ImageWithContextMenu({ src, alt }: { src?: string; alt?: string }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
-          {loading && !error && (
-            <span className="flex items-center justify-center py-3 text-muted-foreground/50">
-              <Loader2 className="size-4 animate-spin" />
-            </span>
-          )}
-          {error ? (
-            <span className="flex items-center justify-center py-2 text-muted-foreground/40 text-[10px]">
-              Failed to load image
-            </span>
-          ) : (
-            <img
-              src={resolvedSrc}
-              alt={alt ?? ""}
-              onLoad={() => setLoading(false)}
-              onError={() => { setLoading(false); setError(true); }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (src) openExternal(src);
-              }}
-              className={`max-w-full h-auto mx-auto block rounded cursor-pointer ${loading ? "hidden" : ""}`}
-            />
-          )}
+        <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
+          <MediaPreviewFrame kind="image" label={alt ? `Image: ${alt}` : undefined} defaultExpanded={showMediaPreviews}>
+            {loading && !error && (
+              <span className="flex items-center justify-center py-3 text-muted-foreground/50">
+                <Loader2 className="size-4 animate-spin" />
+              </span>
+            )}
+            {error ? (
+              <span className="flex items-center justify-center py-2 text-muted-foreground/40 text-[10px]">
+                Failed to load image
+              </span>
+            ) : (
+              <img
+                src={resolvedSrc}
+                alt={alt ?? ""}
+                onLoad={() => setLoading(false)}
+                onError={() => { setLoading(false); setError(true); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (src) openExternal(src);
+                }}
+                className={`max-w-full h-auto mx-auto block rounded cursor-pointer ${loading ? "hidden" : ""}`}
+              />
+            )}
+          </MediaPreviewFrame>
         </span>
       </ContextMenuTrigger>
       <ContextMenuContent collisionPadding={8}>
@@ -249,14 +308,26 @@ function YouTubePreview({ href, preview, label }: { href: string; preview: YouTu
   );
 }
 
-function VideoPreviewWithContextMenu({ href, label, youtubePreview }: { href: string; label?: string; youtubePreview?: YouTubePreviewData }) {
+function VideoPreviewWithContextMenu({
+  href,
+  label,
+  youtubePreview,
+  showMediaPreviews,
+}: {
+  href: string;
+  label?: string;
+  youtubePreview?: YouTubePreviewData;
+  showMediaPreviews: boolean;
+}) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <span className="block w-full my-1" onContextMenu={(e) => e.stopPropagation()}>
-          {youtubePreview
-            ? <YouTubePreview href={href} preview={youtubePreview} label={label} />
-            : <DirectVideoPreview href={href} label={label} />}
+        <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
+          <MediaPreviewFrame kind="video" label={label ? `Video: ${label}` : undefined} defaultExpanded={showMediaPreviews}>
+            {youtubePreview
+              ? <YouTubePreview href={href} preview={youtubePreview} label={label} />
+              : <DirectVideoPreview href={href} label={label} />}
+          </MediaPreviewFrame>
         </span>
       </ContextMenuTrigger>
       <ContextMenuContent collisionPadding={8}>
@@ -279,12 +350,20 @@ async function createPngBlob(blob: Blob): Promise<Blob> {
   return canvas.convertToBlob({ type: "image/png" });
 }
 
-function LinkWithContextMenu({ href, children }: { href?: string; children?: ReactNode }) {
+function LinkWithContextMenu({
+  href,
+  children,
+  showMediaPreviews,
+}: {
+  href?: string;
+  children?: ReactNode;
+  showMediaPreviews: boolean;
+}) {
   const textContent = getTextContent(children);
   const youtubePreview = getYouTubePreviewData(href);
 
   if (href && (isVideoUrl(href) || youtubePreview)) {
-    return <VideoPreviewWithContextMenu href={href} label={textContent} youtubePreview={youtubePreview ?? undefined} />;
+    return <VideoPreviewWithContextMenu href={href} label={textContent} youtubePreview={youtubePreview ?? undefined} showMediaPreviews={showMediaPreviews} />;
   }
 
   return (
@@ -371,9 +450,10 @@ interface MarkdownContentProps {
   content: string;
   /** Called with the line number (within `content`) of the toggled checkbox. */
   onToggleCheckbox?: (contentLineNumber: number) => void;
+  showMediaPreviews?: boolean;
 }
 
-export function MarkdownContent({ content, onToggleCheckbox }: MarkdownContentProps) {
+export function MarkdownContent({ content, onToggleCheckbox, showMediaPreviews = true }: MarkdownContentProps) {
   // Normalize non-breaking spaces (\u00A0) to regular spaces so markdown
   // parsers recognize indentation for nested lists.
   const processed = preprocessCheckboxes(content.replace(/\u00A0/g, ' '));
@@ -382,11 +462,11 @@ export function MarkdownContent({ content, onToggleCheckbox }: MarkdownContentPr
   // The li component reads its AST source line and provides it via context;
   // the input component consumes the context to know which checkbox it represents.
   const components: Components = {
-    img: ({ src, alt }) => <ImageWithContextMenu src={src} alt={alt} />,
+    img: ({ src, alt }) => <ImageWithContextMenu src={src} alt={alt} showMediaPreviews={showMediaPreviews} />,
     table: ({ children }) => <table className="w-full">{children}</table>,
     th: ({ children }) => <th className="border p-1 border-border">{children}</th>,
     td: ({ children }) => <td className="border p-1 border-border">{children}</td>,
-    a: ({ href, children }) => <LinkWithContextMenu href={href}>{children}</LinkWithContextMenu>,
+    a: ({ href, children }) => <LinkWithContextMenu href={href} showMediaPreviews={showMediaPreviews}>{children}</LinkWithContextMenu>,
     strong: ({ children }) => <strong className="font-semibold text-foreground/80">{children}</strong>,
     em: ({ children }) => <em>{children}</em>,
     code: ({ children }) => (

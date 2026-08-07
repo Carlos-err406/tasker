@@ -21,7 +21,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, CircleHelp, ArrowUpDown, ChevronsDownUp, Terminal, Trash2, Images, ImageOff } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip.js';
 import { Kbd, KbdGroup } from '@/components/ui/kbd.js';
 import { SortableListSection, type SortableListSectionHandle } from '@/components/SortableListSection.js';
@@ -53,6 +53,9 @@ export default function App() {
   const [summaryParams, setSummaryParams] = useState<{ listName: string; timeRange: string } | null>(null);
   const [lmStudioAvailable, setLmStudioAvailable] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showMediaPreviews, setShowMediaPreviews] = useState(() => {
+    return window.localStorage.getItem('tasker:showMediaPreviews') !== 'false';
+  });
   const dragOverlay = useDragOverlayClone();
   const searchRef = useRef<HTMLInputElement>(null);
   const listInputRef = useRef<HTMLInputElement>(null);
@@ -207,6 +210,10 @@ export default function App() {
   });
 
   useClickOutside(filterMenuRef, useCallback(() => setShowFilterMenu(false), []));
+
+  useEffect(() => {
+    window.localStorage.setItem('tasker:showMediaPreviews', String(showMediaPreviews));
+  }, [showMediaPreviews]);
 
   const startCreateList = () => {
     setCreatingList(true);
@@ -382,6 +389,21 @@ export default function App() {
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              data-testid="media-preview-toggle"
+              onClick={() => setShowMediaPreviews((v) => !v)}
+              className={cn('text-muted-foreground hover:text-foreground p-0.5', !showMediaPreviews && 'text-foreground')}
+              aria-label={showMediaPreviews ? 'Hide media previews' : 'Show media previews'}
+              aria-pressed={showMediaPreviews}
+            >
+              {showMediaPreviews ? <Images className="h-4 w-4" /> : <ImageOff className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{showMediaPreviews ? 'Hide media previews' : 'Show media previews'}</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
               onClick={store.applySystemSort}
               className="text-muted-foreground hover:text-foreground p-0.5"
             >
@@ -541,6 +563,7 @@ export default function App() {
                       onSummary={handleSummary}
                       lmStudioAvailable={lmStudioAvailable}
                       onTagClick={(tag) => setSearchInput(`tag:${tag}`)}
+                      showMediaPreviews={showMediaPreviews}
                       hideCompleted={store.hideCompletedLists.has(listName)}
                       onToggleHideCompleted={() => store.toggleHideCompleted(listName)}
                     />

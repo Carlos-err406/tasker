@@ -3,7 +3,7 @@ import { View, Text, Pressable, TextInput, RefreshControl, StyleSheet } from 're
 import { FlashList } from '@shopify/flash-list';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check, Minus, X, ChevronDown, Plus, Eye, EyeOff, Undo2, Redo2, ChevronsUp, ChevronUp, ChevronDown as ChevronDownIcon, Send, ChevronsDownUp, ArrowUpDown, Info, Trash2, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar } from 'lucide-react-native';
+import { Check, Minus, X, ChevronDown, Plus, Eye, EyeOff, Undo2, Redo2, ChevronsUp, ChevronUp, ChevronDown as ChevronDownIcon, Send, ChevronsDownUp, ArrowUpDown, Info, Trash2, CornerLeftUp, CornerRightDown, Ban, Link2, Calendar, Images, ImageOff } from 'lucide-react-native';
 import { TaskStatus, Priority } from '@tasker/core/types';
 import type { Task } from '@tasker/core/types';
 import { getDisplayDescription, parseTaskDescription } from '@tasker/core/parsers';
@@ -54,7 +54,24 @@ function getDescriptionPreview(task: Task): string | null {
   return rest.slice(start, end + 1).join('\n');
 }
 
-const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit }: { task: Task; onToggle: (id: string, s: TaskStatus) => void; onDelete: (id: string) => void; onEdit: (id: string) => void }) {
+const MEDIA_PREVIEW_CONFIG_KEY = 'mobile_show_media_previews';
+
+async function getShowMediaPreviews(): Promise<boolean> {
+  const row = await localDb.getOptional<{ value: string }>(
+    'SELECT value FROM config WHERE key = ?',
+    [MEDIA_PREVIEW_CONFIG_KEY],
+  );
+  return row?.value !== 'false';
+}
+
+async function setShowMediaPreviewsPref(value: boolean): Promise<void> {
+  await localDb.execute(
+    'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
+    [MEDIA_PREVIEW_CONFIG_KEY, String(value)],
+  );
+}
+
+const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit, showMediaPreviews }: { task: Task; onToggle: (id: string, s: TaskStatus) => void; onDelete: (id: string) => void; onEdit: (id: string) => void; showMediaPreviews: boolean }) {
   const done = task.status === TaskStatus.Done;
   const wontDo = task.status === TaskStatus.WontDo;
   const inProg = task.status === TaskStatus.InProgress;
@@ -102,7 +119,7 @@ const TaskItem = memo(function TaskItem({ task, onToggle, onDelete, onEdit }: { 
 
         {/* Description preview (markdown) */}
         {preview && (
-          <Markdown content={preview} style={{ marginTop: 3 }} />
+          <Markdown content={preview} style={{ marginTop: 3 }} showMediaPreviews={showMediaPreviews} />
         )}
 
         {/* Relationships */}
@@ -210,6 +227,21 @@ export default function ListsScreen() {
   const [creatingList, setCreatingList] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [showMediaPreviews, setShowMediaPreviews] = useState(true);
+
+  useEffect(() => {
+    getShowMediaPreviews()
+      .then(setShowMediaPreviews)
+      .catch(() => setShowMediaPreviews(true));
+  }, []);
+
+  const toggleMediaPreviews = useCallback(() => {
+    setShowMediaPreviews((current) => {
+      const next = !current;
+      void setShowMediaPreviewsPref(next);
+      return next;
+    });
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -250,6 +282,15 @@ export default function ListsScreen() {
         <Pressable onPress={store.redo} style={s.headerBtn}><Redo2 size={17} color={C.muted} /></Pressable>
         <Pressable onPress={store.toggleCollapseAll} style={s.headerBtn}><ChevronsDownUp size={17} color={C.muted} /></Pressable>
         <Pressable onPress={store.applySystemSort} style={s.headerBtn}><ArrowUpDown size={17} color={C.muted} /></Pressable>
+        <Pressable
+          onPress={toggleMediaPreviews}
+          style={s.headerBtn}
+          accessibilityRole="button"
+          accessibilityLabel={showMediaPreviews ? 'Hide media previews' : 'Show media previews'}
+          accessibilityState={{ selected: showMediaPreviews }}
+        >
+          {showMediaPreviews ? <Images size={17} color={C.muted} /> : <ImageOff size={17} color={C.text} />}
+        </Pressable>
         <Pressable onPress={() => setCreatingList(true)} style={s.headerBtn}><Plus size={17} color={C.muted} /></Pressable>
         <Pressable onPress={() => setShowHelp(v => !v)} style={s.headerBtn}><Info size={17} color={showHelp ? C.blue : C.muted} /></Pressable>
       </View>
@@ -278,7 +319,7 @@ export default function ListsScreen() {
               />
             );
           }
-          return <TaskItem task={item.task} onToggle={store.toggleStatus} onDelete={store.deleteTask} onEdit={setEditingTaskId} />;
+          return <TaskItem task={item.task} onToggle={store.toggleStatus} onDelete={store.deleteTask} onEdit={setEditingTaskId} showMediaPreviews={showMediaPreviews} />;
         }}
         getItemType={(item) => item.type}
         keyExtractor={(item) => item.type === 'header' ? `h-${item.name}` : item.task.id}
@@ -286,7 +327,7 @@ export default function ListsScreen() {
         keyboardShouldPersistTaps="handled"
         refreshing={refreshing}
         onRefresh={onRefresh}
-        extraData={store.collapsedLists}
+        extraData={{ collapsedLists: store.collapsedLists, showMediaPreviews }}
       />
       <View style={s.statusBar}>
         <Text style={s.statusText}>{store.statusMessage || `${store.pendingCount} pending, ${store.totalCount} total`}</Text>

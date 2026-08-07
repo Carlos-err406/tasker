@@ -4,8 +4,9 @@
  * [links](url), ```code blocks```, - [ ] checkboxes, # headings
  */
 
-import { memo, useState, type ReactElement } from 'react';
-import { Text, View, Image, ActivityIndicator, StyleSheet, Linking } from 'react-native';
+import { memo, useState, type ReactElement, type ReactNode } from 'react';
+import { Text, View, Image, ActivityIndicator, StyleSheet, Linking, Pressable } from 'react-native';
+import { Image as ImageIcon, ImageOff, Images, Play, Video } from 'lucide-react-native';
 
 const C = {
   text: '#fafafa',
@@ -19,6 +20,14 @@ const C = {
 interface MarkdownProps {
   content: string;
   style?: any;
+  showMediaPreviews?: boolean;
+}
+
+type MediaKind = 'image' | 'video';
+
+interface YouTubePreviewData {
+  videoId: string;
+  thumbnailUrl: string;
 }
 
 type Segment =
@@ -94,6 +103,108 @@ function InlineLine({ text }: { text: string }) {
   );
 }
 
+function isVideoUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(parsed.pathname);
+  } catch {
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)(?:[?#].*)?$/i.test(url);
+  }
+}
+
+function getYouTubePreviewData(url: string | undefined): YouTubePreviewData | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    let videoId: string | null = null;
+
+    if (hostname === 'youtu.be') {
+      videoId = parsed.pathname.split('/').filter(Boolean)[0] ?? null;
+    } else if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts[0] === 'shorts' || parts[0] === 'embed') {
+        videoId = parts[1] ?? null;
+      } else if (parsed.pathname === '/watch') {
+        videoId = parsed.searchParams.get('v');
+      }
+    }
+
+    if (!videoId || !/^[\w-]{6,}$/.test(videoId)) return null;
+    return {
+      videoId,
+      thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getFirstMediaLink(text: string): { url: string; label?: string; youtube?: YouTubePreviewData; isVideo: boolean } | null {
+  const markdownLink = text.match(/\[([^\]]+)\]\(((?:[^()]*|\([^()]*\))*)\)/);
+  if (markdownLink) {
+    const url = markdownLink[2]!;
+    const youtube = getYouTubePreviewData(url);
+    if (youtube || isVideoUrl(url)) return { url, label: markdownLink[1]!, youtube: youtube ?? undefined, isVideo: true };
+  }
+
+  const bareUrl = text.match(/https?:\/\/[^\s)]+/);
+  if (!bareUrl) return null;
+  const url = bareUrl[0];
+  const youtube = getYouTubePreviewData(url);
+  if (youtube || isVideoUrl(url)) return { url, label: youtube ? 'YouTube video' : 'Video', youtube: youtube ?? undefined, isVideo: true };
+  return null;
+}
+
+function MediaPreviewFrame({
+  kind,
+  label,
+  defaultExpanded,
+  children,
+}: {
+  kind: MediaKind;
+  label?: string;
+  defaultExpanded: boolean;
+  children: ReactNode;
+}) {
+  const [overrideExpanded, setOverrideExpanded] = useState<boolean | null>(null);
+  const expanded = overrideExpanded ?? defaultExpanded;
+  const Icon = kind === 'image' ? ImageIcon : Video;
+  const ExpandIcon = kind === 'image' ? Images : Video;
+  const noun = kind === 'image' ? 'image' : 'video';
+
+  if (!expanded) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Show ${noun} preview`}
+        onPress={() => setOverrideExpanded(true)}
+        style={ms.mediaCollapsed}
+      >
+        <Icon size={14} color={C.muted} />
+        <Text style={ms.mediaCollapsedText} numberOfLines={1}>{label || `${noun[0]!.toUpperCase()}${noun.slice(1)} preview hidden`}</Text>
+        <ExpandIcon size={14} color={C.dim} />
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={ms.mediaFrame}>
+      {children}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Hide ${noun} preview`}
+        onPress={() => setOverrideExpanded(false)}
+        style={ms.mediaHideButton}
+      >
+        <ImageOff size={14} color="#fff" />
+      </Pressable>
+    </View>
+  );
+}
+
 // ─── GFM tables ──────────────────────────────────────────────────────────────
 
 /** Split a `| a | b |` row into trimmed cells (leading/trailing pipes optional). */
@@ -136,37 +247,105 @@ function MarkdownTable({ header, rows }: { header: string[]; rows: string[][] })
   );
 }
 
-function MarkdownImage({ url, alt }: { url: string; alt: string }) {
+function MarkdownImage({ url, alt, showMediaPreviews }: { url: string; alt: string; showMediaPreviews: boolean }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  return error ? (
-    <Text style={ms.imageFail}>Failed to load image</Text>
-  ) : (
-    <View>
-      {loading && (
-        <View style={ms.imageLoader}>
-          <ActivityIndicator size="small" color="#71717a" />
-        </View>
+  return (
+    <MediaPreviewFrame kind="image" label={alt ? `Image: ${alt}` : undefined} defaultExpanded={showMediaPreviews}>
+      {error ? (
+        <Text style={ms.imageFail}>Failed to load image</Text>
+      ) : (
+        <Pressable onPress={() => Linking.openURL(url)}>
+          {loading && (
+            <View style={ms.imageLoader}>
+              <ActivityIndicator size="small" color="#71717a" />
+            </View>
+          )}
+          <Image
+            source={{ uri: url }}
+            alt={alt}
+            style={[ms.image, size ? { aspectRatio: size.width / size.height } : { height: 150 }, loading && { height: 0 }]}
+            resizeMode="contain"
+            onLoad={(e) => {
+              const { width, height } = e.nativeEvent.source;
+              if (width && height) setSize({ width, height });
+              setLoading(false);
+            }}
+            onError={() => { setLoading(false); setError(true); }}
+          />
+        </Pressable>
       )}
-      <Image
-        source={{ uri: url }}
-        alt={alt}
-        style={[ms.image, size ? { aspectRatio: size.width / size.height } : { height: 150 }, loading && { height: 0 }]}
-        resizeMode="contain"
-        onLoad={(e) => {
-          const { width, height } = e.nativeEvent.source;
-          if (width && height) setSize({ width, height });
-          setLoading(false);
-        }}
-        onError={() => { setLoading(false); setError(true); }}
-      />
-    </View>
+    </MediaPreviewFrame>
   );
 }
 
-export const Markdown = memo(function Markdown({ content, style }: MarkdownProps) {
+function MarkdownVideoPreview({
+  url,
+  label,
+  youtube,
+  showMediaPreviews,
+}: {
+  url: string;
+  label?: string;
+  youtube?: YouTubePreviewData;
+  showMediaPreviews: boolean;
+}) {
+  const [loading, setLoading] = useState(!!youtube);
+  const [error, setError] = useState(false);
+
+  return (
+    <MediaPreviewFrame kind="video" label={label ? `Video: ${label}` : undefined} defaultExpanded={showMediaPreviews}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={youtube ? 'Open video on YouTube' : 'Open video'}
+        onPress={() => Linking.openURL(url)}
+        style={youtube ? ms.youtubeCard : ms.videoCard}
+      >
+        {youtube ? (
+          <>
+            {loading && !error && (
+              <View style={ms.videoLoader}>
+                <ActivityIndicator size="small" color="#71717a" />
+                <Text style={ms.videoLoaderText}>Loading YouTube preview...</Text>
+              </View>
+            )}
+            {error ? (
+              <View style={ms.videoFallback}>
+                <Play size={26} color={C.muted} />
+                <Text style={ms.videoFallbackText}>Preview unavailable</Text>
+                <Text style={ms.videoLinkText}>Open on YouTube</Text>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: youtube.thumbnailUrl }}
+                style={[ms.youtubeImage, loading && { opacity: 0 }]}
+                resizeMode="cover"
+                onLoad={() => setLoading(false)}
+                onError={() => { setLoading(false); setError(true); }}
+              />
+            )}
+            {!error && (
+              <View style={ms.playOverlay}>
+                <View style={ms.playButton}><Play size={20} color="#fff" fill="#fff" /></View>
+              </View>
+            )}
+            <View style={ms.youtubeLabel}><Text style={ms.youtubeLabelText}>Open on YouTube</Text></View>
+          </>
+        ) : (
+          <>
+            <Video size={16} color={C.muted} />
+            <Text style={ms.videoCardText} numberOfLines={1}>{label || url}</Text>
+            <Text style={ms.videoLinkText}>Open</Text>
+          </>
+        )}
+      </Pressable>
+    </MediaPreviewFrame>
+  );
+}
+
+export const Markdown = memo(function Markdown({ content, style, showMediaPreviews = true }: MarkdownProps) {
   const lines = content.split('\n');
   const elements: ReactElement[] = [];
   let i = 0;
@@ -177,7 +356,30 @@ export const Markdown = memo(function Markdown({ content, style }: MarkdownProps
     // Image on its own line: ![alt](url)
     const imgMatch = line.match(/^!\[([^\]]*)\]\(((?:[^()]*|\([^()]*\))*)\)\s*$/);
     if (imgMatch) {
-      elements.push(<MarkdownImage key={`img-${i}`} url={imgMatch[2]!} alt={imgMatch[1]!} />);
+      elements.push(<MarkdownImage key={`img-${i}`} url={imgMatch[2]!} alt={imgMatch[1]!} showMediaPreviews={showMediaPreviews} />);
+      i++;
+      continue;
+    }
+
+    const mediaLink = getFirstMediaLink(line);
+    if (mediaLink) {
+      const mediaOnly = line.trim() === mediaLink.url || line.trim() === `[${mediaLink.label}](${mediaLink.url})`;
+      if (!mediaOnly) {
+        elements.push(
+          <Text key={`p-${i}`} style={ms.para}>
+            <InlineLine text={line} />
+          </Text>,
+        );
+      }
+      elements.push(
+        <MarkdownVideoPreview
+          key={`vid-${i}`}
+          url={mediaLink.url}
+          label={mediaLink.label}
+          youtube={mediaLink.youtube}
+          showMediaPreviews={showMediaPreviews}
+        />,
+      );
       i++;
       continue;
     }
@@ -288,4 +490,21 @@ const ms = StyleSheet.create({
   image: { width: '100%', borderRadius: 6, marginVertical: 4 } as any,
   imageLoader: { height: 80, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#18181b', borderRadius: 6, marginVertical: 4 },
   imageFail: { color: C.dim, fontSize: 10, marginVertical: 4 },
+  mediaFrame: { position: 'relative', marginVertical: 4 },
+  mediaHideButton: { position: 'absolute', top: 8, right: 8, zIndex: 2, width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' },
+  mediaCollapsed: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: '#3f3f46', backgroundColor: 'rgba(39,39,42,0.35)', borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7, marginVertical: 4 },
+  mediaCollapsedText: { flex: 1, color: C.muted, fontSize: 11 },
+  youtubeCard: { position: 'relative', width: '100%', aspectRatio: 16 / 9, overflow: 'hidden', borderRadius: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: '#27272a', backgroundColor: '#18181b' },
+  youtubeImage: { width: '100%', height: '100%', opacity: 0.84 },
+  videoLoader: { ...StyleSheet.absoluteFillObject, zIndex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  videoLoaderText: { color: C.muted, fontSize: 11 },
+  videoFallback: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  videoFallbackText: { color: C.muted, fontSize: 11 },
+  playOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.12)' },
+  playButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.72)' },
+  youtubeLabel: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(0,0,0,0.55)' },
+  youtubeLabelText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  videoCard: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: '#27272a', backgroundColor: '#18181b', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 9 },
+  videoCardText: { flex: 1, color: C.muted, fontSize: 11 },
+  videoLinkText: { color: C.blue, fontSize: 11, fontWeight: '600' },
 });

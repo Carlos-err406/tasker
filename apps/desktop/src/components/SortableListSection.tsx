@@ -27,6 +27,7 @@ interface SortableListSectionProps {
   onSummary?: (listName: string, timeRange: string) => void;
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
+  showMediaPreviews?: boolean;
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
 }

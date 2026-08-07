@@ -2,6 +2,12 @@ import { test, expect } from './fixtures.js';
 import { addTask } from './helpers.js';
 
 test.describe('Markdown', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem('tasker:showMediaPreviews', 'true'));
+    await page.reload();
+    await page.waitForSelector('[data-testid="app-ready"]');
+  });
+
   test('renders bold and italic in task description', async ({ page }) => {
     await addTask(page, 'Title\n**bold text** and *italic text*');
 
@@ -49,6 +55,40 @@ test.describe('Markdown', () => {
 
     await expect(preview).toBeVisible();
     await expect(video).toHaveAttribute('src', 'https://example.com/demo.webm');
+  });
+
+  test('global media preview toggle collapses video previews', async ({ page }) => {
+    await addTask(page, 'Title\nWatch [clip](https://example.com/demo.mp4)');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await expect(taskItem.locator('[data-testid="markdown-video-preview"]')).toBeVisible();
+
+    await page.locator('[data-testid="media-preview-toggle"]').click();
+
+    const collapsed = taskItem.locator('[data-testid="markdown-video-preview-collapsed"]');
+    await expect(collapsed).toBeVisible();
+    await expect(collapsed).toContainText('Video: clip');
+    await expect(taskItem.locator('video')).toHaveCount(0);
+
+    await collapsed.click();
+    await expect(taskItem.locator('[data-testid="markdown-video-preview"]')).toBeVisible();
+  });
+
+  test('individual media previews can be hidden and reopened', async ({ page }) => {
+    await addTask(page, 'Title\n![sample](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==)');
+
+    const taskItem = page.locator('[data-testid^="task-item-"]').first();
+    await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
+
+    await taskItem.locator('[data-testid="markdown-image-preview-hide"]').click({ force: true });
+
+    const collapsed = taskItem.locator('[data-testid="markdown-image-preview-collapsed"]');
+    await expect(collapsed).toBeVisible();
+    await expect(collapsed).toContainText('Image: sample');
+    await expect(taskItem.locator('img[alt="sample"]')).toHaveCount(0);
+
+    await collapsed.click();
+    await expect(taskItem.locator('img[alt="sample"]')).toBeVisible();
   });
 
   test('renders YouTube Shorts urls as inline previews', async ({ page }) => {

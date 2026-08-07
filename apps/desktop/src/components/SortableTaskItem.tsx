@@ -19,6 +19,7 @@ interface SortableTaskItemProps {
   onDecompose?: (taskId: string) => void;
   lmStudioAvailable?: boolean;
   onTagClick?: (tag: string) => void;
+  showMediaPreviews?: boolean;
 }
 
 export function SortableTaskItem({ task, ...rest }: SortableTaskItemProps) {
