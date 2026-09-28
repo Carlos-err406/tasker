@@ -167,7 +167,7 @@ main() {
     [[ ! -e "$host_path" ]] || { fail 'SwiftBar appeared during installation; retry to use it.'; return 1; }
     mv "$scratch/host/SwiftBar.app" "$host_path"
     cp "$app/THIRD-PARTY-NOTICES.md" "$HOME/Applications/Tasker-SwiftBar-NOTICE.md"
-    say 'This free fork is ad-hoc signed, not Apple-notarized. macOS may require Open Anyway in Privacy & Security.' 
+    say 'This free fork is ad-hoc signed, not Apple-notarized. macOS may require Open Anyway in Privacy & Security.'
   fi
   configured_plugin=$(/usr/bin/defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || true)
   configured_plugin=${configured_plugin/#\~/$HOME}
