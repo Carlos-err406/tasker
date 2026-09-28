@@ -109,7 +109,7 @@ main() {
     version=${version#v}
     asset="tasker-swiftbar-$version-macos.tar.gz"
     base="https://github.com/Carlos-err406/tasker/releases/download/v$version"
-    say "Downloading Tasker $version…"
+    say "Downloading Tasker ${version}…"
     download "$base/$asset" "$scratch/tasker.tar.gz"
     download "$base/$asset.sha256" "$scratch/tasker.sha256"
   fi

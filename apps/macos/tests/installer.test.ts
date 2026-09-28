@@ -81,3 +81,25 @@ it("restores previous integration files on rollback without touching task data",
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+it("resolves the latest release and reaches its download on macOS Bash", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "tasker-installer-download-"));
+  try {
+    const result = await shell(
+      `download() {
+        case "$1" in
+          */releases/latest) printf '%s' '{"tag_name":"v0.1.0"}' > "$2" ;;
+          *) printf '%s\\n' "Download reached: $1" >&2; return 42 ;;
+        esac
+      }; TASKER_INSTALL_ROOT="$1"; main --prepare-only`,
+      dir,
+    ).catch((error) => error);
+    expect(result.code).toBe(42);
+    expect(result.stdout).toContain("Downloading Tasker 0.1.0");
+    expect(result.stderr).toContain(
+      "Download reached: https://github.com/Carlos-err406/tasker/releases/download/v0.1.0/tasker-swiftbar-0.1.0-macos.tar.gz",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
