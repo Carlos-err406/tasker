@@ -9,7 +9,7 @@ A local macOS task manager in SwiftBar, preserving cli-tasker's parser and React
 On macOS 13.5 or later, run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Carlos-err406/tasker/main/install.sh | bash
+curl -fsSL https://github.com/Carlos-err406/tasker/releases/latest/download/install.sh | bash
 ```
 
 No Homebrew, Node setup, pnpm setup, or sudo is required. The installer downloads a verified release and private runtimes under `~/.local/share/tasker`, installs the service and plugin, and opens SwiftBar. If SwiftBar is missing, it installs the tested [Carlos-err406/SwiftBar fork](https://github.com/Carlos-err406/SwiftBar) in `~/Applications`. Existing SwiftBar installations are preserved; Tasker requires the fork’s native clipboard support. The fork is ad-hoc signed, so macOS may ask you to allow it in **System Settings → Privacy & Security → Open Anyway**.

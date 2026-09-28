@@ -1,4 +1,31 @@
-# Preparing a macOS release archive
+# Releasing Tasker
+
+## Automated releases
+
+`.github/workflows/release.yml` checks pull requests, pushes to `main`, and version tags on standard `macos-15` runners. It installs pinned Node.js/pnpm, verifies package/plugin versions and release notes, checks the shell installer, builds, typechecks, and runs unit and WebKit tests. The public repository uses free standard GitHub-hosted runners.
+
+To release:
+
+1. Bump the version in the root package.json, the three workspace package.json files, and the plugin's `<xbar.version>` field.
+2. Add `docs/releases/<version>.md` with user-facing changes and installation instructions. Open and merge the PR after checks pass.
+3. From an up-to-date, clean `main` checkout, push the matching tag, for example:
+
+   ```sh
+   git tag v0.1.2
+   git push origin v0.1.2
+   ```
+
+A tag must exactly match the package version and point to a commit included in `main`. Only stable `vX.Y.Z` releases are supported. The tag run repeats checks before the publishing job starts.
+
+The publishing job builds from the tag, injects the desktop app identity, creates the archive/checksum, and checks production dependency installation in an isolated directory. It uploads the archive, checksum, and `install.sh` to a **draft**, verifies the uploaded sizes and SHA-256 digests, then publishes it as latest. An interrupted upload leaves a draft; rerun the failed job to retry. An already published release is left unchanged on rerun. Publish a new version to change public assets.
+
+### Repository secret
+
+`TASKER_GOOGLE_DESKTOP_CLIENT_JSON` is configured in this repository's Actions secrets. It contains only the `installed.client_id` and optional `installed.client_secret` desktop application fields. The publishing step writes it into a private temporary file and removes that file afterward; normal PR checks receive no OAuth configuration. The source placeholder stays unconfigured, and the archive deliberately contains the public desktop app identity.
+
+To rotate the identity, replace this secret with the new Desktop client configuration and publish a new version. Never use a service-account key, Web OAuth client, or user authorization tokens. No separate GitHub token is needed: the publish job uses `GITHUB_TOKEN` with `contents: write`; checks have read-only permissions.
+
+## Preparing a local archive
 
 From the repository root, run:
 
@@ -40,4 +67,4 @@ Open Tasker → Backups → Connect Google. The browser asks for the user's own 
 
 Publish a GitHub release tagged `v<package version>` in `Carlos-err406/tasker`, attaching the archive and its `.sha256` companion. The installer resolves the latest release once, then downloads both assets from that exact tag. Keep published release assets immutable; publish a new version for later updates.
 
-The first release `v0.1.0` also carries the pinned `SwiftBar-headerless-universal.zip` companion artifact and its license. Preserve that asset for future installers, which use its known SHA-256 rather than an unversioned host download. See `THIRD-PARTY-NOTICES.md` for source/build provenance. The installer itself is served from the repository's `main/install.sh`.
+The first release `v0.1.0` also carries the pinned `SwiftBar-headerless-universal.zip` companion artifact and its license. Preserve that asset for future installers, which use its known SHA-256 rather than an unversioned host download. See `THIRD-PARTY-NOTICES.md` for source/build provenance. Every new release attaches `install.sh`. The documented installation URL is `https://github.com/Carlos-err406/tasker/releases/latest/download/install.sh`; the source copy on `main` remains available for inspection.
