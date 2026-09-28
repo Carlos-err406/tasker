@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 // Explicit runtime inputs only. Never archive the checkout or app data directory.
 export async function stageRelease(root, destination) {
@@ -49,6 +50,7 @@ export async function stageRelease(root, destination) {
     "pnpm-workspace.yaml",
     ".npmrc",
     "scripts/install.mjs",
+    "THIRD-PARTY-NOTICES.md",
     "packages/core/package.json",
     "packages/ui/package.json",
     "apps/macos/package.json",
@@ -113,7 +115,11 @@ if (
       temp,
       basename(staged),
     ]);
-    console.log(`Prepared ${output}`);
+    const sha256 = createHash("sha256")
+      .update(await readFile(output))
+      .digest("hex");
+    await writeFile(output + ".sha256", `${sha256}  ${basename(output)}\n`);
+    console.log(`Prepared ${output} and SHA-256 checksum`);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

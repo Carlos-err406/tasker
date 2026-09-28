@@ -22,10 +22,12 @@ const agents =
   join(homedir(), "Library/LaunchAgents");
 const dry = process.argv.includes("--dry-run"),
   uninstall = process.argv.includes("--uninstall");
-const label = "org.tasker-swiftbar.service",
+const label =
+    process.env.TASKER_SWIFTBAR_SERVICE_LABEL ?? "org.tasker-swiftbar.service",
   plist = join(agents, label + ".plist"),
   plugin = join(pluginDir, "Tasker.1m.sh");
 const target = `gui/${process.getuid()}/${label}`;
+if (!/^[A-Za-z0-9.-]+$/.test(label)) throw new Error("Invalid service label");
 const launch = (args, optional = false) => {
   if (dry) return;
   try {
@@ -73,6 +75,8 @@ writeFileSync(
   `#!/bin/bash
 # Managed by tasker-swiftbar
 export TASKER_SWIFTBAR_DATA_DIR=${shell(directory)}
+export TASKER_SWIFTBAR_SERVICE_LABEL=${shell(label)}
+export TASKER_SWIFTBAR_LAUNCHAGENT_PATH=${shell(plist)}
 exec /bin/bash ${shell(join(root, "apps/macos/plugin/Tasker.1m.sh"))}
 `,
   { mode: 0o755 },
@@ -106,7 +110,7 @@ for (let attempt = 0; attempt < 20; attempt++) {
     await delay(250);
   }
 }
-if (!dry) {
+if (!dry && process.env.TASKER_SWIFTBAR_NO_OPEN !== "1") {
   try {
     execFileSync("/usr/bin/open", ["swiftbar://refreshallplugins"], {
       stdio: "pipe",

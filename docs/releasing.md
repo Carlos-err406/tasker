@@ -9,7 +9,7 @@ TASKER_GOOGLE_BUILD_CLIENT_JSON=/absolute/path/to/desktop-client.json pnpm relea
 pnpm test:e2e
 ```
 
-The output is `release/tasker-swiftbar-<package version>-macos.tar.gz`. The version comes from the root package.json. This command prepares a local archive; it does not tag Git, upload anything, or change Google's publishing settings.
+The output is `release/tasker-swiftbar-<package version>-macos.tar.gz` plus its `.sha256` checksum. The version comes from the root package.json. This command prepares a local archive; it does not tag Git, upload anything, or change Google's publishing settings.
 
 ## Included application identity
 
@@ -35,3 +35,9 @@ pnpm install:macos
 The service runs from that directory. Keep it and its dependencies in place. Native SQLite dependencies install for the recipient's Mac. The archive is a prebuilt Node/SwiftBar runtime, not a signed standalone `.app`; it contains no source-build setup.
 
 Open Tasker → Backups → Connect Google. The browser asks for the user's own account authorization. The existing installer's local data directory and local JSON override are preserved when updating an installation.
+
+## Publishing for the curl installer
+
+Publish a GitHub release tagged `v<package version>` in `Carlos-err406/tasker`, attaching the archive and its `.sha256` companion. The installer resolves the latest release once, then downloads both assets from that exact tag. Keep published release assets immutable; publish a new version for later updates.
+
+The first release `v0.1.0` also carries the pinned `SwiftBar-headerless-universal.zip` companion artifact and its license. Preserve that asset for future installers, which use its known SHA-256 rather than an unversioned host download. See `THIRD-PARTY-NOTICES.md` for source/build provenance. The installer itself is served from the repository's `main/install.sh`.
