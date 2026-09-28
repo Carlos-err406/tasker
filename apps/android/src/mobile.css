@@ -1,0 +1,374 @@
+:root {
+  font-family: system-ui, sans-serif;
+  --radius: 0.65rem;
+}
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+.mobile-bottom-bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--muted);
+}
+.mobile-list-picker {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.mobile-list-picker > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-list-picker > svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.mobile-app-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.mobile-app-controls > button {
+  color: var(--muted-foreground);
+}
+.mobile-app-controls > button[aria-pressed="true"] {
+  color: var(--foreground);
+  background: var(--accent);
+}
+.mobile-search {
+  display: flex;
+  align-items: center;
+  margin: 8px 16px;
+  padding-left: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--secondary);
+}
+.mobile-search > svg {
+  height: 18px;
+  width: 18px;
+  color: var(--muted-foreground);
+}
+.mobile-search input {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.mobile-create-list {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.mobile-workspace {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: 20px;
+}
+.mobile-shell
+  button:not([data-task-tag]):not([data-testid^="task-checkbox-"]):not(
+    [data-task-id-copy]
+  ) {
+  min-height: 44px;
+}
+.mobile-shell
+  button:not([data-task-tag]):not([data-testid^="task-checkbox-"]):not(
+    [data-task-id-copy]
+  ):has(> svg:only-child) {
+  min-width: 44px;
+}
+.mobile-shell input,
+.mobile-shell [contenteditable] {
+  font-size: 16px;
+}
+.mobile-shell [contenteditable] {
+  min-height: 90px;
+  max-height: 32dvh;
+  white-space: pre-wrap;
+}
+.mobile-shell [data-testid^="task-checkbox-"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  position: relative;
+  margin: 2px 0 6px;
+}
+.mobile-shell [data-testid^="task-checkbox-"]::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+.mobile-shell [data-task-id-copy] {
+  min-height: 0;
+}
+.mobile-shell [data-testid^="task-name-"] {
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.mobile-shell [data-testid^="task-item-"] {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.mobile-help {
+  padding-bottom: 0;
+}
+.mobile-help [data-testid="help-panel"] > div {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mobile-help h3 {
+  font-size: 15px;
+}
+.mobile-status {
+  flex-shrink: 0;
+  padding: 4px 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[role="menuitem"],
+[role="menuitemradio"] {
+  min-height: 44px;
+}
+@media (max-height: 550px) {
+  .mobile-bottom-bar {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .mobile-search {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+.touch-editor-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--background);
+  color: var(--foreground);
+}
+.touch-editor-heading {
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.touch-editor-heading h1 {
+  font-size: 20px;
+  font-weight: 600;
+}
+.touch-editor-heading p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.touch-editor-body,
+.touch-editor-body .task-create-editor {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.touch-editor-body {
+  padding: 12px 16px 0;
+}
+.touch-editor-body .task-create-editor {
+  padding: 0;
+  border: 0;
+}
+.touch-editor-screen [contenteditable] {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 8px 0;
+  font-size: 17px;
+  line-height: 1.6;
+  overflow: auto;
+}
+.touch-editor-actions {
+  flex-shrink: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  background: var(--background);
+}
+.touch-editor-actions > button:last-child {
+  background: var(--foreground);
+  color: var(--background);
+}
+.touch-task-row {
+  position: relative;
+  touch-action: pan-y;
+  overflow-x: clip;
+  background: var(--muted);
+}
+.touch-task-content {
+  position: relative;
+  background: var(--background);
+  transition: transform 150ms ease-out;
+}
+.touch-task-content * {
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.touch-task-row [data-testid^="task-item-"] {
+  padding-right: 46px;
+}
+.touch-task-actions-trigger {
+  position: absolute;
+  right: 4px;
+  top: 6px;
+  color: var(--muted-foreground);
+}
+.touch-task-sheet {
+  top: auto;
+  bottom: 0;
+  left: 0;
+  transform: none;
+  translate: none;
+  max-width: none;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px 16px;
+  max-height: 85dvh;
+  overflow: auto;
+}
+.touch-task-sheet[data-state="open"] {
+  animation: task-sheet-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.touch-task-sheet[data-state="closed"] {
+  animation: task-sheet-out 180ms ease-in both;
+}
+.touch-task-sheet-overlay {
+  animation-duration: 220ms;
+}
+.touch-task-sheet-overlay[data-state="closed"] {
+  animation-duration: 180ms;
+}
+@keyframes task-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes task-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+.touch-task-sheet button {
+  min-height: 48px;
+  font-size: 15px;
+}
+.touch-task-sheet-actions {
+  display: grid;
+  gap: 4px;
+}
+.touch-task-sheet-actions button {
+  justify-content: flex-start;
+  white-space: normal;
+  height: auto;
+  text-align: left;
+}
+@media (prefers-reduced-motion: reduce) {
+  .touch-task-content {
+    transition: none;
+  }
+  .touch-task-sheet[data-state], .touch-task-sheet-overlay[data-state] {
+    animation: none;
+  }
+}
+
+.mobile-editor-error {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 68px;
+  z-index: 70;
+  padding: 12px;
+  border: 1px solid var(--destructive);
+  border-radius: 8px;
+  color: var(--destructive);
+  background: var(--background);
+  font-size: 14px;
+}
+
+.backups {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: 12px;
+}
+.backups-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+}
+.backups .toolbar {
+  padding: 8px 0;
+}
+.backups p {
+  margin: 8px 0;
+  color: var(--muted-foreground);
+}
+.backups h3 {
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.backup-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.backup-row > div {
+  flex: 1;
+  min-width: 0;
+}
+.backup-row strong {
+  font-size: 11px;
+}
+.backup-row small {
+  display: block;
+  color: var(--muted-foreground);
+}
+
+.mobile-backups { overflow: hidden; }
+.mobile-backups .backups { font-size: 14px; }
+.mobile-backups .backup-row strong { font-size: 13px; }
+.mobile-backups .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.mobile-backups .backups-body { padding: 12px 16px; }

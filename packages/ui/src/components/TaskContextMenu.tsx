@@ -1,5 +1,10 @@
 import { createContext, useContext, type ReactNode } from "react";
 import {
+  TaskMenuItems,
+  useTaskMediaActions,
+  type TaskMenuAction,
+} from "./task-menu-actions.js";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuSeparator,
@@ -24,15 +29,27 @@ export function TaskContextMenu({
 }
 
 /** Media menus retain the owning task's actions and editor focus handoff. */
-export function TaskContextMenuContent({ children }: { children?: ReactNode }) {
+export function TaskContextMenuContent({
+  children,
+  mediaLabel,
+  imagePreview,
+  actions = [],
+}: {
+  children?: ReactNode;
+  mediaLabel?: string;
+  imagePreview?: string;
+  actions?: TaskMenuAction[];
+}) {
   const taskMenu = useContext(TaskMenuContext);
+  useTaskMediaActions(mediaLabel, actions, imagePreview);
   return (
     <ContextMenuContent
       collisionPadding={8}
       onCloseAutoFocus={taskMenu?.onCloseAutoFocus}
     >
       {children}
-      {children && taskMenu && <ContextMenuSeparator />}
+      <TaskMenuItems actions={actions} />
+      {(children || actions.length > 0) && taskMenu && <ContextMenuSeparator />}
       {taskMenu?.items}
     </ContextMenuContent>
   );

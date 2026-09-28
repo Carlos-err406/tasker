@@ -1,3 +1,4 @@
+import { getHost } from '../host.js';
 import { PointerSensor } from '@dnd-kit/core';
 
 /**
@@ -12,7 +13,13 @@ import { PointerSensor } from '@dnd-kit/core';
 
 const originalHandleMove = (PointerSensor.prototype as any).handleMove;
 
-export class VerticalPointerSensor extends PointerSensor {}
+export class VerticalPointerSensor extends PointerSensor {
+  static activators = PointerSensor.activators.map(activator => ({
+    ...activator,
+    handler: (...args: Parameters<typeof activator.handler>) =>
+      getHost().touch && args[0].nativeEvent.pointerType === 'touch' ? false : activator.handler(...args),
+  }));
+}
 
 (VerticalPointerSensor.prototype as any).handleMove = function (
   this: any,

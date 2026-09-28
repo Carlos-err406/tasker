@@ -1,3 +1,5 @@
+import { createMacSync } from "../sync/coordinator.js";
+import { MacUpdates } from "./updates.js";
 import Database from "better-sqlite3";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -81,6 +83,12 @@ export async function startService(options: ServiceOptions) {
     options.directory,
     options.google,
   );
+  let syncRevision = 0;
+  const updates = new MacUpdates();
+  let sync = createMacSync(db, options.directory, coordinator, () => {
+    syncRevision++;
+  });
+  registry = createRegistry(db, new UndoManager(db), sync.store);
   const openTarget =
     options.openTarget ??
     (async (target: string) => {
@@ -157,6 +165,12 @@ export async function startService(options: ServiceOptions) {
           try {
             const input = JSON.parse((await body(req)).toString());
             result = await registry.invoke(input.channel, input.args);
+            if (
+              !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload))/.test(
+                input.channel,
+              )
+            )
+              sync.engine.localChanged();
           } catch (error) {
             if (error instanceof HttpError) throw error;
             throw new HttpError(
@@ -180,6 +194,34 @@ export async function startService(options: ServiceOptions) {
           const input = JSON.parse((await body(req)).toString());
           let result: unknown;
           switch (input.action) {
+            case "updates-status":
+              result = updates.status();
+              break;
+            case "updates-check":
+              result = await updates.check();
+              break;
+            case "updates-install":
+              await openExternal(updates.releaseUrl());
+              result = updates.status();
+              break;
+            case "sync-status":
+              result = { ...sync.engine.status(), revision: syncRevision };
+              break;
+            case "sync-enable":
+              await sync.engine.enable();
+              result = sync.engine.status();
+              break;
+            case "sync-now":
+              result = await sync.engine.syncNow();
+              break;
+            case "sync-pause":
+              sync.engine.pause();
+              result = sync.engine.status();
+              break;
+            case "sync-editing":
+              sync.engine.setEditing(input.editing === true);
+              result = true;
+              break;
             case "status":
               result = coordinator.status();
               break;
@@ -198,6 +240,7 @@ export async function startService(options: ServiceOptions) {
               result = {};
               break;
             case "disconnect":
+              sync.engine.pause();
               coordinator.disconnect();
               result = {};
               break;
@@ -211,12 +254,19 @@ export async function startService(options: ServiceOptions) {
                   400,
                   "Explicit restore confirmation required",
                 );
+              sync.beforeRestore();
               restoring = true;
               try {
                 result = input.cloud
                   ? await coordinator.restoreCloud(input.id)
                   : backups.restore(input.id);
               } finally {
+                sync = createMacSync(db, options.directory, coordinator, () => {
+                  syncRevision++;
+                });
+                registry = createRegistry(db, new UndoManager(db), sync.store);
+                sync.engine.start();
+                syncRevision++;
                 restoring = false;
               }
               break;
@@ -295,7 +345,10 @@ export async function startService(options: ServiceOptions) {
     JSON.stringify({ origin, token, pid: process.pid }),
     { mode: 0o600 },
   );
-  if (options.automaticBackups !== false) coordinator.start();
+  if (options.automaticBackups !== false) {
+    coordinator.start();
+    sync.engine.start();
+  }
   return {
     origin,
     token,
@@ -304,6 +357,7 @@ export async function startService(options: ServiceOptions) {
         server.close((error) => (error ? fail(error) : ok()));
         server.closeAllConnections();
       });
+      sync.engine.close();
       coordinator.close();
       getRawDb(db).close();
       lock.close();

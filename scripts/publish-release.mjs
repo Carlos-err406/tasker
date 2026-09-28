@@ -29,6 +29,18 @@ export async function publishRelease({ root, tag, repo, run = gh }) {
   }
   const installer = join(root, "install.sh");
   await readFile(installer);
+  const android = join(root, "release/tasker-android.apk");
+  const androidChecksum = android + ".sha256";
+  const androidBytes = await readFile(android);
+  const androidDigest = createHash("sha256").update(androidBytes).digest("hex");
+  if (
+    !androidBytes.length ||
+    (await readFile(androidChecksum, "utf8")).trim() !==
+      `${androidDigest}  ${basename(android)}`
+  ) {
+    throw new Error("Android release checksum mismatch");
+  }
+  const artifacts = [archive, checksum, installer, android, androidChecksum];
   // A failed API request throws; it must never be mistaken for a missing release.
   const pages = JSON.parse(
     run(["api", `repos/${repo}/releases`, "--paginate", "--slurp"]),
@@ -55,21 +67,11 @@ export async function publishRelease({ root, tag, repo, run = gh }) {
     ]);
   }
   // Only drafts may be retried/replaced. Public releases stay immutable.
-  run([
-    "release",
-    "upload",
-    tag,
-    "--repo",
-    repo,
-    "--clobber",
-    archive,
-    checksum,
-    installer,
-  ]);
+  run(["release", "upload", tag, "--repo", repo, "--clobber", ...artifacts]);
   const uploaded = JSON.parse(
     run(["release", "view", tag, "--repo", repo, "--json", "assets"]),
   );
-  for (const path of [archive, checksum, installer]) {
+  for (const path of artifacts) {
     const bytes = await readFile(path);
     const hash = "sha256:" + createHash("sha256").update(bytes).digest("hex");
     const asset = uploaded.assets.find((item) => item.name === basename(path));

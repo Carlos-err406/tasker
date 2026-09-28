@@ -10,7 +10,7 @@ export async function checkReleaseVersion(root, tag) {
     throw new Error("Expected a stable release version");
   if (tag !== undefined && tag !== `v${version}`)
     throw new Error("Tag must match package.json version");
-  for (const path of ["apps/macos", "packages/core", "packages/ui"]) {
+  for (const path of ["apps/macos", "apps/android", "packages/core", "packages/ui"]) {
     const pkg = JSON.parse(
       await readFile(join(root, path, "package.json"), "utf8"),
     );

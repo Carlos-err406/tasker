@@ -18,6 +18,7 @@ interface SortableTaskItemProps {
   onNavigateToTask: (taskId: string) => void;
   onCreateSubtask: (taskId: string) => void;
   onTagClick?: (tag: string) => void;
+  onEditingChange?: (taskId: string, editing: boolean) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
 }

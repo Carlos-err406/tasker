@@ -1,3 +1,4 @@
+import { withTransaction } from "../db.js";
 /**
  * Core task CRUD operations using Drizzle ORM.
  * Port of TodoTaskList from C# — the largest single file in the codebase.
@@ -5,7 +6,7 @@
 
 import { eq, ne, and, desc, max, count, sql } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-// getRawDb removed — using Drizzle cross-driver sql template + db.transaction()
+// getRawDb removed — using Drizzle cross-driver sql template + withTransaction(db, )
 import type { Task, TaskId, ListName } from '../types/task.js';
 import type { TaskResult, BatchResult } from '../types/results.js';
 import type { TaskStatus } from '../types/task-status.js';
@@ -508,7 +509,7 @@ export function deleteTask(db: TaskerDb, taskId: TaskId): TaskResult {
 export function deleteTasks(db: TaskerDb, taskIds: TaskId[]): BatchResult {
   const results: TaskResult[] = [];
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (const taskId of taskIds) {
       const task = getTaskById(db, taskId);
       if (!task) { results.push({ type: 'not-found', taskId }); continue; }
@@ -526,7 +527,7 @@ export function softDeleteByStatus(db: TaskerDb, status: TaskStatus, listName?: 
   const taskList = getAllTasks(db, listName).filter(t => t.status === status);
   if (taskList.length === 0) return 0;
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (const task of taskList) {
       cleanupRelationshipMarkers(db, task.id);
       tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
@@ -541,7 +542,7 @@ export function softDeleteOlderThan(db: TaskerDb, beforeDate: string, listName?:
   const taskList = getAllTasks(db, listName).filter(t => t.createdAt < beforeDate);
   if (taskList.length === 0) return 0;
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (const task of taskList) {
       cleanupRelationshipMarkers(db, task.id);
       tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
@@ -555,7 +556,7 @@ export function softDeleteOlderThan(db: TaskerDb, beforeDate: string, listName?:
 export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus): BatchResult {
   const results: TaskResult[] = [];
 
-  db.transaction(() => {
+  withTransaction(db, () => {
     for (const taskId of taskIds) {
       const task = getTaskById(db, taskId);
       if (!task) { results.push({ type: 'not-found', taskId }); continue; }
@@ -726,7 +727,7 @@ export function clearTasks(db: TaskerDb, listName?: ListName): number {
   const tasksToClear = getAllTasks(db, listName);
   if (tasksToClear.length === 0) return 0;
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (const task of tasksToClear) {
       tx.update(tasks).set({ isTrashed: 1 }).where(eq(tasks.id, task.id)).run();
     }
@@ -852,7 +853,7 @@ export function reorderTask(db: TaskerDb, taskId: TaskId, newIndex: number): voi
   ids.splice(currentIndex, 1);
   ids.splice(clamped, 0, taskId);
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (let i = 0; i < ids.length; i++) {
       tx.update(tasks).set({ sortOrder: ids.length - 1 - i }).where(eq(tasks.id, ids[i]!)).run();
     }
@@ -1170,7 +1171,7 @@ export function getTaskTitles(db: TaskerDb, taskIds: TaskId[]): Record<string, T
 export function applySystemSort(db: TaskerDb, listName?: ListName): number {
   const listNames = listName ? [listName] : getAllListNames(db);
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (const name of listNames) {
       const listTasks = getAllTasks(db, name);
       const sorted = sortTasksForDisplay(listTasks);

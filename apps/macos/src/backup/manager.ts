@@ -94,7 +94,7 @@ export class BackupManager {
           return [];
         }
       })
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   }
   create(kind: BackupKind): BackupManifest {
     const id = randomUUID();

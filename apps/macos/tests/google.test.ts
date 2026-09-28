@@ -226,3 +226,42 @@ it("does not let a cancelled callback change a newer connection", async () => {
     connection.close();
   }
 });
+
+it("keeps Android snapshots out of Mac automatic retention", async () => {
+  const deleted: string[] = [];
+  const files = Array.from({ length: 10 }, (_, index) => {
+    const id = `aaaaaaaa-aaaa-aaaa-aaaa-${String(index).padStart(12, "0")}`;
+    return {
+      id: `file-${index}`,
+      appProperties: {
+        backupId: id,
+        ...(index === 0 ? { sourceDevice: "phone" } : {}),
+      },
+      description: JSON.stringify({
+        id,
+        formatVersion: 1,
+        schemaVersion: 1,
+        appVersion: "0.1.1",
+        createdAt: `2026-09-${String(index + 1).padStart(2, "0")}T12:00:00Z`,
+        kind: "automatic",
+        size: 4,
+        sha256: "a".repeat(64),
+      }),
+    };
+  });
+  const drive = new DriveBackups(
+    async () => "test",
+    async (url, options) => {
+      if (options?.method === "DELETE") {
+        deleted.push(String(url));
+        return new Response(null, { status: 204 });
+      }
+      return Response.json({ files });
+    },
+  );
+  await drive.prune();
+  expect(deleted.map((url) => url.split("/").pop())).toEqual([
+    "file-2",
+    "file-1",
+  ]);
+});

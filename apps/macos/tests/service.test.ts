@@ -33,6 +33,50 @@ async function fixture(options: Partial<ServiceOptions> = {}) {
   return { ...service, directory, cookie, rpc };
 }
 describe("private loopback task service", () => {
+  it("keeps restored changes pending with sync paused and its device identity outside the backup", async () => {
+    const s = await fixture({ automaticBackups: false });
+    const manage = async (payload: Record<string, unknown>) => {
+      const response = await fetch(s.origin + "/manage", {
+        method: "POST",
+        headers: {
+          origin: s.origin,
+          cookie: s.cookie,
+          "content-type": "application/json",
+          "x-tasker-request": "1",
+        },
+        body: JSON.stringify(payload),
+      });
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    const before = JSON.parse(
+      await readFile(join(s.directory, "sync-state.json"), "utf8"),
+    );
+    const [, added] = await (
+      await s.rpc("tasks:add", ["Before restore", "tasks"])
+    ).json();
+    const backup = await manage({ action: "backup" });
+    await s.rpc("tasks:rename", [added.task.id, "After backup"]);
+    await manage({ action: "restore", id: backup.id, confirm: true });
+    const [, restored] = await (
+      await s.rpc("tasks:getById", [added.task.id])
+    ).json();
+    expect(restored.description).toBe("Before restore");
+    expect(await manage({ action: "sync-status" })).toMatchObject({
+      enabled: false,
+      syncing: false,
+      pending: true,
+      lastSync: null,
+    });
+    const after = JSON.parse(
+      await readFile(join(s.directory, "sync-state.json"), "utf8"),
+    );
+    expect(after.replica).not.toBe(before.replica);
+    expect(after.restoreBaseline).toBeUndefined();
+    await s.rpc("tasks:rename", [added.task.id, "After restore"]);
+    const [error] = await (await s.rpc("undo:undo")).json();
+    expect(error).toBeNull();
+  });
   it("rejects unauthenticated, foreign-origin, and malformed requests", async () => {
     const s = await fixture();
     expect((await fetch(s.origin + "/rpc", { method: "POST" })).status).toBe(
