@@ -1,6 +1,6 @@
 {
   "name": "@tasker/core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -39,6 +39,14 @@
     "./attachments": {
       "types": "./dist/attachments.d.ts",
       "default": "./dist/attachments.js"
+    },
+    "./operations": {
+      "types": "./dist/operations/registry.d.ts",
+      "default": "./dist/operations/registry.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
     }
   },
   "scripts": {

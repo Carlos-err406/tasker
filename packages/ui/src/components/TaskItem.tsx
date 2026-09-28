@@ -1,5 +1,17 @@
+import { TaskMenuItems, type TaskMenuAction } from "./task-menu-actions.js";
+import { TouchTaskActions } from "./TouchTaskActions.js";
+import { TouchEditorScreen } from "./TouchEditorScreen.js";
+import { TouchEditorActions } from "./TouchEditorActions.js";
+import { Button } from "./ui/button.js";
 import { getHost } from "../host.js";
-import { memo, useState, useRef, useCallback, useLayoutEffect } from "react";
+import {
+  memo,
+  useState,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+  useEffect,
+} from "react";
 import type { Task, TaskStatus } from "@tasker/core/types";
 import { TaskStatus as TS, Priority } from "@tasker/core/types";
 import type { TaskRelDetails } from "../hooks/use-tasker-store.js";
@@ -37,14 +49,7 @@ import {
   setCaretOffset,
   setPlainText,
 } from "../lib/content-editable-utils.js";
-import {
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
-  ContextMenuTrigger,
-} from "./ui/context-menu.js";
+import { ContextMenuTrigger } from "./ui/context-menu.js";
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip.js";
 import {
   getDisplayTitle,
@@ -74,6 +79,7 @@ interface TaskItemProps {
   onNavigateToTask: (taskId: string) => void;
   onCreateSubtask: (taskId: string) => void;
   onTagClick?: (tag: string) => void;
+  onEditingChange?: (taskId: string, editing: boolean) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
 }
@@ -91,10 +97,15 @@ export const TaskItem = memo(function TaskItem({
   onNavigateToTask,
   onCreateSubtask,
   onTagClick,
+  onEditingChange,
   showMediaPreviews = true,
   mediaPreviewResetSignal = 0,
 }: TaskItemProps) {
   const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    onEditingChange?.(task.id, editing);
+    return () => onEditingChange?.(task.id, false);
+  }, [task.id, editing, onEditingChange]);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLDivElement>(null);
 
@@ -269,409 +280,417 @@ export const TaskItem = memo(function TaskItem({
     onShowStatus("Copied task text");
   };
 
-  const menuItems = (
-    <>
-      <ContextMenuItem onSelect={startEdit}>
-        <Pencil className="h-3.5 w-3.5" />
-        Edit
-      </ContextMenuItem>
-      <ContextMenuItem onSelect={copyId}>
-        <Copy className="h-3.5 w-3.5" />
-        Copy ID
-      </ContextMenuItem>
-      <ContextMenuItem onSelect={copyText}>
-        <Copy className="h-3.5 w-3.5" />
-        Copy text
-      </ContextMenuItem>
-      <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
-        <CornerRightDown className="h-3.5 w-3.5" />
-        Create subtask
-      </ContextMenuItem>
-      <ContextMenuSub>
-        <ContextMenuSubTrigger>
-          <FolderInput className="h-3.5 w-3.5" />
-          Move to...
-        </ContextMenuSubTrigger>
-        <ContextMenuSubContent collisionPadding={8}>
-          {lists
-            .filter((l) => l !== task.listName)
-            .map((l) => (
-              <ContextMenuItem key={l} onSelect={() => onMove(task.id, l)}>
-                {l}
-              </ContextMenuItem>
-            ))}
-        </ContextMenuSubContent>
-      </ContextMenuSub>
-
-      <ContextMenuSub>
-        <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
-        <ContextMenuSubContent collisionPadding={8}>
-          {[
+  const finishMenuClose = () => {
+    if (!editAfterMenuClose.current) return;
+    editAfterMenuClose.current = false;
+    initialEditText.current = task.description;
+    setEditValue(task.description);
+    setEditing(true);
+  };
+  const actions: TaskMenuAction[] = [
+    {
+      label: "Edit",
+      icon: <Pencil />,
+      onSelect: startEdit,
+      deferUntilClosed: true,
+    },
+    { label: "Copy ID", icon: <Copy />, onSelect: copyId },
+    { label: "Copy text", icon: <Copy />, onSelect: copyText },
+    {
+      label: "Create subtask",
+      icon: <CornerRightDown />,
+      onSelect: () => onCreateSubtask(task.id),
+      deferUntilClosed: true,
+    },
+    {
+      label: "Move to...",
+      icon: <FolderInput />,
+      disabled: !lists.some((name) => name !== task.listName),
+      children: lists
+        .filter((name) => name !== task.listName)
+        .map((name) => ({
+          label: name,
+          onSelect: () => onMove(task.id, name),
+          deferUntilClosed: true,
+        })),
+    },
+    {
+      label: "Set Status",
+      icon: <CircleDot />,
+      children: [
+        {
+          label: "Pending",
+          status: TS.Pending,
+          icon: <Circle className="text-muted-foreground" />,
+        },
+        {
+          label: "In Progress",
+          status: TS.InProgress,
+          icon: <CircleDot className="text-amber-400" />,
+        },
+        {
+          label: "Done",
+          status: TS.Done,
+          icon: <CircleCheck className="text-green-400" />,
+        },
+        {
+          label: "Won't Do",
+          status: TS.WontDo,
+          icon: <CircleSlash className="text-zinc-400" />,
+        },
+      ].map(({ label, status, icon }) => ({
+        label,
+        icon,
+        selected: task.status === status,
+        onSelect: () => onSetStatus(task.id, status),
+        deferUntilClosed: true,
+      })),
+    },
+    relDetails?.subtasks.length
+      ? {
+          label: "Delete...",
+          icon: <Trash2 />,
+          destructive: true,
+          children: [
             {
-              label: "Pending",
-              status: TS.Pending,
-              icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
+              label: "This task only",
+              destructive: true,
+              onSelect: () => onDelete(task.id, false),
+              deferUntilClosed: true,
             },
             {
-              label: "In Progress",
-              status: TS.InProgress,
-              icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" />,
+              label: "Task and subtasks",
+              destructive: true,
+              onSelect: () => onDelete(task.id, true),
+              deferUntilClosed: true,
             },
-            {
-              label: "Done",
-              status: TS.Done,
-              icon: <CircleCheck className="h-3.5 w-3.5 text-green-400" />,
-            },
-            {
-              label: "Won't Do",
-              status: TS.WontDo,
-              icon: <CircleSlash className="h-3.5 w-3.5 text-zinc-400" />,
-            },
-          ].map(({ label, status, icon }) => (
-            <ContextMenuItem
-              key={label}
-              onSelect={() => onSetStatus(task.id, status)}
-              className={cn(task.status === status && "font-medium")}
-            >
-              {icon}
-              {label}
-            </ContextMenuItem>
-          ))}
-        </ContextMenuSubContent>
-      </ContextMenuSub>
-
-      <ContextMenuSeparator />
-      {relDetails && relDetails.subtasks.length > 0 ? (
-        <ContextMenuSub>
-          <ContextMenuSubTrigger className="text-destructive">
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete...
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent collisionPadding={8}>
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => onDelete(task.id, false)}
-            >
-              This task only
-            </ContextMenuItem>
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => onDelete(task.id, true)}
-            >
-              Task and subtasks
-            </ContextMenuItem>
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-      ) : (
-        <ContextMenuItem
-          variant="destructive"
-          onSelect={() => onDelete(task.id)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </ContextMenuItem>
-      )}
-    </>
-  );
+          ],
+        }
+      : {
+          label: "Delete",
+          icon: <Trash2 />,
+          destructive: true,
+          onSelect: () => onDelete(task.id),
+          deferUntilClosed: true,
+        },
+  ];
 
   return (
-    <TaskContextMenu
-      items={menuItems}
-      onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        if (editAfterMenuClose.current) {
-          editAfterMenuClose.current = false;
-          initialEditText.current = task.description;
-          setEditValue(task.description);
-          setEditing(true);
-        }
-      }}
+    <TouchTaskActions
+      title={title}
+      shortId={shortId}
+      actions={actions}
+      onClosed={finishMenuClose}
     >
-      <ContextMenuTrigger asChild>
-        <div
-          data-testid={`task-item-${shortId}`}
-          className={cn(
-            "group flex items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50",
-          )}
-        >
-          {/* Checkbox + ID column */}
+      <TaskContextMenu
+        items={<TaskMenuItems actions={actions} />}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          finishMenuClose();
+        }}
+      >
+        <ContextMenuTrigger asChild disabled={getHost().touch}>
           <div
+            data-testid={`task-item-${shortId}`}
             className={cn(
-              "flex flex-col items-center mt-0.5",
-              (done || wontDo) && "opacity-60",
+              "group flex items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50",
             )}
           >
-            <button
-              data-testid={`task-checkbox-${shortId}`}
-              onClick={handleCheckboxClick}
-              onContextMenu={handleCheckboxContextMenu}
+            {/* Checkbox + ID column */}
+            <div
               className={cn(
-                "h-4 w-4 rounded border transition-colors flex items-center justify-center",
-                done
-                  ? "border-green-500 bg-green-500/20 text-green-400"
-                  : wontDo
-                    ? "border-zinc-500 bg-zinc-500/20 text-zinc-400"
-                    : inProg
-                      ? "border-amber-400 bg-amber-400/20 text-amber-400"
-                      : "border-muted-foreground/40 hover:border-foreground/60",
+                "flex flex-col items-center mt-0.5",
+                (done || wontDo) && "opacity-60",
               )}
             >
-              {done && <Check className="h-3 w-3" />}
-              {wontDo && <X className="h-3 w-3" />}
-              {inProg && <Minus className="h-3 w-3" />}
-            </button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={copyId}
-                  className="mt-0.5 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground"
-                >
-                  {shortId}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Copy ID</TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Content column */}
-          <div className="flex-1 min-w-0 select-text">
-            {editing ? (
-              <>
-                <div
-                  key="editing"
-                  ref={inputRef}
-                  contentEditable
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  suppressContentEditableWarning
-                  role="textbox"
-                  aria-multiline="true"
-                  data-testid="task-edit-input"
-                  onInput={(e) => {
-                    const plain = getPlainText(e.currentTarget);
-                    setEditValue(plain);
-                    ac.detect();
-                  }}
-                  onKeyDown={handleEditKeyDown}
-                  onPaste={handlePaste}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onBlur={() => {
-                    if (!ac.isOpen) submitEdit();
-                  }}
-                  className="min-h-[28px] max-h-[300px] overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                {ac.isOpen && (
-                  <AutocompleteDropdown
-                    anchorRef={inputRef}
-                    suggestions={ac.suggestions}
-                    selectedIndex={ac.selectedIndex}
-                    onSelect={(i) => {
-                      const newVal = ac.select(i);
-                      if (newVal !== null) {
-                        setEditValue(newVal);
-                        if (inputRef.current)
-                          setPlainText(inputRef.current, newVal);
-                      }
-                    }}
-                  />
+              <button
+                data-testid={`task-checkbox-${shortId}`}
+                aria-label={`Change status of ${title}`}
+                onClick={handleCheckboxClick}
+                onContextMenu={handleCheckboxContextMenu}
+                className={cn(
+                  "h-4 w-4 rounded border transition-colors flex items-center justify-center",
+                  done
+                    ? "border-green-500 bg-green-500/20 text-green-400"
+                    : wontDo
+                      ? "border-zinc-500 bg-zinc-500/20 text-zinc-400"
+                      : inProg
+                        ? "border-amber-400 bg-amber-400/20 text-amber-400"
+                        : "border-muted-foreground/40 hover:border-foreground/60",
                 )}
-              </>
-            ) : (
-              <div
-                key="display"
-                className={cn((done || wontDo) && "opacity-60")}
               >
-                <div className="flex items-start gap-1.5">
-                  {task.priority !== null && task.priority !== undefined && (
-                    <span className={cn("mt-0.5 flex-shrink-0", priorityColor)}>
-                      {task.priority === Priority.High && (
-                        <ChevronsUp className="h-3.5 w-3.5" />
-                      )}
-                      {task.priority === Priority.Medium && (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      )}
-                      {task.priority === Priority.Low && (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
-                    </span>
-                  )}
-                  <span
-                    data-testid={`task-name-${shortId}`}
-                    className={cn(
-                      "text-sm leading-tight",
-                      done && "line-through text-muted-foreground",
-                      wontDo && "line-through text-muted-foreground",
-                    )}
+                {done && <Check className="h-3 w-3" />}
+                {wontDo && <X className="h-3 w-3" />}
+                {inProg && <Minus className="h-3 w-3" />}
+              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    data-task-id-copy
+                    onClick={copyId}
+                    className="mt-0.5 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground"
                   >
-                    {title}
-                  </span>
-                </div>
+                    {shortId}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy ID</TooltipContent>
+              </Tooltip>
+            </div>
 
-                {/* Description preview */}
-                {descPreview && (
-                  <MarkdownContent
-                    content={descPreview}
-                    onToggleCheckbox={handleToggleCheckbox}
-                    showMediaPreviews={showMediaPreviews}
-                    mediaPreviewScope={task.id}
-                    mediaPreviewResetSignal={mediaPreviewResetSignal}
-                  />
-                )}
-
-                {/* Relationship lines */}
-                {relDetails?.parent && (
-                  <button
-                    onClick={() => onNavigateToTask(relDetails.parent!.id)}
-                    className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
-                  >
-                    <CornerLeftUp className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span className="flex-1 min-w-0">
-                      Subtask of ({relDetails.parent.id}){" "}
-                      {relDetails.parent.title}
-                    </span>
-                    {getLinkedStatusLabel(relDetails.parent.status) && (
-                      <span
-                        className={cn(
-                          "flex-shrink-0",
-                          getLinkedStatusColor(relDetails.parent.status),
-                        )}
-                      >
-                        {getLinkedStatusLabel(relDetails.parent.status)}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {relDetails?.subtasks.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => onNavigateToTask(s.id)}
-                    className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
-                  >
-                    <CornerRightDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span className="flex-1 min-w-0">
-                      Subtask ({s.id}) {s.title}
-                    </span>
-                    {getLinkedStatusLabel(s.status) && (
-                      <span
-                        className={cn(
-                          "flex-shrink-0",
-                          getLinkedStatusColor(s.status),
-                        )}
-                      >
-                        {getLinkedStatusLabel(s.status)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                {relDetails?.blocks.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => onNavigateToTask(b.id)}
-                    className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                  >
-                    <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span className="flex-1 min-w-0">
-                      Blocks ({b.id}) {b.title}
-                    </span>
-                    {getLinkedStatusLabel(b.status) && (
-                      <span
-                        className={cn(
-                          "flex-shrink-0",
-                          getLinkedStatusColor(b.status),
-                        )}
-                      >
-                        {getLinkedStatusLabel(b.status)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                {relDetails?.blockedBy.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => onNavigateToTask(b.id)}
-                    className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                  >
-                    <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span className="flex-1 min-w-0">
-                      Blocked by ({b.id}) {b.title}
-                    </span>
-                    {getLinkedStatusLabel(b.status) && (
-                      <span
-                        className={cn(
-                          "flex-shrink-0",
-                          getLinkedStatusColor(b.status),
-                        )}
-                      >
-                        {getLinkedStatusLabel(b.status)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                {relDetails?.related.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => onNavigateToTask(r.id)}
-                    className="flex w-full items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                  >
-                    <Link2 className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span className="flex-1 min-w-0">
-                      Related to ({r.id}) {r.title}
-                    </span>
-                    {getLinkedStatusLabel(r.status) && (
-                      <span
-                        className={cn(
-                          "flex-shrink-0",
-                          getLinkedStatusColor(r.status),
-                        )}
-                      >
-                        {getLinkedStatusLabel(r.status)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-
-                {/* Due date */}
-                {dueDateLabel && (
+            {/* Content column */}
+            <div className="flex-1 min-w-0 select-text">
+              {editing ? (
+                <TouchEditorScreen
+                  title="Edit task"
+                  listName={task.listName}
+                  onCancel={() => setEditing(false)}
+                >
                   <div
-                    className={cn(
-                      "flex items-center gap-1 font-mono text-[10px] mt-0.5",
-                      dueDateColor,
-                    )}
-                  >
-                    <Calendar className="h-3 w-3 flex-shrink-0" />
-                    {dueDateLabel.charAt(0).toUpperCase() +
-                      dueDateLabel.slice(1)}
-                  </div>
-                )}
-
-                {/* Tags */}
-                {task.tags && task.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    {task.tags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTagClick?.(tag);
-                        }}
-                        className={cn(
-                          "inline-flex items-center gap-0.5 font-mono text-[10px] px-1.5 py-0 rounded-full hover:brightness-125 transition-all",
-                          getTagColor(tag),
-                        )}
+                    key="editing"
+                    ref={inputRef}
+                    contentEditable
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    suppressContentEditableWarning
+                    role="textbox"
+                    aria-multiline="true"
+                    data-testid="task-edit-input"
+                    onInput={(e) => {
+                      const plain = getPlainText(e.currentTarget);
+                      setEditValue(plain);
+                      ac.detect();
+                    }}
+                    onKeyDown={handleEditKeyDown}
+                    onPaste={handlePaste}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onBlur={() => {
+                      if (!getHost().touch && !ac.isOpen) submitEdit();
+                    }}
+                    className="min-h-[28px] max-h-[300px] overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <TouchEditorActions
+                    editor={inputRef}
+                    onChange={setEditValue}
+                    onSave={submitEdit}
+                    onCancel={() => setEditing(false)}
+                    onError={onShowStatus}
+                  />
+                  {ac.isOpen && (
+                    <AutocompleteDropdown
+                      anchorRef={inputRef}
+                      suggestions={ac.suggestions}
+                      selectedIndex={ac.selectedIndex}
+                      onSelect={(i) => {
+                        const newVal = ac.select(i);
+                        if (newVal !== null) {
+                          setEditValue(newVal);
+                          if (inputRef.current)
+                            setPlainText(inputRef.current, newVal);
+                        }
+                      }}
+                    />
+                  )}
+                </TouchEditorScreen>
+              ) : (
+                <div
+                  key="display"
+                  className={cn((done || wontDo) && "opacity-60")}
+                >
+                  <div className="flex items-start gap-1.5">
+                    {task.priority !== null && task.priority !== undefined && (
+                      <span
+                        className={cn("mt-0.5 flex-shrink-0", priorityColor)}
                       >
-                        <Tag className="h-2.5 w-2.5" />
-                        {tag}
-                      </button>
-                    ))}
+                        {task.priority === Priority.High && (
+                          <ChevronsUp className="h-3.5 w-3.5" />
+                        )}
+                        {task.priority === Priority.Medium && (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        )}
+                        {task.priority === Priority.Low && (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                    )}
+                    <span
+                      data-testid={`task-name-${shortId}`}
+                      className={cn(
+                        "text-sm leading-tight",
+                        done && "line-through text-muted-foreground",
+                        wontDo && "line-through text-muted-foreground",
+                      )}
+                    >
+                      {title}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </ContextMenuTrigger>
 
-      <TaskContextMenuContent />
-    </TaskContextMenu>
+                  {/* Description preview */}
+                  {descPreview && (
+                    <MarkdownContent
+                      content={descPreview}
+                      onToggleCheckbox={handleToggleCheckbox}
+                      showMediaPreviews={showMediaPreviews}
+                      mediaPreviewScope={task.id}
+                      mediaPreviewResetSignal={mediaPreviewResetSignal}
+                    />
+                  )}
+
+                  {/* Relationship lines */}
+                  {relDetails?.parent && (
+                    <button
+                      onClick={() => onNavigateToTask(relDetails.parent!.id)}
+                      className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
+                    >
+                      <CornerLeftUp className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1 min-w-0">
+                        Subtask of ({relDetails.parent.id}){" "}
+                        {relDetails.parent.title}
+                      </span>
+                      {getLinkedStatusLabel(relDetails.parent.status) && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0",
+                            getLinkedStatusColor(relDetails.parent.status),
+                          )}
+                        >
+                          {getLinkedStatusLabel(relDetails.parent.status)}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                  {relDetails?.subtasks.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => onNavigateToTask(s.id)}
+                      className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
+                    >
+                      <CornerRightDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1 min-w-0">
+                        Subtask ({s.id}) {s.title}
+                      </span>
+                      {getLinkedStatusLabel(s.status) && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0",
+                            getLinkedStatusColor(s.status),
+                          )}
+                        >
+                          {getLinkedStatusLabel(s.status)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {relDetails?.blocks.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => onNavigateToTask(b.id)}
+                      className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
+                    >
+                      <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1 min-w-0">
+                        Blocks ({b.id}) {b.title}
+                      </span>
+                      {getLinkedStatusLabel(b.status) && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0",
+                            getLinkedStatusColor(b.status),
+                          )}
+                        >
+                          {getLinkedStatusLabel(b.status)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {relDetails?.blockedBy.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => onNavigateToTask(b.id)}
+                      className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
+                    >
+                      <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1 min-w-0">
+                        Blocked by ({b.id}) {b.title}
+                      </span>
+                      {getLinkedStatusLabel(b.status) && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0",
+                            getLinkedStatusColor(b.status),
+                          )}
+                        >
+                          {getLinkedStatusLabel(b.status)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {relDetails?.related.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => onNavigateToTask(r.id)}
+                      className="flex w-full items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
+                    >
+                      <Link2 className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1 min-w-0">
+                        Related to ({r.id}) {r.title}
+                      </span>
+                      {getLinkedStatusLabel(r.status) && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0",
+                            getLinkedStatusColor(r.status),
+                          )}
+                        >
+                          {getLinkedStatusLabel(r.status)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Due date */}
+                  {dueDateLabel && (
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 font-mono text-[10px] mt-0.5",
+                        dueDateColor,
+                      )}
+                    >
+                      <Calendar className="h-3 w-3 flex-shrink-0" />
+                      {dueDateLabel.charAt(0).toUpperCase() +
+                        dueDateLabel.slice(1)}
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {task.tags && task.tags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {task.tags.map((tag) => (
+                        <button
+                          key={tag}
+                          data-task-tag
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTagClick?.(tag);
+                          }}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 font-mono text-[10px] px-1.5 py-0 rounded-full hover:brightness-125 transition-all",
+                            getTagColor(tag),
+                          )}
+                        >
+                          <Tag className="h-2.5 w-2.5" />
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </ContextMenuTrigger>
+
+        <TaskContextMenuContent />
+      </TaskContextMenu>
+    </TouchTaskActions>
   );
 });

@@ -29,16 +29,40 @@ body {
   padding: 5px 10px;
 }
 .popover-toolbar {
+  gap: 12px;
   border-bottom: 1px solid var(--border);
   background: var(--muted);
 }
-.tasks-tab {
-  font-size: 12px;
+.top-list-picker {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 5px;
+  height: 26px;
   padding: 0 4px;
+  font-size: 12px;
   font-weight: 600;
 }
-.toolbar-spacer {
-  flex: 1;
+.top-list-picker > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.top-list-picker > svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.app-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.app-controls .popover-icon {
+  width: 24px;
+  padding: 5px 4px;
 }
 .popover-icon {
   width: 26px;
@@ -91,6 +115,10 @@ body {
 }
 .search-row:focus-within {
   box-shadow: inset 0 -1px var(--ring);
+}
+/* The search hint can overlap the picker while the input has focus. */
+[data-radix-popper-content-wrapper]:has(.search-tooltip) {
+  pointer-events: none;
 }
 .task-workspace {
   flex: 1;

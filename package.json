@@ -1,6 +1,6 @@
 {
   "name": "tasker-swiftbar",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.14.0",
@@ -14,7 +14,10 @@
     "uninstall:macos": "node scripts/install.mjs --uninstall",
     "test:host": "node scripts/host-check.mjs",
     "import:snapshot": "node apps/macos/dist-service/service/import-main.js",
-    "release:archive": "pnpm build && node scripts/package-release.mjs"
+    "release:archive": "pnpm build && node scripts/package-release.mjs",
+    "build:android": "pnpm --filter @tasker/core build && pnpm --filter @tasker/android build:apk",
+    "install:android": "pnpm --filter @tasker/android install:device",
+    "release:android": "pnpm --filter @tasker/core build && pnpm --filter @tasker/android build && node apps/android/scripts/release.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",

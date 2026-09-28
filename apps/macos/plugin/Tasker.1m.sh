@@ -1,6 +1,6 @@
 #!/bin/bash
 # <xbar.title>Tasker</xbar.title>
-# <xbar.version>0.1.1</xbar.version>
+# <xbar.version>0.2.0</xbar.version>
 # <xbar.desc>Local tasks in a SwiftBar popover</xbar.desc>
 set -eu
 TASKER_PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"

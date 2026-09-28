@@ -103,9 +103,11 @@ export class BackupCoordinator {
       return;
     }
     const generation = this.generation;
-    this.active = (async () => {
+    // Defer work until active is assigned: synchronous validation failures must
+    // not clear active before the completed promise is stored here.
+    this.active = Promise.resolve().then(async () => {
       try {
-        for (const backup of this.local.list().slice().reverse()) {
+        for (const backup of this.local.list()) {
           if (generation !== this.generation) return;
           this.local.validate(backup.id);
           await this.drive!.upload(
@@ -113,14 +115,15 @@ export class BackupCoordinator {
             readFileSync(this.local.file(backup.id)),
           );
           if (generation !== this.generation) return;
-          this.cloudTime = new Date().toISOString();
-          writeFileSync(
-            join(this.directory, "backup-state.json"),
-            JSON.stringify({ cloudTime: this.cloudTime }),
-            { mode: 0o600 },
-          );
         }
         await this.drive!.prune();
+        if (generation !== this.generation) return;
+        this.cloudTime = new Date().toISOString();
+        writeFileSync(
+          join(this.directory, "backup-state.json"),
+          JSON.stringify({ cloudTime: this.cloudTime }),
+          { mode: 0o600 },
+        );
         this.cloudError = null;
         this.failures = 0;
         this.retryAt = Date.now() + 60 * 60 * 1000;
@@ -135,8 +138,12 @@ export class BackupCoordinator {
       } finally {
         this.active = undefined;
       }
-    })();
+    });
     return this.active;
+  }
+  async syncAccessToken() {
+    if (!this.google?.connected()) throw new Error("Connect Google Drive to sync");
+    return this.google.accessToken();
   }
   async connect() {
     if (!this.google)

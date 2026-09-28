@@ -1,3 +1,5 @@
+import { TouchEditorScreen } from "./TouchEditorScreen.js";
+import { TouchEditorActions } from "./TouchEditorActions.js";
 import {
   useState,
   useRef,
@@ -22,6 +24,8 @@ import {
 } from "@dnd-kit/sortable";
 import {
   ChevronDown,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Ellipsis,
   Eye,
@@ -36,6 +40,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "./ui/dropdown-menu.js";
 import { getHost } from "../host.js";
 import { getSelectionOffsets } from "../lib/content-editable-utils.js";
@@ -43,15 +49,16 @@ import { Input } from "./ui/input.js";
 import { SortableTaskItem } from "./SortableTaskItem.js";
 
 interface ListSectionProps {
+  showHeader?: boolean;
   listName: string;
   tasks: Task[];
   lists: string[];
-  dragHandleListeners?: React.HTMLAttributes<HTMLElement>;
-  dragHandleAttributes?: React.HTMLAttributes<HTMLElement>;
   relDetails: Record<string, TaskRelDetails>;
   isDefault: boolean;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
+  onSelectList: (name: string) => void;
+  onReorderList: (name: string, newIndex: number, oldIndex: number) => void;
+  onEditingChange: (editing: boolean) => void;
+  searching: boolean;
   onAddTask: (description: string, listName: string) => Promise<boolean>;
   onToggleStatus: (taskId: string, currentStatus: TaskStatus) => void;
   onSetStatus: (taskId: string, status: TaskStatus) => void;
@@ -76,13 +83,16 @@ export interface ListSectionHandle {
 export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
   function ListSection(
     {
+      showHeader = true,
       listName,
       tasks,
       lists,
       relDetails,
       isDefault,
-      collapsed,
-      onToggleCollapsed,
+      onSelectList,
+      onReorderList,
+      onEditingChange,
+      searching,
       onAddTask,
       onToggleStatus,
       onSetStatus,
@@ -98,18 +108,33 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
       mediaPreviewResetSignal = 0,
       hideCompleted,
       onToggleHideCompleted,
-      dragHandleListeners,
-      dragHandleAttributes,
     },
     ref,
   ) {
     const [adding, setAdding] = useState(false);
+    const [editingTasks, setEditingTasks] = useState<Set<string>>(new Set());
+    const taskEditingChanged = useCallback((id: string, editing: boolean) => {
+      setEditingTasks((current) => {
+        if (current.has(id) === editing) return current;
+        const next = new Set(current);
+        if (editing) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    }, []);
     const [addValue, setAddValue] = useState("");
     const [editingName, setEditingName] = useState(false);
     const [nameValue, setNameValue] = useState("");
+    const editing = adding || editingName || editingTasks.size > 0;
+    useEffect(() => {
+      onEditingChange(editing);
+      return () => onEditingChange(false);
+    }, [editing, onEditingChange]);
+    const listIndex = lists.indexOf(listName);
     const addInputRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
     const focusNameInputRef = useRef(false);
+    const editNameAfterMenuClose = useRef(false);
     const preventMenuAutoFocusRef = useRef(false);
 
     const ac = useMetadataAutocomplete(addValue, addInputRef);
@@ -139,31 +164,26 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
     if (hiddenDoneCount > 0) summaryParts.push(`+${hiddenDoneCount} done`);
     const summary = summaryParts.join(", ");
 
-    const startAdd = useCallback(
-      (initialValue?: string) => {
-        setAdding(true);
-        setAddValue(initialValue ?? "");
-        // Expand if collapsed
-        if (collapsed) onToggleCollapsed();
-        // Delay focus to let Radix ContextMenu finish closing and restoring focus.
-        // Without this, the blur handler fires before the input is focused and
-        // auto-submits the pre-filled metadata (e.g. subtask parent link).
-        setTimeout(() => {
-          const el = addInputRef.current;
-          if (el) {
-            // Only set textContent for pre-filled values (e.g. subtask parent link).
-            // For empty inputs the div is already empty — setting textContent here
-            // would wipe any text already typed by a fast E2E helper or user.
-            if (initialValue !== undefined) {
-              el.textContent = initialValue;
-              setCaretOffset(el, 0);
-            }
-            el.focus();
+    const startAdd = useCallback((initialValue?: string) => {
+      setAdding(true);
+      setAddValue(initialValue ?? "");
+      // Delay focus to let Radix ContextMenu finish closing and restoring focus.
+      // Without this, the blur handler fires before the input is focused and
+      // auto-submits the pre-filled metadata (e.g. subtask parent link).
+      setTimeout(() => {
+        const el = addInputRef.current;
+        if (el) {
+          // Only set textContent for pre-filled values (e.g. subtask parent link).
+          // For empty inputs the div is already empty — setting textContent here
+          // would wipe any text already typed by a fast E2E helper or user.
+          if (initialValue !== undefined) {
+            el.textContent = initialValue;
+            setCaretOffset(el, 0);
           }
-        }, 50);
-      },
-      [collapsed, onToggleCollapsed],
-    );
+          el.focus();
+        }
+      }, 50);
+    }, []);
 
     useImperativeHandle(ref, () => ({ startAdding: startAdd }), [startAdd]);
 
@@ -243,10 +263,8 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
     };
 
     const startEditName = () => {
-      setNameValue(listName);
-      focusNameInputRef.current = true;
+      editNameAfterMenuClose.current = true;
       preventMenuAutoFocusRef.current = true;
-      setEditingName(true);
     };
 
     useEffect(() => {
@@ -273,236 +291,310 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
         className="border-b border-border/50"
       >
         {/* List header */}
-        <div
-          data-testid={`list-header-${listName}`}
-          className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/90 transition-colors"
-          {...dragHandleAttributes}
-          {...dragHandleListeners}
-        >
-          <button
-            data-testid={`list-collapse-${listName}`}
-            onClick={onToggleCollapsed}
-            className="text-muted-foreground hover:text-foreground transition-transform flex-shrink-0"
-            style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            {editingName ? (
-              <Input
-                ref={nameInputRef}
-                data-testid={`list-name-input-${listName}`}
-                value={nameValue}
-                onChange={(e) => setNameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") submitNameEdit();
-                  if (e.key === "Escape") setEditingName(false);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onBlur={submitNameEdit}
-                className="h-auto bg-background py-0 text-sm"
-              />
-            ) : (
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm font-semibold">{listName}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {summary}
-                </span>
-              </div>
-            )}
-          </div>
-
+        {showHeader && (
           <div
-            className="flex items-center gap-1 flex-shrink-0"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            data-testid={`list-header-${listName}`}
+            className="group/header sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/90 transition-colors"
           >
-            {doneCount > 0 && (
+            <div className="flex-1 min-w-0">
+              {editingName ? (
+                <Input
+                  ref={nameInputRef}
+                  data-testid={`list-name-input-${listName}`}
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") submitNameEdit();
+                    if (e.key === "Escape") setEditingName(false);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  onBlur={submitNameEdit}
+                  className="h-auto bg-background py-0 text-sm"
+                />
+              ) : (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        aria-label="Choose list"
+                        disabled={editing}
+                        title={
+                          editing
+                            ? "Save or cancel your edit to switch lists"
+                            : undefined
+                        }
+                        className="list-picker flex w-full min-w-0 items-center gap-2 rounded-md text-left text-sm font-semibold outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                      >
+                        <span className="truncate">{listName}</span>
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      collisionPadding={8}
+                      aria-label="Lists"
+                      className="list-picker-menu w-56 max-w-[calc(100vw-24px)]"
+                    >
+                      <DropdownMenuRadioGroup
+                        value={listName}
+                        onValueChange={onSelectList}
+                      >
+                        {lists.map((name) => (
+                          <DropdownMenuRadioItem
+                            key={name}
+                            value={name}
+                            className="break-all"
+                          >
+                            {name}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <span className="text-[10px] text-muted-foreground">
+                    {searching
+                      ? `${totalCount} match${totalCount !== 1 ? "es" : ""}`
+                      : summary}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div
+              className="flex items-center gap-1 flex-shrink-0"
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {doneCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={onToggleHideCompleted}
+                      className="text-muted-foreground hover:text-foreground p-0.5"
+                    >
+                      {hideCompleted ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {hideCompleted
+                      ? "Show completed tasks"
+                      : "Hide completed tasks"}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={onToggleHideCompleted}
+                    aria-label="Add task"
+                    onClick={() => startAdd()}
                     className="text-muted-foreground hover:text-foreground p-0.5"
                   >
-                    {hideCompleted ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
-                    )}
+                    <Plus className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {hideCompleted
-                    ? "Show completed tasks"
-                    : "Hide completed tasks"}
-                </TooltipContent>
+                <TooltipContent>Add task</TooltipContent>
               </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Add task"
-                  onClick={() => startAdd()}
-                  className="text-muted-foreground hover:text-foreground p-0.5"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Add task</TooltipContent>
-            </Tooltip>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label={`List options for ${listName}`}
-                  className="text-muted-foreground hover:text-foreground p-0.5"
-                >
-                  <Ellipsis className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="bottom"
-                align="end"
-                collisionPadding={8}
-                onCloseAutoFocus={(event) => {
-                  if (preventMenuAutoFocusRef.current) {
-                    event.preventDefault();
-                    preventMenuAutoFocusRef.current = false;
-                  }
-                }}
-              >
-                <DropdownMenuItem
-                  onSelect={() => {
-                    preventMenuAutoFocusRef.current = true;
-                    startAdd();
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label={`List options for ${listName}`}
+                    className="text-muted-foreground hover:text-foreground p-0.5"
+                  >
+                    <Ellipsis className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="bottom"
+                  align="end"
+                  collisionPadding={8}
+                  onCloseAutoFocus={(event) => {
+                    if (preventMenuAutoFocusRef.current) {
+                      event.preventDefault();
+                      preventMenuAutoFocusRef.current = false;
+                    }
+                    if (editNameAfterMenuClose.current) {
+                      editNameAfterMenuClose.current = false;
+                      setNameValue(listName);
+                      focusNameInputRef.current = true;
+                      setEditingName(true);
+                    }
                   }}
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add task
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onToggleCollapsed}>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                  {collapsed ? "Expand list" : "Collapse list"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onToggleHideCompleted}>
-                  {hideCompleted ? (
-                    <Eye className="h-3.5 w-3.5" />
-                  ) : (
-                    <EyeOff className="h-3.5 w-3.5" />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      preventMenuAutoFocusRef.current = true;
+                      startAdd();
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add task
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onToggleHideCompleted}>
+                    {hideCompleted ? (
+                      <Eye className="h-3.5 w-3.5" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    )}
+                    {hideCompleted
+                      ? "Show completed tasks"
+                      : "Hide completed tasks"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={listIndex <= 0 || editing}
+                    onSelect={() =>
+                      onReorderList(listName, listIndex - 1, listIndex)
+                    }
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" /> Move list up
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={listIndex >= lists.length - 1 || editing}
+                    onSelect={() =>
+                      onReorderList(listName, listIndex + 1, listIndex)
+                    }
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" /> Move list down
+                  </DropdownMenuItem>
+                  {!isDefault && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        disabled={editing}
+                        onSelect={startEditName}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={editing}
+                        variant="destructive"
+                        onSelect={() => onDeleteList(listName)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
                   )}
-                  {hideCompleted
-                    ? "Show completed tasks"
-                    : "Hide completed tasks"}
-                </DropdownMenuItem>
-                {!isDefault && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={startEditName}>
-                      <Pencil className="h-3.5 w-3.5" />
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => onDeleteList(listName)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Add task input */}
-        {adding && (
-          <div className="px-3 py-2 border-b border-border/50">
-            <div
-              ref={addInputRef}
-              contentEditable
-              autoCorrect="off"
-              autoCapitalize="off"
-              suppressContentEditableWarning
-              role="textbox"
-              aria-multiline="true"
-              data-testid={`add-task-input-${listName}`}
-              data-placeholder="New task... (Cmd+Enter to submit)"
-              onInput={(e) => {
-                const plain = getPlainText(e.currentTarget);
-                setAddValue(plain);
-                ac.detect();
-              }}
-              onKeyDown={handleAddKeyDown}
-              onPaste={handlePaste}
-              onBlur={() => {
-                if (!ac.isOpen) {
-                  if (addValue.trim()) submitAdd();
-                  else setAdding(false);
-                }
-              }}
-              className="min-h-[28px] max-h-32 overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
-            />
-            {ac.isOpen && (
-              <AutocompleteDropdown
-                anchorRef={addInputRef}
-                suggestions={ac.suggestions}
-                selectedIndex={ac.selectedIndex}
-                onSelect={(i) => {
-                  const newVal = ac.select(i);
-                  if (newVal !== null) {
-                    setAddValue(newVal);
-                    if (addInputRef.current)
-                      setPlainText(addInputRef.current, newVal);
-                  }
-                }}
-              />
-            )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         )}
 
+        {/* Add task input */}
+        {adding && (
+          <TouchEditorScreen
+            title="New task"
+            listName={listName}
+            onCancel={() => {
+              setAdding(false);
+              setAddValue("");
+            }}
+          >
+            <div className="task-create-editor px-3 py-2 border-b border-border/50">
+              <div
+                ref={addInputRef}
+                contentEditable
+                autoCorrect="off"
+                autoCapitalize="off"
+                suppressContentEditableWarning
+                role="textbox"
+                aria-multiline="true"
+                data-testid={`add-task-input-${listName}`}
+                data-placeholder={
+                  getHost().touch
+                    ? "Task title, then notes…"
+                    : "New task... (Cmd+Enter to submit)"
+                }
+                onInput={(e) => {
+                  const plain = getPlainText(e.currentTarget);
+                  setAddValue(plain);
+                  ac.detect();
+                }}
+                onKeyDown={handleAddKeyDown}
+                onPaste={handlePaste}
+                onBlur={() => {
+                  if (!getHost().touch && !ac.isOpen) {
+                    if (addValue.trim()) submitAdd();
+                    else setAdding(false);
+                  }
+                }}
+                className="min-h-[28px] max-h-32 overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+              />
+              <TouchEditorActions
+                editor={addInputRef}
+                onChange={setAddValue}
+                onSave={submitAdd}
+                onCancel={() => {
+                  setAdding(false);
+                  setAddValue("");
+                }}
+                onError={onShowStatus}
+              />
+              {ac.isOpen && (
+                <AutocompleteDropdown
+                  anchorRef={addInputRef}
+                  suggestions={ac.suggestions}
+                  selectedIndex={ac.selectedIndex}
+                  onSelect={(i) => {
+                    const newVal = ac.select(i);
+                    if (newVal !== null) {
+                      setAddValue(newVal);
+                      if (addInputRef.current)
+                        setPlainText(addInputRef.current, newVal);
+                    }
+                  }}
+                />
+              )}
+            </div>
+          </TouchEditorScreen>
+        )}
+
         {/* Tasks */}
-        <div
-          className="grid transition-[grid-template-rows] duration-200 ease-in-out"
-          style={{ gridTemplateRows: collapsed ? "0fr" : "1fr" }}
-        >
-          <div className="overflow-hidden">
-            {visibleTasks.length === 0 && !adding && (
-              <div className="px-3 py-3 text-xs text-muted-foreground/50 text-center">
-                {hideCompleted && doneCount > 0
+        <div>
+          {visibleTasks.length === 0 && !adding && (
+            <div className="px-3 py-3 text-xs text-muted-foreground/50 text-center">
+              {searching && tasks.length === 0
+                ? "No matching tasks in this list"
+                : hideCompleted && doneCount > 0
                   ? "All tasks completed"
                   : "No tasks"}
-              </div>
-            )}
+            </div>
+          )}
 
-            <SortableContext
-              items={taskIds}
-              strategy={verticalListSortingStrategy}
-            >
-              {visibleTasks.map((task) => (
-                <SortableTaskItem
-                  key={task.id}
-                  task={task}
-                  lists={lists}
-                  relDetails={relDetails[task.id]}
-                  onToggleStatus={onToggleStatus}
-                  onSetStatus={onSetStatus}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                  onMove={onMove}
-                  onShowStatus={onShowStatus}
-                  onNavigateToTask={onNavigateToTask}
-                  onCreateSubtask={handleCreateSubtask}
-                  onTagClick={onTagClick}
-                  showMediaPreviews={showMediaPreviews}
-                  mediaPreviewResetSignal={mediaPreviewResetSignal}
-                />
-              ))}
-            </SortableContext>
-          </div>
+          <SortableContext
+            items={taskIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {visibleTasks.map((task) => (
+              <SortableTaskItem
+                key={task.id}
+                task={task}
+                lists={lists}
+                relDetails={relDetails[task.id]}
+                onToggleStatus={onToggleStatus}
+                onSetStatus={onSetStatus}
+                onRename={onRename}
+                onDelete={onDelete}
+                onMove={onMove}
+                onShowStatus={onShowStatus}
+                onNavigateToTask={onNavigateToTask}
+                onCreateSubtask={handleCreateSubtask}
+                onTagClick={onTagClick}
+                onEditingChange={taskEditingChanged}
+                showMediaPreviews={showMediaPreviews}
+                mediaPreviewResetSignal={mediaPreviewResetSignal}
+              />
+            ))}
+          </SortableContext>
         </div>
       </div>
     );

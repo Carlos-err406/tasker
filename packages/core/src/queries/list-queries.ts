@@ -1,10 +1,11 @@
+import { withTransaction } from "../db.js";
 /**
  * List management operations.
  */
 
 import { eq, and, count, max } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-// getRawDb removed — using Drizzle cross-driver db.transaction()
+// getRawDb removed — using Drizzle cross-driver withTransaction(db, )
 import type { ListName } from '../types/task.js';
 import { lists } from '../schema/lists.js';
 import { tasks } from '../schema/tasks.js';
@@ -125,7 +126,7 @@ export function reorderList(db: TaskerDb, listName: ListName, newIndex: number):
   allNames.splice(currentIndex, 1);
   allNames.splice(clamped, 0, listName);
 
-  db.transaction((tx) => {
+  withTransaction(db, (tx) => {
     for (let i = 0; i < allNames.length; i++) {
       tx.update(lists).set({ sortOrder: i }).where(eq(lists.name, allNames[i]!)).run();
     }

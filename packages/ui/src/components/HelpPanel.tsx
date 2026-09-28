@@ -2,8 +2,17 @@ import { useEffect, useRef } from "react";
 import { CircleHelp } from "lucide-react";
 import { Kbd, KbdGroup } from "./ui/kbd.js";
 import { PanelHeader } from "./PanelHeader.js";
+import { Button } from "./ui/button.js";
 
-export function HelpPanel({ onClose }: { onClose: () => void }) {
+export function HelpPanel({
+  onClose,
+  touch = false,
+  onAbout,
+}: {
+  onClose: () => void;
+  touch?: boolean;
+  onAbout?: () => void;
+}) {
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
     panelRef.current?.focus();
@@ -16,8 +25,31 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
       data-testid="help-panel"
       className="flex flex-col h-full min-h-0 outline-none"
     >
-      <PanelHeader title="Help" icon={CircleHelp} onClose={onClose} />
+      <PanelHeader title="Help" icon={CircleHelp} onClose={onClose}>
+        {onAbout && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-2 text-xs"
+            onClick={onAbout}
+          >
+            About Tasker
+          </Button>
+        )}
+      </PanelHeader>
       <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4 text-xs">
+        {touch && (
+          <section>
+            <h3 className="font-medium text-sm mb-1.5">Touch Controls</h3>
+            <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+              <li>Tap + to add; tap a checkbox to complete.</li>
+              <li>Swipe either way or tap ⋯ for task actions.</li>
+              <li>Tap an image to enlarge it.</li>
+              <li>Tap the list name to switch or manage lists.</li>
+              <li>Use the bottom ⋯ for app options.</li>
+            </ul>
+          </section>
+        )}
         <section>
           <h3 className="font-medium text-sm mb-1.5">Metadata Prefixes</h3>
           <p className="text-muted-foreground mb-2">
@@ -61,6 +93,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
 
         <section>
           <h3 className="font-medium text-sm mb-1.5">Search Filters</h3>
+          <p className="text-muted-foreground mb-2">
+            Search applies to the selected list. Use the list picker to switch
+            lists.
+          </p>
           <div className="grid grid-cols-2 gap-1 text-muted-foreground">
             <span className="font-mono">tag:name</span>
             <span>Filter by tag</span>
@@ -81,106 +117,105 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
-        <section>
-          <h3 className="font-medium text-sm mb-1.5">Keyboard Shortcuts</h3>
-          <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>P</Kbd>
-            </KbdGroup>
-            <span>Toggle previews</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </KbdGroup>
-            <span>Focus search</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>R</Kbd>
-            </KbdGroup>
-            <span>Refresh tasks</span>
-            <Kbd>Esc</Kbd>
-            <span>Clear search when focused</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>Z</Kbd>
-            </KbdGroup>
-            <span>Undo</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>⇧</Kbd>
-              <Kbd>Z</Kbd>
-            </KbdGroup>
-            <span>Redo</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>E</Kbd>
-            </KbdGroup>
-            <span>Collapse/expand all lists</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>J</Kbd>
-            </KbdGroup>
-            <span>Apply system sort</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>/</Kbd>
-            </KbdGroup>
-            <span>Toggle help</span>
-            <Kbd>Esc</Kbd>
-            <span>Close help</span>
-          </div>
-        </section>
+        {!touch && (
+          <>
+            <section>
+              <h3 className="font-medium text-sm mb-1.5">Keyboard Shortcuts</h3>
+              <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>P</Kbd>
+                </KbdGroup>
+                <span>Toggle previews</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>K</Kbd>
+                </KbdGroup>
+                <span>Focus search</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>R</Kbd>
+                </KbdGroup>
+                <span>Refresh tasks</span>
+                <Kbd>Esc</Kbd>
+                <span>Clear search when focused</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>Z</Kbd>
+                </KbdGroup>
+                <span>Undo</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>⇧</Kbd>
+                  <Kbd>Z</Kbd>
+                </KbdGroup>
+                <span>Redo</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>J</Kbd>
+                </KbdGroup>
+                <span>Apply system sort</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>/</Kbd>
+                </KbdGroup>
+                <span>Toggle help</span>
+                <Kbd>Esc</Kbd>
+                <span>Close help</span>
+              </div>
+            </section>
 
-        <section>
-          <h3 className="font-medium text-sm mb-1.5">Editing Shortcuts</h3>
-          <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>Enter</Kbd>
-            </KbdGroup>
-            <span>Save task</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>B</Kbd>
-            </KbdGroup>
-            <span>Bold</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>I</Kbd>
-            </KbdGroup>
-            <span>Italic</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>U</Kbd>
-            </KbdGroup>
-            <span>Underline</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>⇧</Kbd>
-              <Kbd>X</Kbd>
-            </KbdGroup>
-            <span>Strikethrough</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </KbdGroup>
-            <span>Insert link</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>⇧</Kbd>
-              <Kbd>I</Kbd>
-            </KbdGroup>
-            <span>Insert image</span>
-            <Kbd>Tab</Kbd>
-            <span>Next placeholder</span>
-            <KbdGroup>
-              <Kbd>⌘</Kbd>
-              <Kbd>V</Kbd>
-            </KbdGroup>
-            <span>Paste image from clipboard</span>
-          </div>
-        </section>
+            <section>
+              <h3 className="font-medium text-sm mb-1.5">Editing Shortcuts</h3>
+              <div className="grid grid-cols-2 gap-1 text-muted-foreground items-center">
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>Enter</Kbd>
+                </KbdGroup>
+                <span>Save task</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>B</Kbd>
+                </KbdGroup>
+                <span>Bold</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>I</Kbd>
+                </KbdGroup>
+                <span>Italic</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>U</Kbd>
+                </KbdGroup>
+                <span>Underline</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>⇧</Kbd>
+                  <Kbd>X</Kbd>
+                </KbdGroup>
+                <span>Strikethrough</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>K</Kbd>
+                </KbdGroup>
+                <span>Insert link</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>⇧</Kbd>
+                  <Kbd>I</Kbd>
+                </KbdGroup>
+                <span>Insert image</span>
+                <Kbd>Tab</Kbd>
+                <span>Next placeholder</span>
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>V</Kbd>
+                </KbdGroup>
+                <span>Paste image from clipboard</span>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </section>
   );

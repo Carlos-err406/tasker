@@ -2,7 +2,7 @@
 
 Repository: [Carlos-err406/tasker](https://github.com/Carlos-err406/tasker). The original app is retained separately as [tasker-ref](https://github.com/Carlos-err406/tasker-ref).
 
-A local macOS task manager in SwiftBar, preserving cli-tasker's parser and React Markdown renderer. Tasks and pasted images live in one SQLite database. Local snapshots work offline; optional Google Drive uploads add recovery backups.
+A local task manager for macOS in SwiftBar and Android, preserving cli-tasker's parser and React Markdown renderer. Each device stores tasks and pasted images in SQLite. Local snapshots work offline; optional Google Drive backups and sync connect your devices.
 
 ## Install
 
@@ -44,7 +44,7 @@ Official release archives include the public Google Desktop OAuth configuration.
 
 ## Use
 
-Click Tasker in the menu bar. Use the plus button to add a task; save with Command-Enter. Right-click a task to edit, change status, move, or trash it. Metadata belongs on trailing metadata-only lines (`p1 #tag @tomorrow`). The existing relationship syntax and Markdown shortcuts are retained. Paste images into new tasks or the task editor. Undo/redo, search, lists, trash recovery, media controls and backups are available in the popover.
+Click Tasker in the menu bar. Choose a list at the top left; search applies to that list, and Tasker remembers your selection. The selector also contains list creation, rename and delete. Use the top-right plus button to add a task; save with Command-Enter. Completed-task visibility sits beside the other app controls. Right-click a task to edit, change status, move, or trash it. Metadata belongs on trailing metadata-only lines (`p1 #tag @tomorrow`). The existing relationship syntax and Markdown shortcuts are retained. Paste images into new tasks or the task editor. Undo/redo, search, lists, trash recovery, media controls and backups are available in the popover.
 
 See [Google setup](docs/google-setup.md), [backup and recovery behavior](docs/backups.md), [architecture](docs/architecture.md), [source provenance](docs/source-provenance.md), and [validation status](docs/implementation-status.md).
 
@@ -68,4 +68,24 @@ pnpm uninstall:macos
 
 This stops/removes the LaunchAgent and its managed SwiftBar plugin. It retains tasks, backups, and Keychain credentials; disconnect Google in the app first if you also want its grant removed. Data defaults to `~/Library/Application Support/tasker-swiftbar`, distinct from cli-tasker.
 
-MVP scope: Mac app and recovery backups. No Supabase, mobile application, CalDAV, or cross-device merge. The SQLite image references and shared TypeScript packages avoid Mac-specific paths in task content for possible future Android use.
+The original Mac MVP has expanded to Android and Google Drive sync. No hosting service, Supabase, or CalDAV is required.
+
+## Android
+
+Download [tasker-android.apk](https://github.com/Carlos-err406/tasker/releases/latest/download/tasker-android.apk) on a phone running Android 11 or later and open it to install. Android may ask you to allow installation from your browser. The app works offline, with local/Google Drive backups and optional Mac sync. Check for subsequent updates in **App options → View help → About Tasker**.
+
+Tasker installs separately from Tasker Preview. Keep Preview until its changes have synced, then connect the same Google account and enable sync in Tasker. See [Android build, signing and migration details](apps/android/README.md).
+
+## Sync between Mac and Android
+
+Connect the same Google account in Backups on both devices. Open **Backups → View sync** on either device, then enable sync on each device. Enabling creates a safety backup and combines both devices' tasks, lists, relationships, order, trash and managed images. The most recent recorded edit wins conflicts. Local UI preferences and undo history stay on their own device.
+
+Google Drive features currently require an account enrolled as a test user in Tasker's Google project. Offline use does not require a Google account.
+
+Sync runs after edits and every 30 seconds while the Mac service runs or Android is open. Offline edits persist and retry. Pause sync stops transfers without deleting local tasks. Restoring a backup pauses sync; resuming publishes the restored changes. An open editor defers incoming changes until Save or Cancel.
+
+Sync files are separate from recovery snapshots. Old tasks without recorded edit times have a deterministic first-merge tie-break; their historical edit order cannot be reconstructed. Device clocks affect concurrent offline conflicts. Image objects are retained in Drive; automatic removal of unused images is deferred.
+
+## About Tasker
+
+Open **Help → About Tasker** on Mac or **App options → View help → About Tasker** on Android for the installed version, credits and update controls. Check for updates queries the latest stable GitHub release. Mac offers a link to the available release and continues to use the installer described above; Android downloads a matching signed APK and opens its system installer. Opening About by itself does not perform a network check.

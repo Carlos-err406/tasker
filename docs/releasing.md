@@ -6,24 +6,28 @@
 
 To release:
 
-1. Bump the version in the root package.json, the three workspace package.json files, and the plugin's `<xbar.version>` field.
+1. Bump the version in the root package.json, the four workspace package.json files (core, UI, Mac and Android), and the plugin's `<xbar.version>` field.
 2. Add `docs/releases/<version>.md` with user-facing changes and installation instructions. Open and merge the PR after checks pass.
 3. From an up-to-date, clean `main` checkout, push the matching tag, for example:
 
    ```sh
-   git tag v0.1.2
-   git push origin v0.1.2
+   git tag v0.2.0
+   git push origin v0.2.0
    ```
 
 A tag must exactly match the package version and point to a commit included in `main`. Only stable `vX.Y.Z` releases are supported. The tag run repeats checks before the publishing job starts.
 
-The publishing job builds from the tag, injects the desktop app identity, creates the archive/checksum, and checks production dependency installation in an isolated directory. It uploads the archive, checksum, and `install.sh` to a **draft**, verifies the uploaded sizes and SHA-256 digests, then publishes it as latest. An interrupted upload leaves a draft; rerun the failed job to retry. An already published release is left unchanged on rerun. Publish a new version to change public assets.
+Android checks run on Ubuntu with Java 17 and Android SDK 35, building the debug app and instrumentation APK and running lint without production credentials. Both platform jobs must pass before publication.
 
-### Repository secret
+The publishing job builds from the tag, signs and verifies the production Android APK, injects the desktop app identity, creates the Mac archive/checksum, and checks production dependency installation in an isolated directory. It uploads both packages, both checksums, and `install.sh` to a **draft**, verifies the uploaded sizes and SHA-256 digests, then publishes it as latest. An interrupted upload leaves a draft; rerun the failed job to retry. An already published release is left unchanged on rerun. Publish a new version to change public assets.
+
+### Repository secrets
 
 `TASKER_GOOGLE_DESKTOP_CLIENT_JSON` is configured in this repository's Actions secrets. It contains only the `installed.client_id` and optional `installed.client_secret` desktop application fields. The publishing step writes it into a private temporary file and removes that file afterward; normal PR checks receive no OAuth configuration. The source placeholder stays unconfigured, and the archive deliberately contains the public desktop app identity.
 
 To rotate the identity, replace this secret with the new Desktop client configuration and publish a new version. Never use a service-account key, Web OAuth client, or user authorization tokens. No separate GitHub token is needed: the publish job uses `GITHUB_TOKEN` with `contents: write`; checks have read-only permissions.
+
+`TASKER_ANDROID_SIGNING_JSON` contains the permanent Android signing key and passwords. Only the tag publishing job receives it; temporary keystore files are removed after packaging. The public certificate fingerprint is pinned in `apps/android/release-certificate.sha256`. Preserve the key and its private backup for future updates. See [Android signing](../apps/android/README.md#production-signing-and-packaging) for its format and local packaging command. Android's Google registration uses the production package and certificate, with no Desktop OAuth secret embedded in the APK.
 
 ## Preparing a local archive
 

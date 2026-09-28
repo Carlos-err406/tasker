@@ -37,7 +37,30 @@ export async function connectHost() {
   };
   configureHost({
     operations,
-    onDbChanged: () => () => {},
+    onDbChanged: (callback) => {
+      let active = true,
+        revision: number | undefined,
+        timer: ReturnType<typeof setTimeout>;
+      const poll = async () => {
+        try {
+          const status = await manage<{ revision: number }>({
+            action: "sync-status",
+          });
+          if (active && revision !== undefined && revision !== status.revision)
+            callback();
+          revision = status.revision;
+        } catch {
+          /* The next visible poll retries after a service restart. */
+        } finally {
+          if (active) timer = setTimeout(() => void poll(), 1500);
+        }
+      };
+      void poll();
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    },
     onPopupShown: (callback) => visibility(true, callback),
     onPopupHidden: (callback) => visibility(false, callback),
     async openExternal(url) {
