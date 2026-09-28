@@ -635,6 +635,12 @@ test("toolbar sorts tasks and collapses all lists with persistent results", asyn
 test("action tooltips show keycaps and undo shortcuts work outside editors", async ({
   page,
 }) => {
+  // Keep closed tooltips mounted long enough to expose overlap during transitions.
+  await page.addStyleTag({
+    content:
+      '[data-slot="tooltip-content"][data-state="closed"] { animation-duration: 1s !important; }',
+  });
+  const tooltip = page.locator('[role="tooltip"]:not([data-state="closed"])');
   const shortcuts = [
     { name: "Collapse all lists", keys: ["⌘", "E"] },
     { name: "Hide previews", keys: ["⌘", "P"] },
@@ -645,24 +651,23 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
   ];
   for (const { name, keys } of shortcuts) {
     await page.getByRole("button", { name, exact: true }).hover();
-    const tip = page.getByRole("tooltip");
+    const tip = tooltip;
     await expect(tip).toBeVisible();
     await expect(tip.locator('[data-slot="kbd"]')).toHaveText(keys);
     await expect(tip).toContainText(name === "Help" ? "Toggle help" : name);
     await page.keyboard.press("Escape");
     await page.mouse.move(10, 300, { steps: 10 });
-    await expect(tip).toHaveCount(0);
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
   }
   await page.getByRole("button", { name: "Help", exact: true }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("Toggle help");
+  await expect(tooltip).toContainText("Toggle help");
   await page.screenshot({ path: "test-results/shortcut-tooltip.png" });
   await page.keyboard.press("Escape");
   await page.mouse.move(10, 300, { steps: 10 });
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await page.getByRole("button", { name: "Create list", exact: true }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("Create list");
-  await expect(
-    page.getByRole("tooltip").locator('[data-slot="kbd"]'),
-  ).toHaveCount(0);
+  await expect(tooltip).toContainText("Create list");
+  await expect(tooltip.locator('[data-slot="kbd"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Create list", exact: true }).click();
   const listInput = page.getByRole("textbox", { name: "New list name" });
   await listInput.fill("Draft list");
@@ -671,10 +676,9 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
     ["Cancel new list", "Esc"],
   ]) {
     await page.mouse.move(10, 300, { steps: 10 });
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
     await page.getByRole("button", { name, exact: true }).hover();
-    await expect(
-      page.getByRole("tooltip").locator('[data-slot="kbd"]'),
-    ).toHaveText([key]);
+    await expect(tooltip.locator('[data-slot="kbd"]')).toHaveText([key]);
   }
   await listInput.press("Escape");
   await expect(listInput).toHaveCount(0);
