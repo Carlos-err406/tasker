@@ -1,3 +1,4 @@
+import { TaskContextMenuContent } from "./TaskContextMenu.js";
 import { normalizeMarkdownDelimiters } from '../lib/markdown-source.js';
 import { getHost } from '../host.js';
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
@@ -11,7 +12,6 @@ interface HastElement { position?: { start: { line: number } } }
 import { CheckSquare, Square, Loader2, Copy, Check, Play, Image as ImageIcon, ImageOff, Images, Video } from "lucide-react";
 import {
   ContextMenu,
-  ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "./ui/context-menu.js";
@@ -240,14 +240,14 @@ function ImageWithContextMenu({
           {openError && <span role="alert" className="block text-destructive text-[11px]">{openError}</span>}
         </span>
       </ContextMenuTrigger>
-      <ContextMenuContent collisionPadding={8}>
+      <TaskContextMenuContent>
         <ContextMenuItem onSelect={() => { void handleOpenImage(); }}>
           Open image
         </ContextMenuItem>
         <ContextMenuItem onSelect={handleCopyImage}>
           Copy image
         </ContextMenuItem>
-      </ContextMenuContent>
+      </TaskContextMenuContent>
     </ContextMenu>
   );
 }
@@ -392,14 +392,14 @@ function VideoPreviewWithContextMenu({
           </MediaPreviewFrame>
         </span>
       </ContextMenuTrigger>
-      <ContextMenuContent collisionPadding={8}>
+      <TaskContextMenuContent>
         <ContextMenuItem onSelect={() => openExternal(href)}>
           Open video
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => navigator.clipboard.writeText(href)}>
           Copy video URL
         </ContextMenuItem>
-      </ContextMenuContent>
+      </TaskContextMenuContent>
     </ContextMenu>
   );
 }
@@ -457,7 +457,7 @@ function LinkWithContextMenu({
           {children}
         </a>
       </ContextMenuTrigger>
-      <ContextMenuContent collisionPadding={8}>
+      <TaskContextMenuContent>
         <ContextMenuItem onSelect={() => { if (href) openExternal(href); }}>
           Open link
         </ContextMenuItem>
@@ -467,7 +467,7 @@ function LinkWithContextMenu({
         <ContextMenuItem onSelect={() => navigator.clipboard.writeText(textContent)}>
           Copy link text
         </ContextMenuItem>
-      </ContextMenuContent>
+      </TaskContextMenuContent>
     </ContextMenu>
   );
 }
@@ -496,11 +496,11 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
           </span>
         </pre>
       </ContextMenuTrigger>
-      <ContextMenuContent collisionPadding={8}>
+      <TaskContextMenuContent>
         <ContextMenuItem onSelect={copyText}>
           Copy code
         </ContextMenuItem>
-      </ContextMenuContent>
+      </TaskContextMenuContent>
     </ContextMenu>
   );
 }

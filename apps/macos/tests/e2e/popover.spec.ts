@@ -1230,3 +1230,148 @@ test("pointer list reorder persists and does not move its tasks into another lis
     )
     .toEqual(before);
 });
+
+for (const content of [
+  {
+    name: "YouTube video",
+    markdown: "[Clip](https://youtu.be/abcdefghijk)",
+    selector: '[data-testid="markdown-video-preview"]',
+    action: "Open video",
+    target: "https://youtu.be/abcdefghijk",
+  },
+  {
+    name: "direct video",
+    markdown: "[Clip](https://example.com/clip.mp4)",
+    selector: '[data-testid="markdown-video-preview"]',
+    action: "Open video",
+    target: "https://example.com/clip.mp4",
+  },
+  {
+    name: "image",
+    markdown: "![Photo](https://example.com/photo.png)",
+    selector: "img",
+    action: "Open image",
+    target: "https://example.com/photo.png",
+  },
+  {
+    name: "link",
+    markdown: "[Website](https://example.com/page)",
+    selector: "a",
+    action: "Open link",
+    target: "https://example.com/page",
+  },
+  {
+    name: "code block",
+    markdown: "```js\nconst answer = 42;\n```",
+    selector: "pre",
+    action: "Copy code",
+    target: null,
+  },
+]) {
+  test(`combines ${content.name} actions with its owning task menu`, async ({
+    page,
+    service,
+  }) => {
+    const pixel = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJ1kAAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.route("https://example.com/**", (route) =>
+      route.fulfill({ contentType: "image/png", body: pixel }),
+    );
+    await page.route("https://i.ytimg.com/**", (route) =>
+      route.fulfill({ contentType: "image/png", body: pixel }),
+    );
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.clipboard, "writeText", {
+        value: async (text: string) => {
+          Reflect.set(window, "copiedText", text);
+        },
+      });
+    });
+    const description = `Media task\n\n${content.markdown}`;
+    // Seed exact Markdown without contenteditable.fill's WebKit blank-line conversion.
+    await page.evaluate(async (description) => {
+      await fetch("/rpc", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-tasker-request": "1",
+        },
+        body: JSON.stringify({
+          channel: "tasks:add",
+          args: [description, "tasks"],
+        }),
+      });
+    }, description);
+    await page.reload();
+    await add(page, "Other task");
+    const task = page
+      .locator('[data-testid^="task-item-"]')
+      .filter({ hasText: "Media task" });
+    const media = task.locator(content.selector);
+    await media.click({ button: "right" });
+    await expect(page.getByRole("menu")).toHaveCount(1);
+    for (const action of [
+      content.action,
+      "Edit",
+      "Copy ID",
+      "Copy text",
+      "Create subtask",
+      "Move to...",
+      "Set Status",
+      "Delete",
+    ]) {
+      await expect(
+        page.getByRole("menuitem", { name: action, exact: true }),
+      ).toBeVisible();
+    }
+    await page
+      .getByRole("menuitem", { name: content.action, exact: true })
+      .click();
+    if (content.target) {
+      await expect.poll(() => service.openedTargets).toContain(content.target);
+    } else {
+      expect(
+        await page.evaluate(() => Reflect.get(window, "copiedText")),
+      ).toContain("const answer = 42;");
+    }
+    await media.click({ button: "right" });
+    await page
+      .getByRole("menuitem", { name: "Copy text", exact: true })
+      .click();
+    expect(await page.evaluate(() => Reflect.get(window, "copiedText"))).toBe(
+      description,
+    );
+    await media.click({ button: "right" });
+    await page
+      .getByRole("menuitem", { name: "Set Status", exact: true })
+      .hover();
+    await expect(
+      page.getByRole("menuitem", { name: "In Progress", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("menuitem", { name: "In Progress", exact: true })
+      .click();
+    await media.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const editor = page.getByTestId("task-edit-input");
+    await expect(editor).toBeFocused();
+    await expect(editor).toHaveText(description, { useInnerText: true });
+    await editor.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await task
+      .locator('[data-testid^="task-name-"]')
+      .click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: content.action, exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await media.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+    await expect(task).toHaveCount(0);
+    await expect(page.locator('[data-testid^="task-item-"]')).toHaveText(
+      /Other task/,
+    );
+  });
+}

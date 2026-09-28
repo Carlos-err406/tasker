@@ -29,6 +29,7 @@ import {
   ChevronDown,
   Copy,
 } from "lucide-react";
+import { TaskContextMenu, TaskContextMenuContent } from "./TaskContextMenu.js";
 import { MarkdownContent } from "./MarkdownContent.js";
 import {
   getPlainText,
@@ -37,8 +38,6 @@ import {
   setPlainText,
 } from "../lib/content-editable-utils.js";
 import {
-  ContextMenu,
-  ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSub,
@@ -270,8 +269,124 @@ export const TaskItem = memo(function TaskItem({
     onShowStatus("Copied task text");
   };
 
+  const menuItems = (
+    <>
+      <ContextMenuItem onSelect={startEdit}>
+        <Pencil className="h-3.5 w-3.5" />
+        Edit
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={copyId}>
+        <Copy className="h-3.5 w-3.5" />
+        Copy ID
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={copyText}>
+        <Copy className="h-3.5 w-3.5" />
+        Copy text
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
+        <CornerRightDown className="h-3.5 w-3.5" />
+        Create subtask
+      </ContextMenuItem>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <FolderInput className="h-3.5 w-3.5" />
+          Move to...
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent collisionPadding={8}>
+          {lists
+            .filter((l) => l !== task.listName)
+            .map((l) => (
+              <ContextMenuItem key={l} onSelect={() => onMove(task.id, l)}>
+                {l}
+              </ContextMenuItem>
+            ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
+        <ContextMenuSubContent collisionPadding={8}>
+          {[
+            {
+              label: "Pending",
+              status: TS.Pending,
+              icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
+            },
+            {
+              label: "In Progress",
+              status: TS.InProgress,
+              icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" />,
+            },
+            {
+              label: "Done",
+              status: TS.Done,
+              icon: <CircleCheck className="h-3.5 w-3.5 text-green-400" />,
+            },
+            {
+              label: "Won't Do",
+              status: TS.WontDo,
+              icon: <CircleSlash className="h-3.5 w-3.5 text-zinc-400" />,
+            },
+          ].map(({ label, status, icon }) => (
+            <ContextMenuItem
+              key={label}
+              onSelect={() => onSetStatus(task.id, status)}
+              className={cn(task.status === status && "font-medium")}
+            >
+              {icon}
+              {label}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSeparator />
+      {relDetails && relDetails.subtasks.length > 0 ? (
+        <ContextMenuSub>
+          <ContextMenuSubTrigger className="text-destructive">
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete...
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent collisionPadding={8}>
+            <ContextMenuItem
+              variant="destructive"
+              onSelect={() => onDelete(task.id, false)}
+            >
+              This task only
+            </ContextMenuItem>
+            <ContextMenuItem
+              variant="destructive"
+              onSelect={() => onDelete(task.id, true)}
+            >
+              Task and subtasks
+            </ContextMenuItem>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      ) : (
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={() => onDelete(task.id)}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </ContextMenuItem>
+      )}
+    </>
+  );
+
   return (
-    <ContextMenu>
+    <TaskContextMenu
+      items={menuItems}
+      onCloseAutoFocus={(e) => {
+        e.preventDefault();
+        if (editAfterMenuClose.current) {
+          editAfterMenuClose.current = false;
+          initialEditText.current = task.description;
+          setEditValue(task.description);
+          setEditing(true);
+        }
+      }}
+    >
       <ContextMenuTrigger asChild>
         <div
           data-testid={`task-item-${shortId}`}
@@ -556,119 +671,7 @@ export const TaskItem = memo(function TaskItem({
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent
-        collisionPadding={8}
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          if (editAfterMenuClose.current) {
-            editAfterMenuClose.current = false;
-            initialEditText.current = task.description;
-            setEditValue(task.description);
-            setEditing(true);
-          }
-        }}
-      >
-        <ContextMenuItem onSelect={startEdit}>
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={copyId}>
-          <Copy className="h-3.5 w-3.5" />
-          Copy ID
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={copyText}>
-          <Copy className="h-3.5 w-3.5" />
-          Copy text
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onCreateSubtask(task.id)}>
-          <CornerRightDown className="h-3.5 w-3.5" />
-          Create subtask
-        </ContextMenuItem>
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <FolderInput className="h-3.5 w-3.5" />
-            Move to...
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent collisionPadding={8}>
-            {lists
-              .filter((l) => l !== task.listName)
-              .map((l) => (
-                <ContextMenuItem key={l} onSelect={() => onMove(task.id, l)}>
-                  {l}
-                </ContextMenuItem>
-              ))}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>Set Status</ContextMenuSubTrigger>
-          <ContextMenuSubContent collisionPadding={8}>
-            {[
-              {
-                label: "Pending",
-                status: TS.Pending,
-                icon: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
-              },
-              {
-                label: "In Progress",
-                status: TS.InProgress,
-                icon: <CircleDot className="h-3.5 w-3.5 text-amber-400" />,
-              },
-              {
-                label: "Done",
-                status: TS.Done,
-                icon: <CircleCheck className="h-3.5 w-3.5 text-green-400" />,
-              },
-              {
-                label: "Won't Do",
-                status: TS.WontDo,
-                icon: <CircleSlash className="h-3.5 w-3.5 text-zinc-400" />,
-              },
-            ].map(({ label, status, icon }) => (
-              <ContextMenuItem
-                key={label}
-                onSelect={() => onSetStatus(task.id, status)}
-                className={cn(task.status === status && "font-medium")}
-              >
-                {icon}
-                {label}
-              </ContextMenuItem>
-            ))}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-
-        <ContextMenuSeparator />
-        {relDetails && relDetails.subtasks.length > 0 ? (
-          <ContextMenuSub>
-            <ContextMenuSubTrigger className="text-destructive">
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete...
-            </ContextMenuSubTrigger>
-            <ContextMenuSubContent collisionPadding={8}>
-              <ContextMenuItem
-                variant="destructive"
-                onSelect={() => onDelete(task.id, false)}
-              >
-                This task only
-              </ContextMenuItem>
-              <ContextMenuItem
-                variant="destructive"
-                onSelect={() => onDelete(task.id, true)}
-              >
-                Task and subtasks
-              </ContextMenuItem>
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-        ) : (
-          <ContextMenuItem
-            variant="destructive"
-            onSelect={() => onDelete(task.id)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
+      <TaskContextMenuContent />
+    </TaskContextMenu>
   );
 });
