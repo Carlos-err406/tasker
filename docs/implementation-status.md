@@ -151,3 +151,11 @@ The user-approved plan is unchanged. Source provenance is recorded. Public redis
 - The build clears stale defaults when no input is provided. The release command rejects missing bundled configuration. Added coverage for allowed-field extraction, grant exclusion, stale-default removal, and invalid/missing inputs. The rejected initial commit will be replaced before retrying publication so its credential values do not remain in the pushed history.
 
 - After the adjustment, the configured release build, typecheck, and 277 unit tests passed. The existing 31 WebKit tests had passed immediately before this build-only change. Verified actual client ID/secret values are absent from all Git candidates and remain present in the ignored generated release module.
+
+
+## One-command macOS installer — 2026-09-27
+
+- Added `install.sh` for curl installation and updates on macOS 13.5+ (Intel/Apple Silicon). It checks SHA-256 for Tasker and pinned Node downloads, SHA-512 for pinned pnpm, prepares dependencies before service activation, and keeps task data separate from managed app versions. Failed activation restores the prior integration files and attempts to restart the old service. A generated uninstall entry point retains user data.
+- User approved installing the SwiftBar fork when absent. The companion is the existing CI-tested universal build at commit `76dad9ab90587984267774ff1cf2fc116893dc06`, with its MIT notice included. The artifact checksum and binary hash match the currently working installed app. The installer preserves existing SwiftBar installations and macOS security controls.
+- Build, typecheck, 281 unit tests, and 31 WebKit tests passed. ShellCheck and shell syntax validation passed. New tests cover version validation, unsupported platforms, checksums, archive roots, and rollback file preservation. Relevant tests were rerun after final installer adjustments.
+- A real isolated installation downloaded and verified private Node/pnpm, installed production dependencies, and started a separate healthy LaunchAgent with temporary data and a dummy OAuth identity. A repeat installation retained a fixture task and replaced the current-version symlink correctly. Generated uninstall removed the test service/plugin and preserved its database. No production app data or Google grant was used in these checks.

@@ -34,6 +34,7 @@ it("packages only runtime inputs and excludes account files, local state, and sy
       "pnpm-workspace.yaml",
       ".npmrc",
       "scripts/install.mjs",
+      "THIRD-PARTY-NOTICES.md",
       "packages/core/package.json",
       "packages/ui/package.json",
       "apps/macos/package.json",

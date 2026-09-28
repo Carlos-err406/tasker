@@ -4,9 +4,21 @@ Repository: [Carlos-err406/tasker](https://github.com/Carlos-err406/tasker). The
 
 A local macOS task manager in SwiftBar, preserving cli-tasker's parser and React Markdown renderer. Tasks and pasted images live in one SQLite database. Local snapshots work offline; optional Google Drive uploads add recovery backups.
 
-## Run
+## Install
 
-Validated on macOS with SwiftBar 2.1.1, Node 26.8.1 and pnpm 10.14.0. Install [SwiftBar](https://github.com/swiftbar/SwiftBar) and Node/pnpm first; no paid developer account or hosted service is required.
+On macOS 13.5 or later, run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Carlos-err406/tasker/main/install.sh | bash
+```
+
+No Homebrew, Node setup, pnpm setup, or sudo is required. The installer downloads a verified release and private runtimes under `~/.local/share/tasker`, installs the service and plugin, and opens SwiftBar. If SwiftBar is missing, it installs the tested [Carlos-err406/SwiftBar fork](https://github.com/Carlos-err406/SwiftBar) in `~/Applications`. Existing SwiftBar installations are preserved; Tasker requires the fork’s native clipboard support. The fork is ad-hoc signed, so macOS may ask you to allow it in **System Settings → Privacy & Security → Open Anyway**.
+
+Click Tasker’s menu-bar icon. To enable cloud backups, open **Backups → Connect Google**. Rerun the same installer to update; tasks, backups, and Google authorization stay in place. See [installer details](docs/installing.md) for version pinning, custom directories, and removal.
+
+## Run from source
+
+Validated on macOS with SwiftBar 2.1.1, Node 26.8.1 and pnpm 10.14.0. Install the [supported SwiftBar fork](https://github.com/Carlos-err406/SwiftBar) and Node/pnpm first; no paid developer account or hosted service is required.
 
 ```sh
 pnpm install --frozen-lockfile
