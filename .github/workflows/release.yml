@@ -36,7 +36,17 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm --filter @tasker/macos exec playwright install webkit
+      # Playwright 1.58.2's large-ZIP extractor stalls under Node 26.
+      # Use the verified LTS runtime only for browser installation.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Install WebKit with Node 24
+        timeout-minutes: 5
+        run: pnpm --filter @tasker/macos exec playwright install webkit
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.8.1
       - run: pnpm test:e2e
 
   publish:

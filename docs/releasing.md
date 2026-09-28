@@ -2,7 +2,7 @@
 
 ## Automated releases
 
-`.github/workflows/release.yml` checks pull requests, pushes to `main`, and version tags on standard `macos-15` runners. It installs pinned Node.js/pnpm, verifies package/plugin versions and release notes, checks the shell installer, builds, typechecks, and runs unit and WebKit tests. The public repository uses free standard GitHub-hosted runners.
+`.github/workflows/release.yml` checks pull requests, pushes to `main`, and version tags on standard `macos-15` runners. It installs pinned Node.js/pnpm, verifies package/plugin versions and release notes, checks the shell installer, builds, typechecks, and runs unit and WebKit tests. The public repository uses free standard GitHub-hosted runners. Browser installation alone uses Node 24.19.0 because Playwright 1.58.2 stalls extracting its WebKit archive under Node 26; tests switch back to Node 26.8.1.
 
 To release:
 
