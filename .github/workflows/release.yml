@@ -1,0 +1,102 @@
+name: Validate and release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.8.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate release versions and shell
+        run: |
+          node scripts/check-release-version.mjs
+          bash -n install.sh
+          brew install shellcheck
+          shellcheck install.sh
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+      # Playwright 1.58.2's large-ZIP extractor stalls under Node 26.
+      # Use the verified LTS runtime only for browser installation.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Install WebKit with Node 24
+        timeout-minutes: 5
+        run: pnpm --filter @tasker/macos exec playwright install webkit
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.8.1
+      - run: pnpm test:e2e
+
+  publish:
+    needs: checks
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-15
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a matching stable tag on main
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/check-release-version.mjs "$RELEASE_TAG"
+          git merge-base --is-ancestor HEAD origin/main
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.8.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Bundle desktop app identity and package
+        env:
+          TASKER_GOOGLE_DESKTOP_CLIENT_JSON: ${{ secrets.TASKER_GOOGLE_DESKTOP_CLIENT_JSON }}
+        run: |
+          node --input-type=module <<'JS'
+          import { writeFile } from 'node:fs/promises';
+          const value = process.env.TASKER_GOOGLE_DESKTOP_CLIENT_JSON;
+          if (!value) throw new Error('Missing TASKER_GOOGLE_DESKTOP_CLIENT_JSON repository secret');
+          await writeFile(process.env.RUNNER_TEMP + '/google-client.json', value, { mode: 0o600 });
+          JS
+          TASKER_GOOGLE_BUILD_CLIENT_JSON="$RUNNER_TEMP/google-client.json" node scripts/bundle-google-client.mjs
+          node scripts/package-release.mjs
+      - name: Check recipient dependency installation
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          TASKER_INSTALL_ROOT="$RUNNER_TEMP/tasker-install-check" bash install.sh --archive="$PWD/release/tasker-swiftbar-${RELEASE_TAG#v}-macos.tar.gz" --prepare-only
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: node scripts/publish-release.mjs
+      - name: Remove temporary app identity
+        if: always()
+        run: rm -f "$RUNNER_TEMP/google-client.json"

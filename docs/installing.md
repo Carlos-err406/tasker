@@ -3,7 +3,7 @@
 Tasker's installer supports Intel and Apple Silicon Macs running macOS 13.5 or later. This minimum follows the pinned Node runtime's [supported platforms](https://github.com/nodejs/node/blob/v26.8.1/BUILDING.md#platform-list).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Carlos-err406/tasker/main/install.sh | bash
+curl -fsSL https://github.com/Carlos-err406/tasker/releases/latest/download/install.sh | bash
 ```
 
 To inspect the installer first, download that URL to a file and run it with `/bin/bash`. The script checks release and runtime downloads before extraction and does not need sudo or a Homebrew installation.
@@ -26,7 +26,7 @@ Only one installation runs per install root at a time. If a forcibly terminated 
 Pin a release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Carlos-err406/tasker/main/install.sh | bash -s -- --version=v0.1.0
+curl -fsSL https://github.com/Carlos-err406/tasker/releases/latest/download/install.sh | bash -s -- --version=v0.1.0
 ```
 
 A version pin selects app code. It does not roll back database changes. This initial release uses one schema version; future migrations must define their own rollback compatibility.

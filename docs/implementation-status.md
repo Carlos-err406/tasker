@@ -6,12 +6,12 @@ Initially implemented in `/Users/carlos/self-development/tasker-swiftbar`, branc
 | --- | --- | --- |
 | U1: writable popover | Implemented; basic real-host check confirmed | SwiftBar 2.1.1 on macOS 26.5.1. User confirmed the saved task renders its table, rule and quote after reopening. Private session/Host/Origin tests pass. |
 | U2: shared parser/storage | Implemented | 220 core tests, including original parser/query/undo cases plus BLOB storage. Explicit standalone-snapshot importer preserves the source bytes and reports omitted fields. |
-| U3: renderer | Implemented; extended host check pending | Existing task/list/Markdown/editor/store logic extracted; 25 renderer helper tests and 8 WebKit E2E flows. Smart-dash delimiter regression fixed. Actual SwiftBar pasted-image/backup check has been requested. Clipboard copy and representative video playback have not been manually confirmed. |
-| U4: local recovery | Implemented | Task/image restore, safety recovery, checksum/schema rejection, retention, and six child-process exits at restore boundaries pass. Automatic daily snapshots and explicit restore confirmation wired to UI. |
-| U5: Google backups | Implemented; live provider verification deferred by user | Fake-provider tests cover PKCE/state, denied consent, expired grants, quota errors, incomplete uploads and cancellation. No Google client or account grant exists. User requested free setup documentation instead. |
-| U6: installation/docs | Implemented and installed on current Mac | Isolated installer/removal smoke checks passed. Per-user LaunchAgent and managed plugin installed; health returns 204. Prototype tasks copied through SQLite backup into the app's independent data directory; prototype copy retained. Clean-machine and sleep/wake testing remain unperformed. |
+| U3: renderer | Implemented; 36 WebKit scenarios | User confirmed native clipboard/image paste and Markdown rendering. Combined task/media menus have WebKit coverage; direct native video playback remains a manual check. |
+| U4: local recovery | Implemented | Task/image restore, safety recovery, checksum/schema rejection, retention, and restore-boundary process exits pass. |
+| U5: Google backups | Implemented; live round trip confirmed | User confirmed account connection, two Drive backups, and successful restore. Other-account availability, live token refresh and revocation remain unverified. |
+| U6: installation/docs | Public curl installer; automated release workflow added | Isolated installation, repeated update with retained task data, and uninstall passed. Clean-machine and sleep/wake testing remain unperformed. |
 
-## Validation
+## Initial validation (historical)
 
 - `pnpm build`: passed. Vite reports the inherited renderer's large-chunk warning (828 KB uncompressed / 254 KB gzip).
 - `pnpm typecheck`: passed across all packages.
@@ -30,7 +30,7 @@ See `docs/reviews/mvp-review.md` for the manual review, applied fixes, simplific
 
 MVP remains macOS plus backups. No Supabase, mobile, CalDAV, backend hosting, Google Tasks, or task merge engine. Android portability is retained through shared TypeScript logic and database attachment IDs.
 
-Google setup: `docs/google-setup.md`. Live consent/Keychain/cloud round trip is deferred until credentials exist; this is not presented as a verified production Google integration. Actual SwiftBar media/clipboard checks and clean-machine/sleep testing are listed above rather than counted as automated passes.
+Google setup: `docs/google-setup.md`. The user confirmed the live cloud backup/restore round trip and native clipboard/image paste. Fresh-account authorization, direct native video playback, and clean-machine/sleep testing remain separate checks.
 
 The user-approved plan is unchanged. Source provenance is recorded. Public redistribution terms must be settled before publishing copied source.
 
@@ -159,3 +159,9 @@ The user-approved plan is unchanged. Source provenance is recorded. Public redis
 - User approved installing the SwiftBar fork when absent. The companion is the existing CI-tested universal build at commit `76dad9ab90587984267774ff1cf2fc116893dc06`, with its MIT notice included. The artifact checksum and binary hash match the currently working installed app. The installer preserves existing SwiftBar installations and macOS security controls.
 - Build, typecheck, 281 unit tests, and 31 WebKit tests passed. ShellCheck and shell syntax validation passed. New tests cover version validation, unsupported platforms, checksums, archive roots, and rollback file preservation. Relevant tests were rerun after final installer adjustments.
 - A real isolated installation downloaded and verified private Node/pnpm, installed production dependencies, and started a separate healthy LaunchAgent with temporary data and a dummy OAuth identity. A repeat installation retained a fixture task and replaced the current-version symlink correctly. Generated uninstall removed the test service/plugin and preserved its database. No production app data or Google grant was used in these checks.
+
+## Combined task and content menus — 2026-09-27
+
+- Right-clicking images, YouTube previews, direct videos, links, or code blocks now shows content-specific actions followed by the owning task's complete menu. A shared task-menu context keeps edit/copy/subtask/move/status/delete behavior consistent without duplicating callbacks.
+- Nested menus share the existing close-before-edit focus handoff. Plain task menus remain free of content-specific actions; standalone Markdown outside a task retains its content-only menu.
+- Build, typecheck, and 282 unit tests passed. All 31 existing WebKit scenarios passed; five added scenarios passed after fixing fixture setup (exact Markdown seeded through RPC and clipboard stubs installed across reload). Coverage checks one visible menu, content actions, task text copying, status submenu selection, focused editing/cancel, and deletion of the correct task. Direct-video coverage exercises its fallback preview; native SwiftBar interaction remains a separate manual check.
