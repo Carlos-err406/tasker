@@ -1,0 +1,25 @@
+{
+  "name": "tasker-swiftbar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "test:e2e": "pnpm --filter @tasker/macos test:e2e",
+    "start": "pnpm --filter @tasker/macos start",
+    "install:macos": "node scripts/install.mjs",
+    "uninstall:macos": "node scripts/install.mjs --uninstall",
+    "test:host": "node scripts/host-check.mjs",
+    "import:snapshot": "node apps/macos/dist-service/service/import-main.js",
+    "release:archive": "pnpm build && node scripts/package-release.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "prettier": "3.6.2",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

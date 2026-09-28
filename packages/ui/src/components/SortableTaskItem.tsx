@@ -1,0 +1,58 @@
+import { memo } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { Task, TaskStatus } from "@tasker/core/types";
+import type { TaskRelDetails } from "../hooks/use-tasker-store.js";
+import { TaskItem } from "./TaskItem.js";
+
+interface SortableTaskItemProps {
+  task: Task;
+  lists: string[];
+  relDetails?: TaskRelDetails;
+  onToggleStatus: (taskId: string, currentStatus: TaskStatus) => void;
+  onSetStatus: (taskId: string, status: TaskStatus) => void;
+  onRename: (taskId: string, newDescription: string) => Promise<boolean>;
+  onDelete: (taskId: string, cascade?: boolean) => void;
+  onMove: (taskId: string, targetList: string) => void;
+  onShowStatus: (message: string) => void;
+  onNavigateToTask: (taskId: string) => void;
+  onCreateSubtask: (taskId: string) => void;
+  onTagClick?: (tag: string) => void;
+  showMediaPreviews?: boolean;
+  mediaPreviewResetSignal?: number;
+}
+
+export const SortableTaskItem = memo(function SortableTaskItem({
+  task,
+  ...rest
+}: SortableTaskItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    // Only hint willChange during active drags to avoid creating persistent stacking
+    // contexts that put later items' headers on top of dropdowns.
+    willChange: transform ? "transform" : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      data-task-id={task.id}
+    >
+      <TaskItem task={task} {...rest} />
+    </div>
+  );
+});

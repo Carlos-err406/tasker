@@ -1,0 +1,136 @@
+import type { Task, TaskStatus, Priority, TaskResult, AddResult, TaskRelCounts, TaskSummary } from '@tasker/core';
+import type { TryResult } from '../try.js';
+import {
+  TASKS_GET_ALL,
+  TASKS_GET_BY_ID,
+  TASKS_SEARCH,
+  TASKS_ADD,
+  TASKS_SET_STATUS,
+  TASKS_RENAME,
+  TASKS_DELETE,
+  TASKS_MOVE,
+  TASKS_REORDER,
+  TASKS_SET_DUE_DATE,
+  TASKS_SET_PRIORITY,
+  TASKS_GET_STATS,
+  TASKS_RESTORE,
+  TASKS_GET_REL_COUNTS,
+  TASKS_GET_TITLES,
+  TASKS_APPLY_SYSTEM_SORT,
+  TASKS_SOFT_DELETE_BY_STATUS,
+  TASKS_SOFT_DELETE_OLDER_THAN,
+  TASKS_GET_TRASH,
+  TASKS_CLEAR_TRASH,
+} from './channels.js';
+
+export const tasksInvokerFactory = (ipcRenderer: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> }) => ({
+  [TASKS_GET_ALL]: ((listName?: string) =>
+    ipcRenderer.invoke(TASKS_GET_ALL, listName)) as (
+    listName?: string,
+  ) => TryResult<Task[]>,
+
+  [TASKS_GET_BY_ID]: ((taskId: string) =>
+    ipcRenderer.invoke(TASKS_GET_BY_ID, taskId)) as (
+    taskId: string,
+  ) => TryResult<Task | null>,
+
+  [TASKS_SEARCH]: ((query: string) =>
+    ipcRenderer.invoke(TASKS_SEARCH, query)) as (
+    query: string,
+  ) => TryResult<Task[]>,
+
+  [TASKS_ADD]: ((description: string, listName: string) =>
+    ipcRenderer.invoke(TASKS_ADD, description, listName)) as (
+    description: string,
+    listName: string,
+  ) => TryResult<AddResult>,
+
+  [TASKS_SET_STATUS]: ((taskId: string, status: TaskStatus) =>
+    ipcRenderer.invoke(TASKS_SET_STATUS, taskId, status)) as (
+    taskId: string,
+    status: TaskStatus,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_RENAME]: ((taskId: string, newDescription: string) =>
+    ipcRenderer.invoke(TASKS_RENAME, taskId, newDescription)) as (
+    taskId: string,
+    newDescription: string,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_DELETE]: ((taskId: string, cascade?: boolean) =>
+    ipcRenderer.invoke(TASKS_DELETE, taskId, cascade)) as (
+    taskId: string,
+    cascade?: boolean,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_MOVE]: ((taskId: string, targetList: string) =>
+    ipcRenderer.invoke(TASKS_MOVE, taskId, targetList)) as (
+    taskId: string,
+    targetList: string,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_REORDER]: ((taskId: string, newIndex: number) =>
+    ipcRenderer.invoke(TASKS_REORDER, taskId, newIndex)) as (
+    taskId: string,
+    newIndex: number,
+  ) => TryResult<void>,
+
+  [TASKS_SET_DUE_DATE]: ((taskId: string, dueDate: string | null) =>
+    ipcRenderer.invoke(TASKS_SET_DUE_DATE, taskId, dueDate)) as (
+    taskId: string,
+    dueDate: string | null,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_SET_PRIORITY]: ((taskId: string, priority: Priority | null) =>
+    ipcRenderer.invoke(TASKS_SET_PRIORITY, taskId, priority)) as (
+    taskId: string,
+    priority: Priority | null,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_GET_STATS]: ((listName?: string) =>
+    ipcRenderer.invoke(TASKS_GET_STATS, listName)) as (
+    listName?: string,
+  ) => TryResult<{ total: number; pending: number; inProgress: number; done: number; trash: number }>,
+
+  [TASKS_RESTORE]: ((taskId: string) =>
+    ipcRenderer.invoke(TASKS_RESTORE, taskId)) as (
+    taskId: string,
+  ) => TryResult<TaskResult>,
+
+  [TASKS_GET_REL_COUNTS]: ((taskIds: string[]) =>
+    ipcRenderer.invoke(TASKS_GET_REL_COUNTS, taskIds)) as (
+    taskIds: string[],
+  ) => TryResult<Record<string, TaskRelCounts>>,
+
+  [TASKS_GET_TITLES]: ((taskIds: string[]) =>
+    ipcRenderer.invoke(TASKS_GET_TITLES, taskIds)) as (
+    taskIds: string[],
+  ) => TryResult<Record<string, TaskSummary>>,
+
+  [TASKS_APPLY_SYSTEM_SORT]: ((listName?: string) =>
+    ipcRenderer.invoke(TASKS_APPLY_SYSTEM_SORT, listName)) as (
+    listName?: string,
+  ) => TryResult<number>,
+
+  [TASKS_SOFT_DELETE_BY_STATUS]: ((status: TaskStatus, listName?: string) =>
+    ipcRenderer.invoke(TASKS_SOFT_DELETE_BY_STATUS, status, listName)) as (
+    status: TaskStatus,
+    listName?: string,
+  ) => TryResult<number>,
+
+  [TASKS_SOFT_DELETE_OLDER_THAN]: ((beforeDate: string, listName?: string) =>
+    ipcRenderer.invoke(TASKS_SOFT_DELETE_OLDER_THAN, beforeDate, listName)) as (
+    beforeDate: string,
+    listName?: string,
+  ) => TryResult<number>,
+
+  [TASKS_GET_TRASH]: ((listName?: string) =>
+    ipcRenderer.invoke(TASKS_GET_TRASH, listName)) as (
+    listName?: string,
+  ) => TryResult<Task[]>,
+
+  [TASKS_CLEAR_TRASH]: ((listName?: string) =>
+    ipcRenderer.invoke(TASKS_CLEAR_TRASH, listName)) as (
+    listName?: string,
+  ) => TryResult<number>,
+});

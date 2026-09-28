@@ -1,0 +1,16 @@
+# Architecture
+
+- `packages/core`: extracted parsers, SQLite task/list/relationship queries, undo, portable task types, and image BLOB storage. Node entry points are distinct from browser-safe parser/type imports.
+- `packages/ui`: extracted task/list/Markdown components, source-aware checkboxes, contentEditable editing, autocomplete, Markdown shortcuts, task state and shadcn components. Host operations are injected; no Electron, Supabase or macOS API imports.
+- `apps/macos`: loopback service, browser host adapter, SwiftBar plugin, local snapshots, Google OAuth/Drive adapter, and backup UI.
+- `scripts/install.mjs`: source-install integration through one per-user LaunchAgent and managed plugin.
+
+SwiftBar owns its native webview popover. It loads React and the service from the same `127.0.0.1` origin. A private runtime file gives the plugin a random bootstrap capability in the URL fragment; the page exchanges it for an HttpOnly same-site cookie and removes the fragment. Mutations require the cookie, exact Host/Origin, and a request header. SQLite and account credentials never enter the browser bundle. Task HTML is sanitized; external links are restricted to HTTP(S).
+
+An exclusive lock on a separate SQLite lock file prevents duplicate service instances without stale PID recovery. The task database has its own connection. Restore recreates the registry and undo manager after reopening, so handlers cannot keep the pre-restore connection. The service binds an ephemeral port unless a development port is supplied. Plugin refreshes check runtime state and health, then recover the installed LaunchAgent when needed. They never spawn independent Node processes; launchd and the SQLite service lock own instance uniqueness.
+
+Backup snapshots contain tasks, lists, relationship rows, configuration, undo history and image bytes. They exclude runtime capabilities and Google grants. The manifest is versioned independently of macOS. OAuth uses an installed-app client, external browser, state and PKCE; refresh credentials use Keychain. The Drive scope is only `drive.file`.
+
+No runtime dependency on the original repository or Tasks.org exists. No mobile or synchronization engine is included. Local image paths are intentionally not exposed as arbitrary filesystem reads: paste an image to import its bytes. Existing HTTPS media remains a remote resource. Opening a managed image exports its BLOB to a private temporary directory, then uses the default macOS image viewer. These disposable copies are removed on normal service shutdown; the database remains the authoritative storage and backup source.
+
+Google client configuration resolves explicit environment override, then local data-directory JSON, then the public bundled Desktop OAuth identity. Only app identity fields are bundled; per-user grants remain in Keychain. The Git-tracked default is unconfigured. `scripts/bundle-google-client.mjs` injects a maintainer-supplied Desktop JSON into ignored build output via `TASKER_GOOGLE_BUILD_CLIENT_JSON`, stripping all other fields. `scripts/package-release.mjs` stages explicitly selected runtime files and manifests into a macOS archive, excluding local user state and raw downloaded client files.
