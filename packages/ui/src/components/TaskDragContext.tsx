@@ -10,6 +10,7 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { VerticalPointerSensor } from "../lib/vertical-pointer-sensor.js";
 import type { useTaskerStore } from "../hooks/use-tasker-store.js";
+import { ALL_LISTS } from "../lib/all-lists.js";
 export function TaskDragContext({
   store,
   children,
@@ -29,6 +30,12 @@ export function TaskDragContext({
       to = String(over.id);
     const task = store.tasks.find((t) => t.id === from);
     if (!task) return;
+    if (store.selectedList === ALL_LISTS) {
+      const all = store.tasksByList[ALL_LISTS] ?? [],
+        target = all.findIndex((t) => t.id === to);
+      if (target >= 0) void store.reorderAllListsTask(from, target);
+      return;
+    }
     const tasks = store.tasksByList[task.listName] ?? [],
       a = tasks.findIndex((t) => t.id === from),
       b = tasks.findIndex((t) => t.id === to);

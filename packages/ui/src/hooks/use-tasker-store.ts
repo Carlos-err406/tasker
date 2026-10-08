@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import type { Task, TaskStatus } from "@tasker/core/types";
 import { TaskStatus as TS } from "@tasker/core/types";
 import { parseTaskDescription } from "@tasker/core/parsers";
-import { sortTasksForDisplay } from "@tasker/core/task-helpers";
 import { arrayMove } from "@dnd-kit/sortable";
 import { ALL_LISTS } from "../lib/all-lists.js";
 import * as taskService from "../lib/services/tasks.js";
@@ -35,6 +34,8 @@ interface TaskerState {
   searchQuery: string;
   statusMessage: string;
   selectedList: string;
+  /** Saved "All lists" order (task IDs), device-local. */
+  allOrder: string[];
   loading: boolean;
 }
 
@@ -47,7 +48,9 @@ type Action =
       hideCompleted: Set<string>;
       details: Record<string, TaskRelDetails>;
       selectedList: string;
+      allOrder: string[];
     }
+  | { type: "REORDER_ALL"; taskId: string; newIndex: number }
   | { type: "SET_HIDE_COMPLETED"; name: string; hide: boolean }
   | { type: "SET_SEARCH"; query: string }
   | { type: "SET_STATUS_MESSAGE"; message: string }
@@ -73,8 +76,14 @@ function reducer(state: TaskerState, action: Action): TaskerState {
         hideCompletedLists: action.hideCompleted,
         relDetails: action.details,
         selectedList: action.selectedList,
+        allOrder: action.allOrder,
         loading: false,
       };
+    case "REORDER_ALL": {
+      const ids = state.allOrder.filter((id) => id !== action.taskId);
+      ids.splice(action.newIndex, 0, action.taskId);
+      return { ...state, allOrder: ids };
+    }
     case "SET_HIDE_COMPLETED": {
       const next = new Set(state.hideCompletedLists);
       if (action.hide) next.add(action.name);
@@ -137,6 +146,7 @@ const initialState: TaskerState = {
   searchQuery: "",
   statusMessage: "",
   selectedList: "tasks",
+  allOrder: [],
   loading: true,
 };
 
@@ -194,9 +204,10 @@ export function useTaskerStore() {
       try {
         const searchQuery = overrides?.searchQuery ?? searchQueryRef.current;
 
-        const [lists, defaultList] = await Promise.all([
+        const [lists, defaultList, allOrder] = await Promise.all([
           listService.getAllLists(),
           listService.getDefaultList(),
+          taskService.getAllListsOrder(),
         ]);
         // Load hide-completed states
         const hideCompletedMap = new Map<string, boolean>();
@@ -268,6 +279,7 @@ export function useTaskerStore() {
           type: "LOAD",
           lists,
           defaultList,
+          allOrder,
           tasks,
           details,
           selectedList,
@@ -436,6 +448,22 @@ export function useTaskerStore() {
     [refresh, showStatus],
   );
 
+  // "All lists" has its own saved order; indexes are into the full All view.
+  const reorderAllListsTaskAction = useCallback(
+    async (taskId: string, newIndex: number) => {
+      dispatch({ type: "REORDER_ALL", taskId, newIndex });
+      try {
+        await taskService.reorderAllListsTask(taskId, newIndex);
+      } catch (err) {
+        showStatus(
+          `Error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        await refresh();
+      }
+    },
+    [refresh, showStatus],
+  );
+
   // List operations
   const createListAction = useCallback(
     async (name: string) => {
@@ -560,12 +588,14 @@ export function useTaskerStore() {
   // Apply system sort (one-shot)
   const applySystemSortAction = useCallback(async () => {
     try {
-      // In the All view, sort every list.
-      const list = selectedListRef.current;
-      const count = await taskService.applySystemSort(
-        list === ALL_LISTS ? undefined : list,
-      );
-      showStatus(`Sorted ${count} list${count !== 1 ? "s" : ""}`);
+      // The All view sorts only its own order, never the lists'.
+      if (selectedListRef.current === ALL_LISTS) {
+        await taskService.applySystemSortAllLists();
+        showStatus("Sorted All lists");
+      } else {
+        const count = await taskService.applySystemSort(selectedListRef.current);
+        showStatus(`Sorted ${count} list${count !== 1 ? "s" : ""}`);
+      }
       await refresh();
     } catch (err) {
       showStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
@@ -661,8 +691,14 @@ export function useTaskerStore() {
     el.classList.add("task-highlight");
   }, [state.tasks, state.selectedList, state.hideCompletedLists]);
 
-  // Group tasks by list; the All view interleaves every list in system order.
-  const allTasks = useMemo(() => sortTasksForDisplay(state.tasks), [state.tasks]);
+  // Group tasks by list; the All view interleaves every list in its saved order.
+  const allTasks = useMemo(() => {
+    const byId = new Map(state.tasks.map((t) => [t.id, t]));
+    const ordered = state.allOrder.flatMap((id) => byId.get(id) ?? []);
+    const known = new Set(state.allOrder);
+    // Tasks not in the saved order yet (e.g. just synced) go first, like new tasks.
+    return [...state.tasks.filter((t) => !known.has(t.id)), ...ordered];
+  }, [state.tasks, state.allOrder]);
   const tasksByList = state.lists.reduce<Record<string, Task[]>>(
     (acc, listName) => {
       acc[listName] = state.tasks.filter((t) => t.listName === listName);
@@ -692,6 +728,7 @@ export function useTaskerStore() {
     deleteTask: deleteTaskAction,
     moveTask: moveTaskAction,
     reorderTask: reorderTaskAction,
+    reorderAllListsTask: reorderAllListsTaskAction,
     createList: createListAction,
     deleteList: deleteListAction,
     renameList: renameListAction,

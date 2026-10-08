@@ -1642,6 +1642,26 @@ test("All lists shows every list's tasks with a list label only there", async ({
   );
   await expect(labels).toHaveCount(3);
 
+  // All lists has its own order: dragging there leaves the lists' order alone.
+  const rows = page.locator("[data-task-id]");
+  await dragVertically(page, rows.nth(2), rows.nth(0));
+  await expect(names).toHaveText(["Default task", "Added from all", "Work task"]);
+  await page.reload();
+  await expect(names).toHaveText(["Default task", "Added from all", "Work task"]);
+  await page.keyboard.press("Meta+j");
+  await expect(page.locator("footer").getByRole("status")).toHaveText(
+    "Sorted All lists",
+  );
+  await expect(names).toHaveText(["Added from all", "Work task", "Default task"]);
+
+  // Clicking a task's list label opens that list.
+  await labels.filter({ hasText: "work" }).click();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "work",
+  );
+  await expect(names).toHaveText(["Work task"]);
+  await expect(labels).toHaveCount(0);
+
   await chooseList(page, "tasks");
   await expect(names).toHaveText(["Added from all", "Default task"]);
   await expect(labels).toHaveCount(0);

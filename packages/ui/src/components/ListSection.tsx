@@ -72,8 +72,8 @@ interface ListSectionProps {
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
-  /** All view: tasks come from every list, so show their list, disable
-   *  reordering and add new tasks to this list instead. */
+  /** All view: tasks come from every list, so show their list and add new
+   *  tasks to this list instead. */
   allLists?: { addToList: string };
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
@@ -599,7 +599,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
                 showMediaPreviews={showMediaPreviews}
                 mediaPreviewResetSignal={mediaPreviewResetSignal}
                 showListName={!!allLists}
-                sortDisabled={!!allLists}
+                onSelectList={onSelectList}
               />
             ))}
           </SortableContext>

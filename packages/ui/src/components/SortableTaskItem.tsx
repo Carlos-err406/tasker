@@ -22,13 +22,11 @@ interface SortableTaskItemProps {
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
   showListName?: boolean;
-  /** Turns off drag-to-reorder, e.g. in the All view where lists interleave. */
-  sortDisabled?: boolean;
+  onSelectList?: (listName: string) => void;
 }
 
 export const SortableTaskItem = memo(function SortableTaskItem({
   task,
-  sortDisabled = false,
   ...rest
 }: SortableTaskItemProps) {
   const {
@@ -38,7 +36,7 @@ export const SortableTaskItem = memo(function SortableTaskItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id, disabled: sortDisabled });
+  } = useSortable({ id: task.id });
 
   const style = {
     transform: CSS.Translate.toString(transform),

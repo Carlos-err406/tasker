@@ -21,6 +21,9 @@ import {
   clearTrash,
   getSubtasks,
   unsetParent,
+  getAllListsOrder,
+  reorderAllListsTask,
+  applySystemSortAllLists,
 } from "../../queries/index.js";
 import type { TaskStatus, Priority } from "../../types/index.js";
 import $try from "../try.js";
@@ -46,6 +49,9 @@ import {
   TASKS_SOFT_DELETE_OLDER_THAN,
   TASKS_GET_TRASH,
   TASKS_CLEAR_TRASH,
+  TASKS_GET_ALL_LISTS_ORDER,
+  TASKS_REORDER_ALL_LISTS,
+  TASKS_APPLY_SYSTEM_SORT_ALL_LISTS,
 } from "./tasks-channels.js";
 
 export const tasksRegister: IPCRegisterFunction = (
@@ -280,6 +286,30 @@ export const tasksRegister: IPCRegisterFunction = (
 
   ipcMain.handle(TASKS_APPLY_SYSTEM_SORT, (_, listName?: string) => {
     return $try(() => applySystemSort(db, listName));
+  });
+
+  // "All lists" view: its own device-local order, independent of list orders.
+  ipcMain.handle(TASKS_GET_ALL_LISTS_ORDER, () => {
+    return $try(() => getAllListsOrder(db));
+  });
+
+  ipcMain.handle(TASKS_REORDER_ALL_LISTS, (_, taskId: string, newIndex: number) => {
+    return $try(() => {
+      const oldIndex = reorderAllListsTask(db, taskId, newIndex);
+      if (oldIndex < 0 || oldIndex === newIndex) return;
+      undo.recordCommand({
+        $type: "reorderAllListsTask",
+        taskId,
+        oldIndex,
+        newIndex,
+        executedAt: new Date().toISOString(),
+      });
+      undo.saveHistory();
+    });
+  });
+
+  ipcMain.handle(TASKS_APPLY_SYSTEM_SORT_ALL_LISTS, () => {
+    return $try(() => applySystemSortAllLists(db));
   });
 
   ipcMain.handle(

@@ -24,10 +24,6 @@
       "types": "./dist/queries/index.d.ts",
       "default": "./dist/queries/index.js"
     },
-    "./task-helpers": {
-      "types": "./dist/queries/task-helpers.d.ts",
-      "default": "./dist/queries/task-helpers.js"
-    },
     "./types": {
       "types": "./dist/types/index.d.ts",
       "default": "./dist/types/index.js"
