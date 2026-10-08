@@ -1666,3 +1666,42 @@ test("All lists shows every list's tasks with a list label only there", async ({
   await expect(names).toHaveText(["Added from all", "Default task"]);
   await expect(labels).toHaveCount(0);
 });
+
+test("completes >list and creates or moves the task there, stripping the token", async ({
+  page,
+}) => {
+  await createList(page, "to download");
+  await chooseList(page, "tasks");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.pressSequentially("Some book");
+  await input.press("Enter");
+  await input.pressSequentially(">to-d");
+  const options = page
+    .getByTestId("metadata-autocomplete-dropdown")
+    .getByRole("button");
+  await expect(options).toHaveText(["to download"]);
+  await input.press("Enter");
+  await input.pressSequentially(" #book");
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  const names = page.locator('[data-testid^="task-name-"]');
+  // Created in "to download", not the visible list.
+  await expect(names).toHaveCount(0);
+  await chooseList(page, "to download");
+  await expect(names).toHaveText(["Some book"]);
+  const row = page.locator('[data-testid^="task-item-"]').first();
+  await expect(row.locator("[data-task-tag]")).toHaveText(["book"]);
+  await expect(row).not.toContainText(">to-download");
+
+  // Editing with >tasks moves it back.
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await editor.press("End");
+  await editor.pressSequentially(" >tasks");
+  await editor.press("Meta+Enter");
+  await expect(names).toHaveCount(0);
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["Some book"]);
+});

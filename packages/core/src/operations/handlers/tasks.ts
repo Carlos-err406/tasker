@@ -24,6 +24,7 @@ import {
   getAllListsOrder,
   reorderAllListsTask,
   applySystemSortAllLists,
+  takeListTarget,
 } from "../../queries/index.js";
 import type { TaskStatus, Priority } from "../../types/index.js";
 import $try from "../try.js";
@@ -73,7 +74,9 @@ export const tasksRegister: IPCRegisterFunction = (
 
   ipcMain.handle(TASKS_ADD, (_, description: string, listName: string) => {
     return $try(() => {
-      const result = addTask(db, description, listName);
+      // A `>list` token picks the list and is stripped from the text.
+      const target = takeListTarget(db, description, listName);
+      const result = addTask(db, target.description, target.listName);
       undo.recordCommand({
         $type: "add",
         task: result.task,
@@ -109,9 +112,13 @@ export const tasksRegister: IPCRegisterFunction = (
       const task = getTaskById(db, taskId);
       if (!task) return { type: "not-found" as const, taskId };
       const oldDescription = task.description;
+      // A `>list` token moves the task and is stripped from the text.
+      const target = takeListTarget(db, newDescription, task.listName);
+      const moving = target.listName !== task.listName;
+      if (moving) undo.beginBatch(`Edit and move ${taskId} to ${target.listName}`);
       // Editors send the whole description, so a removed metadata line means
       // the metadata was deleted rather than left untouched.
-      const result = renameTask(db, taskId, newDescription, {
+      const result = renameTask(db, taskId, target.description, {
         replaceMetadata: true,
       });
       if (result.type === "success") {
@@ -119,10 +126,26 @@ export const tasksRegister: IPCRegisterFunction = (
           $type: "rename",
           taskId,
           oldDescription,
-          newDescription,
+          newDescription: target.description,
           executedAt: new Date().toISOString(),
         });
+        if (moving) {
+          const moved = moveTask(db, taskId, target.listName);
+          // Throwing rolls back the edit too, so the editor keeps the text.
+          if (moved.type !== "success")
+            throw new Error("message" in moved ? moved.message : `Task ${taskId} not found`);
+          undo.recordCommand({
+            $type: "move",
+            taskId,
+            sourceList: task.listName,
+            targetList: target.listName,
+            executedAt: new Date().toISOString(),
+          });
+          undo.endBatch();
+        }
         undo.saveHistory();
+      } else if (moving) {
+        undo.cancelBatch();
       }
       return result;
     });

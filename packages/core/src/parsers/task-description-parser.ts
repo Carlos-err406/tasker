@@ -3,7 +3,8 @@
  * Parses trailing lines if they contain ONLY metadata markers.
  * Keeps original text intact (does not strip markers).
  * Supports: p1/p2/p3 (priority), @date (due date), #tag (tags),
- * ^abc (parent), !abc (blocks), -^abc (has subtask), -!abc (blocked by), ~abc (related)
+ * ^abc (parent), !abc (blocks), -^abc (has subtask), -!abc (blocked by), ~abc (related),
+ * >list-name (create in / move to that list; one-shot, stripped when saved)
  */
 
 import type { Priority } from '../types/priority.js';
@@ -26,6 +27,8 @@ const INV_PARENT_RE = /(?:^|\s)-\^(\w{3})(?=\s|$)/g;
 const INV_BLOCKER_RE = /(?:^|\s)-!(\w{3})(?=\s|$)/g;
 // Match ~abc for related reference (related to task)
 const RELATED_REF_RE = /(?:^|\s)~(\w{3})(?=\s|$)/g;
+// Match >list-name for a target list (spaces in list names are written as - or _)
+const LIST_TARGET_RE = /(?:^|\s)>(\S+)(?=\s|$)/g;
 
 export interface ParsedTask {
   readonly description: string;
@@ -39,6 +42,8 @@ export interface ParsedTask {
   readonly blockedByIds: string[] | null;
   readonly relatedIds: string[] | null;
   readonly dueDateRaw: string | null;
+  /** Raw `>list` token text (last one wins); resolved and stripped when saving. */
+  readonly listTarget: string | null;
 }
 
 /** Collect all matches from a global regex into an array of the first capture group */
@@ -64,6 +69,7 @@ function stripMetadata(line: string): string {
   s = s.replace(/(?:^|\s)\^(\w{3})(?=\s|$)/g, ' ');
   s = s.replace(/(?:^|\s)!(\w{3})(?=\s|$)/g, ' ');
   s = s.replace(/(?:^|\s)~(\w{3})(?=\s|$)/g, ' ');
+  s = s.replace(/(?:^|\s)>\S+(?=\s|$)/g, ' ');
   return s;
 }
 
@@ -107,6 +113,7 @@ export function parse(input: string, now?: Date): ParsedTask {
       blockedByIds: null,
       relatedIds: null,
       dueDateRaw: null,
+      listTarget: null,
     };
   }
 
@@ -127,6 +134,7 @@ export function parse(input: string, now?: Date): ParsedTask {
       blockedByIds: null,
       relatedIds: null,
       dueDateRaw: null,
+      listTarget: null,
     };
   }
 
@@ -169,6 +177,9 @@ export function parse(input: string, now?: Date): ParsedTask {
   // Extract related references (multiple)
   const relatedIds = allMatches(RELATED_REF_RE, metadataText);
 
+  // Extract target list (last one wins)
+  const listTarget = allMatches(LIST_TARGET_RE, metadataText).at(-1) ?? null;
+
   return {
     description: input,
     priority,
@@ -181,7 +192,28 @@ export function parse(input: string, now?: Date): ParsedTask {
     blockedByIds: blockedByIds.length > 0 ? blockedByIds : null,
     relatedIds: relatedIds.length > 0 ? relatedIds : null,
     dueDateRaw,
+    listTarget,
   };
+}
+
+/** Normalised form used to match `>list` tokens: case-insensitive, with spaces,
+ *  hyphens and underscores treated alike. */
+export function listTargetKey(name: string): string {
+  return name.trim().toLowerCase().replace(/[\s_-]+/g, '-');
+}
+
+/** Remove `>list` tokens from the trailing metadata lines, dropping lines left empty. */
+export function stripListTarget(description: string): string {
+  const lines = description.split('\n');
+  const range = trailingMetadataRange(lines);
+  if (!range) return description;
+  const kept: string[] = [];
+  for (const line of lines.slice(range.start, range.end + 1)) {
+    const cleaned = line.replace(/(?:^|\s)>\S+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cleaned) kept.push(cleaned);
+  }
+  lines.splice(range.start, range.end - range.start + 1, ...kept);
+  return lines.join('\n').trimEnd();
 }
 
 /**

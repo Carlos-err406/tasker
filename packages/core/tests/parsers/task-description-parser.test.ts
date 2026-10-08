@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parse, getDisplayDescription, syncMetadataToDescription } from '../../src/parsers/task-description-parser.js';
+import { parse, getDisplayDescription, syncMetadataToDescription, stripListTarget, listTargetKey } from '../../src/parsers/task-description-parser.js';
 import { Priority } from '../../src/types/priority.js';
 
 /** Fixed date for deterministic due-date parsing */
@@ -341,5 +341,31 @@ describe('syncMetadataToDescription', () => {
       parsed.hasSubtaskIds, parsed.blockedByIds, parsed.relatedIds,
     );
     expect(synced).toBe(original);
+  });
+});
+
+describe('>list target', () => {
+  it('reads the last >list token from the metadata line', () => {
+    const parsed = parse('Book\n#book >to-download p1 >work');
+    expect(parsed.lastLineIsMetadataOnly).toBe(true);
+    expect(parsed.listTarget).toBe('work');
+    expect(parsed.tags).toEqual(['book']);
+  });
+
+  it('does not treat a Markdown quote as a list target', () => {
+    const parsed = parse('Notes\n> a quoted line');
+    expect(parsed.lastLineIsMetadataOnly).toBe(false);
+    expect(parsed.listTarget).toBeNull();
+  });
+
+  it('strips the token and drops a line it leaves empty', () => {
+    expect(stripListTarget('Book\n#book >work p1')).toBe('Book\n#book p1');
+    expect(stripListTarget('Book\n>work')).toBe('Book');
+    expect(stripListTarget('Body > not metadata')).toBe('Body > not metadata');
+  });
+
+  it('matches list names ignoring case, spaces, hyphens and underscores', () => {
+    expect(listTargetKey('To Download')).toBe(listTargetKey('to_download'));
+    expect(listTargetKey('finance books to download')).toBe('finance-books-to-download');
   });
 });

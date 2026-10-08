@@ -3,6 +3,8 @@ export {
   parse as parseTaskDescription,
   getDisplayDescription,
   syncMetadataToDescription,
+  listTargetKey,
+  stripListTarget,
 } from './task-description-parser.js';
 export type { ParsedTask } from './task-description-parser.js';
 export { parseSearchFilters } from './search-filter-parser.js';
