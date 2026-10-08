@@ -26,7 +26,13 @@ async function manage(action: "status" | "check" | "install") {
   }
   if (action === "install") {
     status = { ...status, busy: true, phase: "downloading", progress: 50 };
-    await new Promise((r) => setTimeout(r, 700));
+    // ?hold keeps the download running until the test calls finishDownload(),
+    // so slow runners cannot miss the transient state.
+    await new Promise((r) =>
+      query.has("hold")
+        ? Reflect.set(window, "finishDownload", r)
+        : setTimeout(r, 700),
+    );
     status = {
       ...status,
       busy: false,

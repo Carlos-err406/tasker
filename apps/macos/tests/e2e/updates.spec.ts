@@ -23,7 +23,7 @@ test("checks, offers update and recovers after a failed download", async ({
   page,
 }) => {
   await page.goto(
-    `${server.resolvedUrls!.local[0]}tests/fixtures/updates.html?fail`,
+    `${server.resolvedUrls!.local[0]}tests/fixtures/updates.html?fail&hold`,
   );
   await page
     .getByRole("button", { name: "Check for updates", exact: true })
@@ -37,6 +37,7 @@ test("checks, offers update and recovers after a failed download", async ({
   await expect(
     page.getByRole("button", { name: /Downloading/ }),
   ).toBeDisabled();
+  await page.evaluate(() => Reflect.get(window, "finishDownload")());
   await expect(page.getByRole("alert")).toHaveText(
     "Download failed. Try again.",
   );
