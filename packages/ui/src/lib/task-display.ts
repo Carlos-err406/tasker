@@ -119,22 +119,41 @@ export function getLinkedStatusColor(status: number): string {
   }
 }
 
-// Deterministic color for tags (same tag always gets same color)
-const TAG_COLORS = [
-  'bg-blue-500/20 text-blue-700 dark:text-blue-300',
-  'bg-green-500/20 text-green-700 dark:text-green-300',
-  'bg-purple-500/20 text-purple-700 dark:text-purple-300',
-  'bg-pink-500/20 text-pink-700 dark:text-pink-300',
-  'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300',
-  'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300',
-  'bg-orange-500/20 text-orange-700 dark:text-orange-300',
+// Deterministic color for tags (same tag always gets same color).
+// Literal class strings so Tailwind generates every color.
+export const TAG_COLORS = [
   'bg-red-500/20 text-red-700 dark:text-red-300',
+  'bg-orange-500/20 text-orange-700 dark:text-orange-300',
+  'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+  'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300',
+  'bg-lime-500/20 text-lime-700 dark:text-lime-300',
+  'bg-green-500/20 text-green-700 dark:text-green-300',
+  'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+  'bg-teal-500/20 text-teal-700 dark:text-teal-300',
+  'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300',
+  'bg-sky-500/20 text-sky-700 dark:text-sky-300',
+  'bg-blue-500/20 text-blue-700 dark:text-blue-300',
+  'bg-indigo-500/20 text-indigo-700 dark:text-indigo-300',
+  'bg-violet-500/20 text-violet-700 dark:text-violet-300',
+  'bg-purple-500/20 text-purple-700 dark:text-purple-300',
+  'bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300',
+  'bg-pink-500/20 text-pink-700 dark:text-pink-300',
+  'bg-rose-500/20 text-rose-700 dark:text-rose-300',
 ];
 
+// FNV-1a with a murmur3 finalizer. A plain `* 31` hash keeps only an
+// alternating character sum modulo a power of two, so most tags shared a
+// handful of colors. The seed is arbitrary; this one spreads common tags well.
 export function getTagColor(tag: string): string {
-  let hash = 0;
+  let hash = 0x811ca111;
   for (let i = 0; i < tag.length; i++) {
-    hash = (hash * 31 + tag.charCodeAt(i)) | 0;
+    hash ^= tag.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
   }
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]!;
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x85ebca6b);
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 0xc2b2ae35);
+  hash ^= hash >>> 16;
+  return TAG_COLORS[(hash >>> 0) % TAG_COLORS.length]!;
 }

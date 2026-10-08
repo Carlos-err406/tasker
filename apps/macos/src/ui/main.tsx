@@ -1,4 +1,4 @@
-import { SyncPanel } from "@tasker/ui";
+import { syncAndRefresh } from "@tasker/ui";
 import { manage } from "./host-adapter.js";
 import { Backups } from "./Backups.js";
 import { About } from "./About.js";
@@ -93,7 +93,7 @@ function App() {
     );
   }, [store.isEditing]);
   const [panel, setPanel] = useState<
-    "tasks" | "backups" | "trash" | "help" | "sync" | "about"
+    "tasks" | "backups" | "trash" | "help" | "about"
   >("tasks");
   const [listAction, setListAction] = useState<"create" | "rename" | null>(
     null,
@@ -174,7 +174,9 @@ function App() {
         event.key.toLowerCase() === "r"
       ) {
         event.preventDefault();
-        void store.refresh({ searchQuery: search });
+        void syncAndRefresh(manage, store.showStatus, () =>
+          store.refresh({ searchQuery: search }),
+        );
       } else if (
         event.metaKey &&
         !event.altKey &&
@@ -223,6 +225,7 @@ function App() {
     store.undo,
     store.redo,
     store.refresh,
+    store.showStatus,
     search,
     togglePreviews,
   ]);
@@ -313,7 +316,7 @@ function App() {
             </IconButton>
             <IconButton
               label="Backups"
-              tooltipLabel="View backups"
+              tooltipLabel="Backups & sync"
               aria-pressed={panel === "backups"}
               onClick={() => setPanel("backups")}
             >
@@ -336,15 +339,8 @@ function App() {
             <HelpPanel onClose={closeHelp} onAbout={() => setPanel("about")} />
           ) : panel === "about" ? (
             <About onClose={() => setPanel("help")} />
-          ) : panel === "sync" ? (
-            <SyncPanel
-              manage={manage}
-              onClose={() => setPanel("tasks")}
-              onViewBackups={() => setPanel("backups")}
-            />
           ) : panel === "backups" ? (
             <Backups
-              onViewSync={() => setPanel("sync")}
               onClose={() => setPanel("tasks")}
               onRestored={() => void store.refresh()}
             />

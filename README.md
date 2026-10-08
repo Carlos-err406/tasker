@@ -78,11 +78,11 @@ Tasker installs separately from Tasker Preview. Keep Preview until its changes h
 
 ## Sync between Mac and Android
 
-Connect the same Google account in Backups on both devices. Open **Backups → View sync** on either device, then enable sync on each device. Enabling creates a safety backup and combines both devices' tasks, lists, relationships, order, trash and managed images. The most recent recorded edit wins conflicts. Local UI preferences and undo history stay on their own device.
+Open **Backups & Sync** on both devices, connect the same Google account, then turn on the **Sync** switch on each device. Enabling creates a safety backup and combines both devices' tasks, lists, relationships, order, trash and managed images. The most recent recorded edit wins conflicts. Local UI preferences and undo history stay on their own device.
 
 Google Drive features currently require an account enrolled as a test user in Tasker's Google project. Offline use does not require a Google account.
 
-Sync runs after edits and every 30 seconds while the Mac service runs or Android is open. Offline edits persist and retry. Pause sync stops transfers without deleting local tasks. Restoring a backup pauses sync; resuming publishes the restored changes. An open editor defers incoming changes until Save or Cancel.
+Sync runs after edits and every 30 seconds while the Mac service runs or Android is open. Offline edits persist and retry. Turning the switch off pauses transfers without deleting local tasks. Restoring a backup pauses sync; turning it back on publishes the restored changes. When Google's login expires, **Reconnect** appears in the panel and resumes sync once you approve. An open editor defers incoming changes until Save or Cancel.
 
 Sync files are separate from recovery snapshots. Old tasks without recorded edit times have a deterministic first-merge tie-break; their historical edit order cannot be reconstructed. Device clocks affect concurrent offline conflicts. Image objects are retained in Drive; automatic removal of unused images is deferred.
 

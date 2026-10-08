@@ -34,12 +34,14 @@ import {
   TrashPanel,
   HelpPanel,
   BackupsPanel,
-  SyncPanel,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  usePullToRefresh,
+  PullToRefreshIndicator,
+  syncAndRefresh,
 } from "@tasker/ui";
 import { manageSync } from "./sync";
 import { About } from "./About";
@@ -65,7 +67,7 @@ function App() {
   const search = store.searchQuery;
   const setSearch = store.setSearch;
   const [panel, setPanel] = useState<
-    "tasks" | "trash" | "help" | "backups" | "sync" | "about"
+    "tasks" | "trash" | "help" | "backups" | "about"
   >("tasks");
   const [listAction, setListAction] = useState<"create" | "rename" | null>(
     null,
@@ -80,6 +82,12 @@ function App() {
   const [mediaReset, setMediaReset] = useState(0);
   const controlsDisabled =
     store.loading || store.isEditing || !!listAction || backupBusy;
+  const workspace = useRef<HTMLDivElement>(null);
+  const pull = usePullToRefresh(
+    workspace,
+    () => syncAndRefresh(manageSync, store.showStatus, () => store.refresh()),
+    panel === "tasks" && !controlsDisabled,
+  );
   useEffect(() => {
     if (
       addRequested &&
@@ -103,7 +111,7 @@ function App() {
       if (backupBusy) return true;
       if (panel !== "tasks") {
         setPanel(
-          panel === "about" ? "help" : panel === "sync" ? "backups" : "tasks",
+          panel === "about" ? "help" : "tasks",
         );
         return true;
       }
@@ -204,7 +212,12 @@ function App() {
                 </Button>
               </form>
             )}
-            <div className="mobile-workspace" aria-busy={store.loading}>
+            <div
+              ref={workspace}
+              className="mobile-workspace"
+              aria-busy={store.loading}
+            >
+              <PullToRefreshIndicator {...pull} />
               <TaskWorkspace
                 store={store}
                 showListHeader={false}
@@ -222,16 +235,6 @@ function App() {
               onShowStatus={store.showStatus}
             />
           </div>
-        ) : panel === "sync" ? (
-          <div className="mobile-workspace mobile-backups">
-            <SyncPanel
-              manage={manageSync}
-              deviceName="Android"
-              onClose={() => setPanel("backups")}
-              backLabel="Back to backups"
-              onViewBackups={() => setPanel("backups")}
-            />
-          </div>
         ) : panel === "about" ? (
           <div className="mobile-workspace mobile-backups">
             <About onClose={() => setPanel("help")} />
@@ -240,7 +243,7 @@ function App() {
           <div className="mobile-workspace mobile-backups">
             <BackupsPanel
               manage={manageBackups}
-              onViewSync={() => setPanel("sync")}
+              manageSync={manageSync}
               deviceName="phone"
               onBusyChange={setBackupBusy}
               onClose={() => setPanel("tasks")}
@@ -371,7 +374,7 @@ function App() {
                       <Trash2 /> View trash
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPanel("backups")}>
-                      <Archive /> View backups
+                      <Archive /> Backups & sync
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPanel("help")}>
                       <CircleHelp /> View help

@@ -14,14 +14,18 @@ export class DriveBackups {
     private token: () => Promise<string>,
     private request: typeof fetch = fetch,
   ) {}
-  private async call(url: string, options: RequestInit = {}) {
+  // Snapshot transfers scale with size so slow links (assume >= 16 KB/s) finish.
+  private static transferTimeout(bytes: number) {
+    return Math.max(120000, Math.ceil(bytes / 16));
+  }
+  private async call(url: string, options: RequestInit = {}, timeout = 120000) {
     const response = await this.request(url, {
       ...options,
       headers: {
         ...options.headers,
         Authorization: `Bearer ${await this.token()}`,
       },
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(timeout),
     });
     if (!response.ok)
       throw new Error(
@@ -115,7 +119,7 @@ export class DriveBackups {
       method: "PUT",
       headers: { "Content-Type": "application/vnd.sqlite3" },
       body: new Uint8Array(bytes),
-    });
+    }, DriveBackups.transferTimeout(bytes.length));
     const result = (await response.json()) as DriveFile;
     if (!result.id) throw new Error("Drive did not confirm the upload");
     return result.id;
@@ -159,6 +163,8 @@ export class DriveBackups {
     if (!manifest) throw new Error("App backup not found in Drive");
     const response = await this.call(
       API + "/" + encodeURIComponent(fileId) + "?alt=media",
+      {},
+      DriveBackups.transferTimeout(manifest.size),
     );
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Empty Drive download");

@@ -1,5 +1,5 @@
 import { TaskContextMenuContent } from "./TaskContextMenu.js";
-import { normalizeMarkdownDelimiters } from '../lib/markdown-source.js';
+import { codeForClipboard, normalizeMarkdownDelimiters } from '../lib/markdown-source.js';
 import { getHost } from '../host.js';
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
@@ -462,7 +462,7 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
   const text = getTextContent(children);
 
   const copyText = useCallback(() => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(codeForClipboard(text));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [text]);
@@ -470,16 +470,19 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild disabled={getHost().touch}>
-        <pre
+        {/* The wrapper stays put while the pre scrolls, keeping the copy icon in the corner. */}
+        <div
           onClick={(e) => { e.stopPropagation(); copyText(); }}
           onContextMenu={(e) => e.stopPropagation()}
-          className="bg-muted/50 rounded px-1.5 py-1 text-[10px] font-mono whitespace-pre overflow-x-auto my-0.5 cursor-pointer relative group [&_code]:bg-transparent [&_code]:p-0"
+          className="relative group my-0.5 cursor-pointer"
         >
-          {children}
-          <span className="absolute top-0.5 right-1 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">
+          <pre className="bg-muted/50 rounded pl-1.5 pr-5 py-1 text-[10px] font-mono whitespace-pre overflow-x-auto [&_code]:bg-transparent [&_code]:p-0">
+            {children}
+          </pre>
+          <span className="pointer-events-none absolute top-0.5 right-1 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">
             {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
           </span>
-        </pre>
+        </div>
       </ContextMenuTrigger>
       <TaskContextMenuContent mediaLabel={`Code: ${text.split("\n")[0]?.slice(0, 60) || "code block"}`} actions={[
         { label: "Copy code", onSelect: copyText },

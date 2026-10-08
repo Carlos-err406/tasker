@@ -6,12 +6,21 @@ import { BackupCoordinator } from "../src/backup/coordinator.js";
 import type { BackupManager } from "../src/backup/manager.js";
 
 // No Keychain or network. Inject these stand-ins through mocked constructors.
-const fake = vi.hoisted(() => ({ upload: vi.fn(), prune: vi.fn() }));
+const fake = vi.hoisted(() => ({
+  upload: vi.fn(),
+  prune: vi.fn(),
+  connection: undefined as undefined | { onConnected?: () => void },
+}));
 vi.mock("../src/google/credentials.js", () => ({
   keychainCredentials: () => ({}),
 }));
 vi.mock("../src/google/oauth.js", () => ({
   GoogleConnection: class {
+    error = null;
+    onConnected?: () => void;
+    constructor() {
+      fake.connection = this;
+    }
     connected() {
       return true;
     }
@@ -101,4 +110,21 @@ it("clears uploading after asynchronous failure", async () => {
     cloudError: "Offline",
     lastCloud: null,
   });
+});
+it("clears an expired-authorization error and uploads again after reconnecting", async () => {
+  const { coordinator } = fixture();
+  fake.upload.mockRejectedValueOnce(
+    Error("Google authorization expired or failed. Reconnect Google Drive."),
+  );
+  await coordinator.upload();
+  expect(coordinator.status().cloudError).toMatch(/expired/);
+  fake.connection!.onConnected!();
+  expect(coordinator.status().cloudError).toBeNull();
+  await vi.waitFor(() =>
+    expect(coordinator.status()).toMatchObject({
+      uploading: false,
+      cloudError: null,
+    }),
+  );
+  expect(fake.upload).toHaveBeenCalledTimes(3);
 });

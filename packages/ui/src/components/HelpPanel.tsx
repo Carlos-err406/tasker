@@ -47,6 +47,7 @@ export function HelpPanel({
               <li>Tap an image to enlarge it.</li>
               <li>Tap the list name to switch or manage lists.</li>
               <li>Use the bottom ⋯ for app options.</li>
+              <li>Pull down at the top of the list to sync.</li>
             </ul>
           </section>
         )}
@@ -136,7 +137,7 @@ export function HelpPanel({
                   <Kbd>⌘</Kbd>
                   <Kbd>R</Kbd>
                 </KbdGroup>
-                <span>Refresh tasks</span>
+                <span>Sync and refresh</span>
                 <Kbd>Esc</Kbd>
                 <span>Clear search when focused</span>
                 <KbdGroup>

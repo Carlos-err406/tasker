@@ -2,6 +2,7 @@
 # <xbar.title>Tasker</xbar.title>
 # <xbar.version>0.2.0</xbar.version>
 # <xbar.desc>Local tasks in a SwiftBar popover</xbar.desc>
+# <swiftbar.keepWebViewOpenForOverlays>true</swiftbar.keepWebViewOpenForOverlays>
 set -eu
 TASKER_PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 TASKER_DATA="${TASKER_SWIFTBAR_DATA_DIR:-$HOME/Library/Application Support/tasker-swiftbar}"

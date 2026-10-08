@@ -21,5 +21,7 @@ export { Kbd, KbdGroup } from "./components/ui/kbd.js";
 export { ListPicker } from "./components/ListPicker.js";
 
 export { BackupsPanel } from "./components/BackupsPanel.js";
-export { SyncPanel } from './components/SyncPanel.js';
 export { AboutPanel, type UpdateStatus } from './components/AboutPanel.js';
+export { usePullToRefresh } from "./hooks/use-pull-to-refresh.js";
+export { PullToRefreshIndicator } from "./components/PullToRefreshIndicator.js";
+export { syncAndRefresh } from "./lib/sync-refresh.js";

@@ -4,11 +4,9 @@ import * as taskService from '../lib/services/tasks.js';
 import { getDisplayTitle, getShortId } from '../lib/task-display.js';
 import { getPlainText, setCaretOffset, getTextBeforeCursor } from '../lib/content-editable-utils.js';
 
-export interface Suggestion {
-  task: Task;
-  shortId: string;
-  title: string;
-}
+export type Suggestion =
+  | { kind: 'task'; task: Task; shortId: string; title: string }
+  | { kind: 'tag'; tag: string; count: number };
 
 interface AutocompleteState {
   isOpen: boolean;
@@ -29,9 +27,46 @@ const CLOSED: AutocompleteState = {
   matchStart: 0,
 };
 
-/** Regex to detect a metadata relationship prefix at cursor position.
- *  Matches: ^, !, ~, -^, -!  followed by optional partial ID/query chars */
-const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~])(\w*)$/;
+/** Regex to detect a metadata prefix at cursor position.
+ *  Matches: ^, !, ~, -^, -! followed by optional partial ID/query chars,
+ *  or # followed by an optional partial tag (same characters as the parser). */
+const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#)([\w-]*)$/;
+const TAG_RE = /(?:^|\s)#([\w-]+)/g;
+
+/** Existing tags ranked by prefix match, then usage, skipping ones already in the text. */
+export function suggestTags(tasks: Task[], partial: string, text: string): Suggestion[] {
+  const counts = new Map<string, number>();
+  for (const task of tasks)
+    for (const tag of task.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  const present = new Set([...text.matchAll(TAG_RE)].map((m) => m[1]!.toLowerCase()));
+  const lower = partial.toLowerCase();
+  present.delete(lower);
+  return [...counts]
+    .filter(([tag]) => !present.has(tag.toLowerCase()) && tag.toLowerCase().includes(lower))
+    .sort(
+      ([a, countA], [b, countB]) =>
+        Number(b.toLowerCase().startsWith(lower)) - Number(a.toLowerCase().startsWith(lower)) ||
+        countB - countA ||
+        a.localeCompare(b),
+    )
+    .slice(0, 50)
+    .map(([tag, count]) => ({ kind: 'tag', tag, count }));
+}
+
+function suggestTasks(tasks: Task[], partial: string, excludeTaskId?: string): Suggestion[] {
+  const lowerPartial = partial.toLowerCase();
+  const filtered: Suggestion[] = [];
+  for (const t of tasks) {
+    if (excludeTaskId && t.id === excludeTaskId) continue;
+    const sid = getShortId(t);
+    const title = getDisplayTitle(t);
+    if (!partial || sid.toLowerCase().startsWith(lowerPartial) || title.toLowerCase().includes(lowerPartial)) {
+      filtered.push({ kind: 'task', task: t, shortId: sid, title });
+    }
+    if (filtered.length >= 50) break;
+  }
+  return filtered;
+}
 
 export function useMetadataAutocomplete(
   value: string,
@@ -82,6 +117,9 @@ export function useMetadataAutocomplete(
       const match = PREFIX_RE.exec(lineText);
 
       if (!match) {
+        // Leaving a prefix ends the lookup; the next one must see new tasks and
+        // tags, even if this one never opened the dropdown.
+        allTasksRef.current = null;
         if (state.isOpen) setState(CLOSED);
         return;
       }
@@ -102,17 +140,10 @@ export function useMetadataAutocomplete(
       if (thisVersion !== detectVersionRef.current) return;
 
       // Filter
-      const lowerPartial = partial.toLowerCase();
-      const filtered: Suggestion[] = [];
-      for (const t of tasks) {
-        if (excludeTaskId && t.id === excludeTaskId) continue;
-        const sid = getShortId(t);
-        const title = getDisplayTitle(t);
-        if (!partial || sid.toLowerCase().startsWith(lowerPartial) || title.toLowerCase().includes(lowerPartial)) {
-          filtered.push({ task: t, shortId: sid, title });
-        }
-        if (filtered.length >= 50) break;
-      }
+      const filtered =
+        prefix === '#'
+          ? suggestTags(tasks, partial, getPlainText(el))
+          : suggestTasks(tasks, partial, excludeTaskId);
 
       setState({
         isOpen: filtered.length > 0,
@@ -148,10 +179,14 @@ export function useMetadataAutocomplete(
       // in the live text — don't trust state.partial which can be stale due
       // to React closure/batching races.
       const afterMatchStart = liveValue.slice(state.matchStart);
-      const prefixPartialMatch = /^(-[!^]|[!^~])\w*/.exec(afterMatchStart);
+      const prefixPartialMatch = /^(-[!^]|[!^~]|#)[\w-]*/.exec(afterMatchStart);
       const replaceLen = prefixPartialMatch ? prefixPartialMatch[0].length : state.prefix.length;
 
-      const insertion = state.prefix + suggestion.shortId;
+      // No trailing space: contenteditable collapses it before the next keystroke.
+      const insertion =
+        suggestion.kind === 'tag'
+          ? `#${suggestion.tag}`
+          : state.prefix + suggestion.shortId;
       const newValue = liveValue.slice(0, state.matchStart) + insertion + liveValue.slice(state.matchStart + replaceLen);
       ++detectVersionRef.current; // Cancel in-flight detects so they can't re-open the dropdown
       justSelectedRef.current = true; // Suppress the next detect triggered by the new value
@@ -162,6 +197,9 @@ export function useMetadataAutocomplete(
         if (textareaRef.current) {
           setCaretOffset(textareaRef.current, cursorPos);
         }
+        // Inserting fires no input event, so stop suppressing once it lands;
+        // otherwise the user's next keystroke (e.g. another #) is ignored.
+        justSelectedRef.current = false;
       }, 0);
       return newValue;
     },

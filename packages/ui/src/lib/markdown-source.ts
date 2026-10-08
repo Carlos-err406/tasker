@@ -19,3 +19,14 @@ export function normalizeMarkdownDelimiters(source: string): string {
     return line.replace(/[–—-]+/g, '---');
   }).join('\n');
 }
+
+/** Code copied from a task must paste into a shell or editor as typed: drop
+ *  invisible characters (U+FEFF, zero-width space), turn non-breaking spaces
+ *  into spaces and undo macOS smart-quote substitution. */
+export function codeForClipboard(code: string): string {
+  return code
+    .replace(/[﻿​]/g, '')
+    .replace(/ /g, ' ')
+    .replace(/[“”„‟]/g, '"')
+    .replace(/[‘’‚‛]/g, "'");
+}

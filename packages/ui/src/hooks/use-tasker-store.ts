@@ -141,13 +141,15 @@ const initialState: TaskerState = {
 export function useTaskerStore() {
   const [state, dispatch] = useReducer(reducer, initialState, (initial) => {
     let selectedList = initial.selectedList;
+    let searchQuery = initial.searchQuery;
     try {
       selectedList =
         localStorage.getItem("tasker:selectedList") || selectedList;
+      searchQuery = localStorage.getItem("tasker:searchQuery") || searchQuery;
     } catch {
       /* Storage may be unavailable. */
     }
-    return { ...initial, selectedList };
+    return { ...initial, selectedList, searchQuery };
   });
   const [isEditing, setIsEditing] = useState(false);
   const selectedListRef = useRef(state.selectedList);
@@ -525,6 +527,12 @@ export function useTaskerStore() {
     searchQueryRef.current = query;
     ++refreshVersion.current;
     dispatch({ type: "SET_SEARCH", query });
+    try {
+      if (query) localStorage.setItem("tasker:searchQuery", query);
+      else localStorage.removeItem("tasker:searchQuery");
+    } catch {
+      /* Search still works for this session. */
+    }
   }, []);
 
   // Apply system sort (one-shot)

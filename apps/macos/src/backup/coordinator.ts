@@ -16,6 +16,7 @@ export class BackupCoordinator {
   private cloudTime: string | null = null;
   private localError: string | null = null;
   private cloudError: string | null = null;
+  private progress: { done: number; total: number } | null = null;
   constructor(
     readonly local: BackupManager,
     private directory: string,
@@ -26,6 +27,14 @@ export class BackupCoordinator {
         client,
         keychainCredentials(client.clientId),
       );
+      // An expired grant leaves an upload error and a long retry backoff behind;
+      // without clearing them a successful reconnect still looks broken.
+      this.google.onConnected = () => {
+        this.cloudError = null;
+        this.failures = 0;
+        this.retryAt = 0;
+        void this.upload();
+      };
       this.drive = new DriveBackups(
         () => this.google!.accessToken(),
         (url, options) =>
@@ -75,6 +84,7 @@ export class BackupCoordinator {
       localError: this.localError,
       cloudError: this.google?.error ?? this.cloudError,
       uploading: !!this.active,
+      progress: this.active ? this.progress : null,
     };
   }
   create(kind: BackupKind = "manual") {
@@ -107,8 +117,10 @@ export class BackupCoordinator {
     // not clear active before the completed promise is stored here.
     this.active = Promise.resolve().then(async () => {
       try {
-        for (const backup of this.local.list()) {
+        const backups = this.local.list();
+        for (const [done, backup] of backups.entries()) {
           if (generation !== this.generation) return;
+          this.progress = { done, total: backups.length };
           this.local.validate(backup.id);
           await this.drive!.upload(
             backup,
@@ -130,7 +142,11 @@ export class BackupCoordinator {
       } catch (error) {
         if (generation === this.generation) {
           this.cloudError =
-            error instanceof Error ? error.message : "Cloud backup failed";
+            error instanceof Error && error.name === "TimeoutError"
+              ? "Upload to Drive timed out on a slow connection. Tasker will retry."
+              : error instanceof Error
+                ? error.message
+                : "Cloud backup failed";
           this.retryAt =
             Date.now() +
             Math.min(60 * 60 * 1000, 60000 * 2 ** Math.min(this.failures++, 6));

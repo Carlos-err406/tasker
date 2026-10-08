@@ -70,10 +70,18 @@ const xml = (s) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 const shell = (s) => "'" + s.replaceAll("'", "'\"'\"'") + "'";
+// Homebrew deletes versioned Cellar paths on upgrade; its opt/ link survives.
+const cellar = /^(.*)\/Cellar\/([^/]+)\/[^/]+\/bin\/node$/.exec(process.execPath);
+const stableNode =
+  cellar && existsSync(`${cellar[1]}/opt/${cellar[2]}/bin/node`)
+    ? `${cellar[1]}/opt/${cellar[2]}/bin/node`
+    : process.execPath;
 writeFileSync(
   plugin,
   `#!/bin/bash
 # Managed by tasker-swiftbar
+# SwiftBar reads metadata from this wrapper, not from the script it runs.
+# <swiftbar.keepWebViewOpenForOverlays>true</swiftbar.keepWebViewOpenForOverlays>
 export TASKER_SWIFTBAR_DATA_DIR=${shell(directory)}
 export TASKER_SWIFTBAR_SERVICE_LABEL=${shell(label)}
 export TASKER_SWIFTBAR_LAUNCHAGENT_PATH=${shell(plist)}
@@ -88,7 +96,7 @@ writeFileSync(
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>${label}</string>
-<key>ProgramArguments</key><array><string>${xml(process.execPath)}</string><string>${xml(join(root, "apps/macos/dist-service/service/main.js"))}</string></array>
+<key>ProgramArguments</key><array><string>${xml(stableNode)}</string><string>${xml(join(root, "apps/macos/dist-service/service/main.js"))}</string></array>
 <key>WorkingDirectory</key><string>${xml(root)}</string>
 <key>EnvironmentVariables</key><dict><key>TASKER_SWIFTBAR_DATA_DIR</key><string>${xml(directory)}</string></dict>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
