@@ -571,8 +571,17 @@ export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus)
   return { results };
 }
 
-/** Rename a task, processing metadata changes */
-export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string): TaskResult {
+/** Rename a task, processing metadata changes.
+ *  By default a description without a trailing metadata line keeps the task's
+ *  existing metadata (plain rename). With `replaceMetadata` the text is the full
+ *  edited description, so a missing metadata line clears tags, priority, due
+ *  date and relationships. */
+export function renameTask(
+  db: TaskerDb,
+  taskId: TaskId,
+  newDescription: string,
+  { replaceMetadata = false }: { replaceMetadata?: boolean } = {},
+): TaskResult {
   const task = getTaskById(db, taskId);
   if (!task) return { type: 'not-found', taskId };
 
@@ -580,7 +589,7 @@ export function renameTask(db: TaskerDb, taskId: TaskId, newDescription: string)
   const oldParsed = parseDescription(task.description);
   const newParsed = parseDescription(trimmed);
 
-  const hasNewMetadata = newParsed.lastLineIsMetadataOnly;
+  const hasNewMetadata = replaceMetadata || newParsed.lastLineIsMetadataOnly;
   // Preserve existing due date if the date marker text hasn't changed
   const newDueDate = hasNewMetadata
     ? (newParsed.dueDateRaw === oldParsed.dueDateRaw ? task.dueDate : newParsed.dueDate)
