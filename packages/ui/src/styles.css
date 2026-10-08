@@ -137,17 +137,19 @@ html, body {
   background: transparent !important;
 }
 
-/* Custom scrollbar for task lists */
+/* Thin scrollbars. Height matters too: without it horizontal scrollbars
+   (wide code blocks, editors) fall back to a thick default bar. */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
+  background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
   border-radius: 3px;
-  opacity: 0.3;
 }
 
 /* Popup glass effect — disabled during drag to avoid per-frame blur recalculation */

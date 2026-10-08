@@ -95,7 +95,7 @@ body {
 .mobile-shell
   button:not([data-task-tag]):not([data-testid^="task-checkbox-"]):not(
     [data-task-id-copy]
-  ) {
+  ):not([role="switch"]) {
   min-height: 44px;
 }
 .mobile-shell

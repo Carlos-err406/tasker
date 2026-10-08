@@ -527,7 +527,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
                     else setAdding(false);
                   }
                 }}
-                className="min-h-[28px] max-h-32 overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
+                className="min-h-[28px] max-h-32 overflow-y-auto overflow-x-hidden break-words [&_*]:max-w-full [&_*]:!whitespace-pre-wrap w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground"
               />
               <TouchEditorActions
                 editor={addInputRef}

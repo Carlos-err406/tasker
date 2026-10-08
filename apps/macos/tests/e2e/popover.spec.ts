@@ -227,16 +227,17 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
   const source = await image.getAttribute("src");
   await page.getByRole("button", { name: "Backups", exact: true }).click();
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
-  await expect(page.locator(".backup-row")).toHaveCount(1);
+  await expect(page.getByText(/^Last backup today/)).toBeVisible();
   await chooseList(page, "tasks");
   await add(page, "Later task");
   await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await page.getByRole("button", { name: "Restore…", exact: true }).click();
+  await expect(page.locator(".backup-row")).toHaveCount(1);
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   await page
     .getByRole("button", { name: "Restore backup", exact: true })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await expect(page.locator(".backup-row")).toHaveCount(2);
   await chooseList(page, "tasks");
   await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
   await expect(image).toHaveAttribute("src", source!);
@@ -245,6 +246,8 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
     .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBe(1);
   await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await page.getByRole("button", { name: "Restore…", exact: true }).click();
+  await expect(page.locator(".backup-row")).toHaveCount(2);
   await page
     .locator(".backup-row")
     .filter({ hasText: "safety" })
@@ -530,7 +533,7 @@ test("panel headers match and toolbar icons have equal spacing", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Backups", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Backups", exact: true }),
+    page.getByRole("heading", { name: "Backups & Sync", exact: true }),
   ).toBeVisible();
   expect(await page.getByTestId("panel-header").boundingBox()).toEqual(trash);
   await page.screenshot({ path: "test-results/backups-header.png" });
@@ -1341,6 +1344,26 @@ test("search stays in the selected list, including empty lists and tag clicks", 
   await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
     "empty",
   );
+  await expect(search).toHaveValue("");
+});
+
+test("search filter survives closing and reopening the popover", async ({
+  page,
+}) => {
+  await add(page, "Alpha");
+  await add(page, "Beta");
+  const names = page.locator('[data-testid^="task-name-"]');
+  const search = page.getByRole("textbox", { name: "Search tasks" });
+  await search.fill("Alpha");
+  await expect(names).toHaveText(["Alpha"]);
+  await page.reload();
+  await expect(search).toHaveValue("Alpha");
+  await expect(names).toHaveText(["Alpha"]);
+  await search.press("Escape");
+  await expect(names).toHaveCount(2);
+  await page.reload();
+  await expect(search).toHaveValue("");
+  await expect(names).toHaveCount(2);
 });
 
 test("relationship navigation switches lists and clears search to reveal a hidden completed task", async ({
@@ -1473,7 +1496,7 @@ test("desktop toolbar keeps picker top left and app controls top right across pa
   }
   for (const [label, tooltip] of [
     ["Trash", "View trash"],
-    ["Backups", "View backups"],
+    ["Backups", "Backups & sync"],
     ["Help", "View help"],
   ]) {
     const button = page.getByRole("button", { name: label, exact: true });
@@ -1520,4 +1543,70 @@ test("opens About from Help without adding a desktop toolbar button", async ({pa
   await expect(page.getByRole('heading',{name:'Credits',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Back to help',exact:true}).click();
   await expect(page.getByTestId('help-panel')).toBeVisible();
+});
+
+test("suggests existing tags while typing # and inserts the chosen one", async ({
+  page,
+}) => {
+  await add(page, "Alpha\n#tasker #mobile");
+  await add(page, "Beta\n#tasker");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.pressSequentially("Gamma");
+  await input.press("Enter");
+  await input.pressSequentially("#ta");
+  const options = page
+    .getByTestId("metadata-autocomplete-dropdown")
+    .getByRole("button");
+  await expect(options).toHaveText(["tasker2 tasks"]);
+  await input.press("Enter");
+  await expect(options).toHaveCount(0);
+  await input.pressSequentially(" #");
+  // Tags already on the task are not offered again.
+  await expect(options).toHaveText(["mobile1 task"]);
+  await options.first().click();
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  const gamma = page
+    .locator('[data-testid^="task-item-"]')
+    .filter({ hasText: "Gamma" });
+  await expect(gamma.locator("[data-task-tag]")).toHaveText([
+    "tasker",
+    "mobile",
+  ]);
+});
+
+test("wide pasted text wraps in the editor and code blocks keep thin scrollbars", async ({
+  page,
+}) => {
+  await add(page, "Wide code\n```\n" + "x".repeat(400) + "\n```");
+  const pre = page.locator('[data-testid^="task-item-"] pre').first();
+  await expect(pre).toBeVisible();
+  // Horizontal scrollbar height: thin, not the 15px default bar.
+  expect(
+    await pre.evaluate((el: HTMLElement) => el.offsetHeight - el.clientHeight),
+  ).toBeLessThanOrEqual(6);
+  // The copy icon stays in the corner while the code scrolls sideways.
+  const icon = pre.locator("xpath=..").locator("svg").last();
+  const before = await icon.boundingBox();
+  await pre.evaluate((el) => (el.scrollLeft = 300));
+  expect(await pre.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  expect(await icon.boundingBox()).toEqual(before);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.focus();
+  // Rich-text paste keeps source styles such as white-space: nowrap.
+  await input.evaluate(() =>
+    document.execCommand(
+      "insertHTML",
+      false,
+      `<span style="white-space: nowrap">${"pasted words ".repeat(40)}</span>`,
+    ),
+  );
+  expect(
+    await input.evaluate((el) => el.scrollWidth - el.clientWidth),
+  ).toBeLessThanOrEqual(0);
+  expect(
+    await input.evaluate((el: HTMLElement) => el.offsetHeight - el.clientHeight),
+  ).toBeLessThanOrEqual(2);
 });

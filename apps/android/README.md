@@ -49,7 +49,7 @@ Open **App options → View backups** for the same recovery controls as desktop.
 
 Connect Google uses Android's Google Play services account chooser and the `drive.file` scope. Register an Android OAuth client in the same Cloud project as desktop, using the package and SHA-1 certificate from `node apps/android/scripts/gradle.mjs signingReport`. The development package is `org.tasker.android.debug`; a release package and signing key need a separate registration. No desktop secret or downloaded client JSON belongs in Android source. When Google's project is in testing, the chosen account must be a configured test user.
 
-Connected backups upload automatically, with retry after network errors. Upload now retries immediately. Browse Drive backups lists compatible Mac and Android snapshots. Restore validates the checksum, schema, relationships and image references, creates a safety snapshot, then replaces the tables in a single transaction. The UI refreshes its task data and undo history before re-enabling controls. Disconnect stops future cloud work without revoking the Mac connection. Snapshots remain separate from the live sync feature. Android schedules backups only while the app is open; no persistent background service runs.
+Connected backups upload automatically, with retry after network errors. Back up now creates a snapshot and uploads it. **Restore…** lists this phone's snapshots together with compatible Mac and Android snapshots in Drive. Restore validates the checksum, schema, relationships and image references, creates a safety snapshot, then replaces the tables in a single transaction. The UI refreshes its task data and undo history before re-enabling controls. Disconnect stops future cloud work without revoking the Mac connection. Snapshots remain separate from the live sync feature. Android schedules backups only while the app is open; no persistent background service runs.
 
 Native recovery and fake-network tests use temporary databases and never access account grants:
 
@@ -63,7 +63,7 @@ adb shell am instrument -w -e class org.tasker.android.BackupStoreTest,org.taske
 
 ## Mac sync
 
-Choose **App options → View backups → View sync** and enable it on both devices using the same Google account. First enable creates a safety backup and merges both datasets. Tasks, lists, ordering, relationships, trash and managed images sync; the latest recorded edit wins. The phone syncs only while Tasker is open, after edits and every 30 seconds. Pending offline changes survive app restarts. Open editors defer incoming updates.
+Choose **App options → Backups & sync** and turn on the **Sync** switch on both devices using the same Google account. First enable creates a safety backup and merges both datasets. Tasks, lists, ordering, relationships, trash and managed images sync; the latest recorded edit wins. The phone syncs only while Tasker is open, after edits and every 30 seconds. Pending offline changes survive app restarts. Open editors defer incoming updates.
 
 Pause keeps local data. Restore pauses sync automatically and creates a fresh device publication identity; resume sends the restored changes as new edits. Account changes pause transfers until the original account is reconnected. Device identity and account binding are stored outside portable snapshots; Google tokens stay in native code.
 

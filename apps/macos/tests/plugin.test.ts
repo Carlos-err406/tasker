@@ -77,3 +77,11 @@ it("recovers a missing launch agent without creating a second service", async ()
   ).toBe(runtime.pid);
   expect((await fetch(runtime.origin + "/health")).status).toBe(204);
 }, 15000);
+it("keeps the popover open while overlays such as Raycast take focus", async () => {
+  // SwiftBar reads metadata from the installed wrapper, not the script it runs.
+  for (const file of ["plugin/Tasker.1m.sh", "../../scripts/install.mjs"]) {
+    expect(await readFile(resolve(file), "utf8")).toContain(
+      "<swiftbar.keepWebViewOpenForOverlays>true</swiftbar.keepWebViewOpenForOverlays>",
+    );
+  }
+});

@@ -10,6 +10,7 @@ import {
   getDueDateColor,
   formatDueDate,
   getTagColor,
+  TAG_COLORS,
   getLinkedStatusLabel,
   getLinkedStatusColor,
 } from '../src/lib/task-display.js';
@@ -157,12 +158,14 @@ describe('task-display', () => {
       expect(color1).toBe(color2);
     });
 
-    it('returns different colors for different tags', () => {
-      const color1 = getTagColor('work');
-      const color2 = getTagColor('personal');
-      // Can't guarantee different for all pairs, but the hash should vary
-      expect(typeof color1).toBe('string');
-      expect(typeof color2).toBe('string');
+    it('keeps the reported tags apart', () => {
+      const colors = ['tasker', 'mobile', 'data-usage', 'currency_exchange_widget', 'desktop'].map(getTagColor);
+      expect(new Set(colors).size).toBe(colors.length);
+    });
+
+    it('spreads tags across the whole palette', () => {
+      const used = new Set(Array.from({ length: 500 }, (_, i) => getTagColor(`tag-${i}`)));
+      expect(used.size).toBe(TAG_COLORS.length);
     });
   });
 });

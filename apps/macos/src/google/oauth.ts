@@ -12,6 +12,8 @@ export class GoogleConnection {
   private access?: { token: string; expires: number };
   error: string | null = null;
   pending = false;
+  /** Called after a new grant is saved, so earlier failures can be retried. */
+  onConnected?: () => void;
   constructor(
     private client: GoogleClient,
     private credentials: Credentials,
@@ -84,6 +86,7 @@ export class GoogleConnection {
         this.setAccess(result);
         this.credentials.write(result.refresh_token);
         this.refreshToken = result.refresh_token;
+        this.onConnected?.();
         res.end("Google Drive backups connected. You can return to Tasker.");
       } catch (error) {
         const message =

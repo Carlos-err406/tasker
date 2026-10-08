@@ -466,7 +466,7 @@ export const TaskItem = memo(function TaskItem({
                     onBlur={() => {
                       if (!getHost().touch && !ac.isOpen) submitEdit();
                     }}
-                    className="min-h-[28px] max-h-[300px] overflow-y-auto w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="min-h-[28px] max-h-[300px] overflow-y-auto overflow-x-hidden break-words [&_*]:max-w-full [&_*]:!whitespace-pre-wrap w-full rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                   <TouchEditorActions
                     editor={inputRef}

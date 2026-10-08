@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { TaskStatus } from '@tasker/core/types';
 import type { Suggestion } from '../hooks/use-metadata-autocomplete.js';
 import { cn } from '../lib/utils.js';
+import { getTagColor } from '../lib/task-display.js';
+import { Tag } from 'lucide-react';
 
 interface AutocompleteDropdownProps {
   suggestions: Suggestion[];
@@ -53,7 +55,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
     >
       {suggestions.map((s, i) => (
         <button
-          key={s.task.id}
+          key={s.kind === 'tag' ? `#${s.tag}` : s.task.id}
           ref={i === selectedIndex ? selectedRef : undefined}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -64,10 +66,30 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
             i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
           )}
         >
-          <span className="font-mono text-xs text-muted-foreground w-7 flex-shrink-0">{s.shortId}</span>
-          <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', STATUS_DOT[s.task.status] ?? STATUS_DOT[0])} />
-          <span className="truncate flex-1">{s.title}</span>
-          <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.task.listName}</span>
+          {s.kind === 'tag' ? (
+            <>
+              <span
+                className={cn(
+                  'inline-flex min-w-0 items-center gap-0.5 rounded-full px-1.5 font-mono text-xs',
+                  getTagColor(s.tag),
+                )}
+              >
+                <Tag className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate">{s.tag}</span>
+              </span>
+              <span className="flex-1" />
+              <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
+                {s.count} {s.count === 1 ? 'task' : 'tasks'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-mono text-xs text-muted-foreground w-7 flex-shrink-0">{s.shortId}</span>
+              <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', STATUS_DOT[s.task.status] ?? STATUS_DOT[0])} />
+              <span className="truncate flex-1">{s.title}</span>
+              <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.task.listName}</span>
+            </>
+          )}
         </button>
       ))}
     </div>,
