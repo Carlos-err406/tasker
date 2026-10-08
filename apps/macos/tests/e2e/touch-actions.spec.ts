@@ -265,11 +265,17 @@ test("drawer slides in and out and honors reduced motion", async ({ page }) => {
   await openTaskActions(page);
   const drawer = page.locator(".touch-task-sheet");
   await expect(drawer).toHaveCSS("animation-name", "task-sheet-in");
-  await page
+  // Read the exit state in the same task as the click: the 180 ms animation can
+  // finish (and unmount the drawer) before a separate assertion runs on slow CI.
+  const closing = await page
     .getByRole("button", { name: "Cancel", exact: true })
-    .evaluate((button: HTMLButtonElement) => button.click());
-  await expect(drawer).toHaveAttribute("data-state", "closed");
-  await expect(drawer).toHaveCSS("animation-name", "task-sheet-out");
+    .evaluate(async (button: HTMLButtonElement) => {
+      button.click();
+      await new Promise(requestAnimationFrame);
+      const sheet = document.querySelector<HTMLElement>(".touch-task-sheet");
+      return sheet && [sheet.dataset.state, getComputedStyle(sheet).animationName];
+    });
+  expect(closing).toEqual(["closed", "task-sheet-out"]);
   await expect(drawer).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openTaskActions(page);
