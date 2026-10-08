@@ -1610,3 +1610,39 @@ test("wide pasted text wraps in the editor and code blocks keep thin scrollbars"
     await input.evaluate((el: HTMLElement) => el.offsetHeight - el.clientHeight),
   ).toBeLessThanOrEqual(2);
 });
+
+test("All lists shows every list's tasks with a list label only there", async ({
+  page,
+}) => {
+  await add(page, "Default task");
+  await createList(page, "work");
+  await add(page, "Work task\n#demo");
+  const names = page.locator('[data-testid^="task-name-"]');
+  const labels = page.locator("[data-task-list]");
+  await expect(labels).toHaveCount(0);
+
+  await chooseList(page, "All lists");
+  await expect(names).toHaveText(["Work task", "Default task"]);
+  await expect(labels).toHaveText(["work", "tasks"]);
+  await expect(
+    page.getByRole("textbox", { name: "Search tasks" }),
+  ).toHaveAttribute("placeholder", "Search All lists…");
+  // The All view is not a real list: it cannot be renamed or deleted.
+  await page.getByRole("button", { name: "Choose list", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Rename list" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Delete list" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // New tasks from the All view go to the default list.
+  await add(page, "Added from all");
+  await expect(names).toHaveText(["Added from all", "Work task", "Default task"]);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "All lists",
+  );
+  await expect(labels).toHaveCount(3);
+
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["Added from all", "Default task"]);
+  await expect(labels).toHaveCount(0);
+});

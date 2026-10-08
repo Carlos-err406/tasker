@@ -1,9 +1,11 @@
 import { getHost } from "../host.js";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Task, TaskStatus } from "@tasker/core/types";
 import { TaskStatus as TS } from "@tasker/core/types";
 import { parseTaskDescription } from "@tasker/core/parsers";
+import { sortTasksForDisplay } from "@tasker/core/task-helpers";
 import { arrayMove } from "@dnd-kit/sortable";
+import { ALL_LISTS } from "../lib/all-lists.js";
 import * as taskService from "../lib/services/tasks.js";
 import * as listService from "../lib/services/lists.js";
 import * as undoService from "../lib/services/undo.js";
@@ -138,6 +140,15 @@ const initialState: TaskerState = {
   loading: true,
 };
 
+const HIDE_COMPLETED_ALL_KEY = "tasker:hideCompletedAll";
+function readHideCompletedAll() {
+  try {
+    return localStorage.getItem(HIDE_COMPLETED_ALL_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function useTaskerStore() {
   const [state, dispatch] = useReducer(reducer, initialState, (initial) => {
     let selectedList = initial.selectedList;
@@ -247,9 +258,11 @@ export function useTaskerStore() {
         // Reload undo history
         await undoService.reloadUndoHistory();
         if (version !== refreshVersion.current) return;
-        const selectedList = lists.includes(selectedListRef.current)
-          ? selectedListRef.current
-          : defaultList;
+        const selectedList =
+          selectedListRef.current === ALL_LISTS ||
+          lists.includes(selectedListRef.current)
+            ? selectedListRef.current
+            : defaultList;
         selectList(selectedList);
         dispatch({
           type: "LOAD",
@@ -258,11 +271,12 @@ export function useTaskerStore() {
           tasks,
           details,
           selectedList,
-          hideCompleted: new Set(
-            [...hideCompletedMap]
+          hideCompleted: new Set([
+            ...[...hideCompletedMap]
               .filter(([, hide]) => hide)
               .map(([name]) => name),
-          ),
+            ...(readHideCompletedAll() ? [ALL_LISTS] : []),
+          ]),
         });
       } catch (err) {
         if (version !== refreshVersion.current) return;
@@ -493,7 +507,15 @@ export function useTaskerStore() {
     async (name: string) => {
       const hide = !state.hideCompletedLists.has(name);
       dispatch({ type: "SET_HIDE_COMPLETED", name, hide });
-      await listService.setListHideCompleted(name, hide);
+      if (name !== ALL_LISTS) {
+        await listService.setListHideCompleted(name, hide);
+        return;
+      }
+      try {
+        localStorage.setItem(HIDE_COMPLETED_ALL_KEY, String(hide));
+      } catch {
+        /* The setting still applies for this session. */
+      }
     },
     [state.hideCompletedLists],
   );
@@ -538,7 +560,11 @@ export function useTaskerStore() {
   // Apply system sort (one-shot)
   const applySystemSortAction = useCallback(async () => {
     try {
-      const count = await taskService.applySystemSort(selectedListRef.current);
+      // In the All view, sort every list.
+      const list = selectedListRef.current;
+      const count = await taskService.applySystemSort(
+        list === ALL_LISTS ? undefined : list,
+      );
       showStatus(`Sorted ${count} list${count !== 1 ? "s" : ""}`);
       await refresh();
     } catch (err) {
@@ -594,11 +620,22 @@ export function useTaskerStore() {
           showStatus(`Task ${taskId} not found`);
           return;
         }
-        if (task.status === TS.Done || task.status === TS.WontDo) {
+        // The All view already shows every list, so stay there.
+        const target =
+          selectedListRef.current === ALL_LISTS ? ALL_LISTS : task.listName;
+        const done = task.status === TS.Done || task.status === TS.WontDo;
+        if (done && target === ALL_LISTS) {
+          dispatch({ type: "SET_HIDE_COMPLETED", name: ALL_LISTS, hide: false });
+          try {
+            localStorage.setItem(HIDE_COMPLETED_ALL_KEY, "false");
+          } catch {
+            /* Storage may be unavailable. */
+          }
+        } else if (done) {
           await listService.setListHideCompleted(task.listName, false);
         }
         navigationTarget.current = task.id;
-        selectList(task.listName);
+        selectList(target);
         setSearch("");
         await refresh({ searchQuery: "" });
       } catch (err) {
@@ -624,13 +661,14 @@ export function useTaskerStore() {
     el.classList.add("task-highlight");
   }, [state.tasks, state.selectedList, state.hideCompletedLists]);
 
-  // Group tasks by list
+  // Group tasks by list; the All view interleaves every list in system order.
+  const allTasks = useMemo(() => sortTasksForDisplay(state.tasks), [state.tasks]);
   const tasksByList = state.lists.reduce<Record<string, Task[]>>(
     (acc, listName) => {
       acc[listName] = state.tasks.filter((t) => t.listName === listName);
       return acc;
     },
-    {},
+    { [ALL_LISTS]: allTasks },
   );
 
   // Stats

@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type Ref } from "react";
 import type { useTaskerStore } from "../hooks/use-tasker-store.js";
 import { ListSection, type ListSectionHandle } from "./ListSection.js";
 import { TaskDragContext } from "./TaskDragContext.js";
+import { ALL_LISTS, listLabel } from "../lib/all-lists.js";
 
 export function TaskWorkspace({
   store,
@@ -17,6 +18,7 @@ export function TaskWorkspace({
   editorRef?: Ref<ListSectionHandle>;
 }) {
   const name = store.selectedList;
+  const all = name === ALL_LISTS;
   const root = useRef<HTMLDivElement>(null);
   const previousList = useRef(name);
   useLayoutEffect(() => {
@@ -35,11 +37,12 @@ export function TaskWorkspace({
           ref={editorRef}
           showHeader={showListHeader}
           key={name}
-          listName={name}
+          listName={listLabel(name)}
+          allLists={all ? { addToList: store.defaultList } : undefined}
           lists={store.lists}
           tasks={store.tasksByList[name] ?? []}
           relDetails={store.relDetails}
-          isDefault={name === store.defaultList}
+          isDefault={all || name === store.defaultList}
           searching={!!store.searchQuery}
           onSelectList={store.selectList}
           onReorderList={store.reorderList}

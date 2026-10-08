@@ -72,6 +72,9 @@ interface ListSectionProps {
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
+  /** All view: tasks come from every list, so show their list, disable
+   *  reordering and add new tasks to this list instead. */
+  allLists?: { addToList: string };
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
 }
@@ -106,6 +109,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
       onTagClick,
       showMediaPreviews = true,
       mediaPreviewResetSignal = 0,
+      allLists,
       hideCompleted,
       onToggleHideCompleted,
     },
@@ -201,7 +205,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
       try {
         const trimmed = addValue.trim();
         if (trimmed) {
-          if (!(await onAddTask(trimmed, listName))) return;
+          if (!(await onAddTask(trimmed, allLists?.addToList ?? listName))) return;
         }
         setAdding(false);
         setAddValue("");
@@ -493,7 +497,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
         {adding && (
           <TouchEditorScreen
             title="New task"
-            listName={listName}
+            listName={allLists?.addToList ?? listName}
             onCancel={() => {
               setAdding(false);
               setAddValue("");
@@ -563,7 +567,9 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
           {visibleTasks.length === 0 && !adding && (
             <div className="px-3 py-3 text-xs text-muted-foreground/50 text-center">
               {searching && tasks.length === 0
-                ? "No matching tasks in this list"
+                ? allLists
+                  ? "No matching tasks"
+                  : "No matching tasks in this list"
                 : hideCompleted && doneCount > 0
                   ? "All tasks completed"
                   : "No tasks"}
@@ -592,6 +598,8 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
                 onEditingChange={taskEditingChanged}
                 showMediaPreviews={showMediaPreviews}
                 mediaPreviewResetSignal={mediaPreviewResetSignal}
+                showListName={!!allLists}
+                sortDisabled={!!allLists}
               />
             ))}
           </SortableContext>
