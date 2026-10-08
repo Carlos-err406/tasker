@@ -478,6 +478,16 @@ describe('getSortedTasks', () => {
     expect(sorted[1]!.status).toBe(TaskStatus.Pending);
     expect(sorted[2]!.status).toBe(TaskStatus.Done);
   });
+
+  it('ranks unprioritized tasks between p2 and p3', () => {
+    addTask(db, 'low\np3', 'tasks');
+    addTask(db, 'none', 'tasks');
+    addTask(db, 'high\np1', 'tasks');
+    addTask(db, 'medium\np2', 'tasks');
+
+    const sorted = getSortedTasks(db, { listName: 'tasks' });
+    expect(sorted.map((t) => t.description.split('\n')[0])).toEqual(['high', 'medium', 'none', 'low']);
+  });
 });
 
 describe('delete cleans up relationship markers', () => {
