@@ -17,6 +17,7 @@ async function fixture() {
   for (const path of [
     "package.json",
     "apps/macos/package.json",
+    "apps/android/package.json",
     "packages/core/package.json",
     "packages/ui/package.json",
   ])
@@ -31,8 +32,20 @@ async function fixture() {
   await write(archive, "archive");
   const digest = createHash("sha256").update("archive").digest("hex");
   await write(archive + ".sha256", `${digest}  ${basename(archive)}\n`);
+  const android = "release/tasker-android.apk";
+  await write(android, "android");
+  await write(
+    android + ".sha256",
+    `${createHash("sha256").update("android").digest("hex")}  tasker-android.apk\n`,
+  );
   const assets = await Promise.all(
-    [archive, archive + ".sha256", "install.sh"].map(async (path) => {
+    [
+      archive,
+      archive + ".sha256",
+      "install.sh",
+      android,
+      android + ".sha256",
+    ].map(async (path) => {
       const bytes = await readFile(join(root, path));
       return {
         name: basename(path),
@@ -103,7 +116,12 @@ for (const existingDraft of [false, true]) {
   });
 }
 
-for (const failure of ["api", "upload", "asset verification"]) {
+for (const failure of [
+  "api",
+  "upload",
+  "asset verification",
+  "android verification",
+]) {
   it(`leaves releases unpublished on ${failure} failure`, async () => {
     const f = await fixture();
     const calls: string[][] = [];
@@ -119,7 +137,12 @@ for (const failure of ["api", "upload", "asset verification"]) {
               throw new Error("Injected failure");
             if (args[0] === "api") return "[[]]";
             if (args[1] === "view")
-              return JSON.stringify({ assets: f.assets.slice(1) });
+              return JSON.stringify({
+                assets:
+                  failure === "android verification"
+                    ? f.assets.slice(0, 3)
+                    : f.assets.slice(1),
+              });
             return "";
           },
         }),
@@ -161,3 +184,28 @@ it("does not replace a published release on retry", async () => {
     await f.cleanup();
   }
 });
+
+for (const missing of [true, false]) {
+  it(`refuses publication when the Android artifact is ${missing ? "missing" : "corrupted"}`, async () => {
+    const f = await fixture();
+    try {
+      if (missing) await rm(join(f.root, "release/tasker-android.apk"));
+      else await f.write("release/tasker-android.apk.sha256", "wrong checksum");
+      let called = false;
+      await expect(
+        publishRelease({
+          root: f.root,
+          repo: "owner/tasker",
+          tag: "v0.1.1",
+          run: () => {
+            called = true;
+            throw new Error("Must not reach GitHub");
+          },
+        }),
+      ).rejects.toThrow();
+      expect(called).toBe(false);
+    } finally {
+      await f.cleanup();
+    }
+  });
+}

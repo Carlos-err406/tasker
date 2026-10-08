@@ -12,7 +12,7 @@ import {
   getListIndex,
   getSortedTasks,
   getTrash,
-} from "@tasker/core";
+} from "../../queries/index.js";
 import $try from "../try.js";
 import type { IPCRegisterFunction } from "../registry.js";
 import {

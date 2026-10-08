@@ -1,3 +1,4 @@
+import { withTransaction } from "../db.js";
 /**
  * Manages undo/redo stacks with SQLite persistence.
  * Two-stack architecture: undo and redo, persisted to undo_history table.
@@ -5,7 +6,7 @@
 
 import { eq } from 'drizzle-orm';
 import type { TaskerDb } from '../db.js';
-// getRawDb removed — using Drizzle cross-driver db.transaction()
+// getRawDb removed — using Drizzle cross-driver withTransaction(db, )
 import { undoHistory } from '../schema/undo-history.js';
 import type { UndoCommand, CompositeCmd } from './undo-commands.js';
 import { getCommandDescription } from './undo-commands.js';
@@ -159,7 +160,7 @@ export class UndoManager {
   }
 
   private save(): void {
-    this.db.transaction((tx) => {
+    withTransaction(this.db, (tx) => {
       tx.delete(undoHistory).run();
 
       for (const cmd of this.undoStack) {

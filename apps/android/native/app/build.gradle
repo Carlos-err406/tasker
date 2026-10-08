@@ -1,0 +1,50 @@
+plugins { id 'com.android.application' }
+def signingValues = ['TASKER_ANDROID_KEYSTORE', 'TASKER_ANDROID_STORE_PASSWORD', 'TASKER_ANDROID_KEY_ALIAS', 'TASKER_ANDROID_KEY_PASSWORD'].collectEntries { [(it): System.getenv(it)] }
+def hasReleaseSigning = signingValues.values().every { it }
+def taskerVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version
+def versionParts = taskerVersion.tokenize('.').collect { it.toInteger() }
+def taskerVersionCode = versionParts[0] * 1000000L + versionParts[1] * 1000L + versionParts[2]
+if (versionParts.size() != 3 || versionParts[1] > 999 || versionParts[2] > 999 || taskerVersionCode < 1 || taskerVersionCode > 2100000000L) throw new GradleException('Unsupported Android version')
+android {
+    useLibrary 'android.test.runner'
+    useLibrary 'android.test.base'
+    namespace 'org.tasker.android'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'org.tasker.android'
+        minSdk 30
+        targetSdk 35
+        versionCode taskerVersionCode.toInteger()
+        versionName taskerVersion
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            production {
+                storeFile file(signingValues.TASKER_ANDROID_KEYSTORE)
+                storePassword signingValues.TASKER_ANDROID_STORE_PASSWORD
+                keyAlias signingValues.TASKER_ANDROID_KEY_ALIAS
+                keyPassword signingValues.TASKER_ANDROID_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes {
+        debug { applicationIdSuffix '.debug'; resValue 'string', 'app_name', 'Tasker Preview' }
+        release {
+            debuggable false
+            if (hasReleaseSigning) signingConfig signingConfigs.production
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets { main { assets.srcDirs = ['../../dist'] } }
+}
+gradle.taskGraph.whenReady { graph ->
+    if (!hasReleaseSigning && graph.allTasks.any { it.name in ['packageRelease', 'signReleaseBundle'] }) {
+        throw new GradleException('Production packaging requires all TASKER_ANDROID signing environment variables. No unsigned release is allowed.')
+    }
+}
+dependencies {
+    implementation 'com.google.android.gms:play-services-auth:22.0.0'
+    implementation 'androidx.core:core:1.8.0'
+}

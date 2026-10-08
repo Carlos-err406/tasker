@@ -1,7 +1,12 @@
+import { SyncPanel } from "@tasker/ui";
+import { manage } from "./host-adapter.js";
 import { Backups } from "./Backups.js";
+import { About } from "./About.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Plus,
+  Eye,
+  EyeOff,
   Images,
   ImageOff,
   Trash2,
@@ -13,12 +18,12 @@ import {
   Check,
   CircleHelp,
   ArrowUpDown,
-  ChevronsDownUp,
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import {
-  SortableListSection,
-  TaskDragContext,
+  ListPicker,
+  TaskWorkspace,
+  type ListSectionHandle,
   useTaskerStore,
   TooltipProvider,
   Tooltip,
@@ -82,11 +87,38 @@ function IconButton({
 }
 function App() {
   const store = useTaskerStore();
-  const [panel, setPanel] = useState<"tasks" | "backups" | "trash" | "help">(
-    "tasks",
+  useEffect(() => {
+    void manage({ action: "sync-editing", editing: store.isEditing }).catch(
+      () => {},
+    );
+  }, [store.isEditing]);
+  const [panel, setPanel] = useState<
+    "tasks" | "backups" | "trash" | "help" | "sync" | "about"
+  >("tasks");
+  const [listAction, setListAction] = useState<"create" | "rename" | null>(
+    null,
   );
-  const [creatingList, setCreatingList] = useState(false);
+  const [listBusy, setListBusy] = useState(false);
+  const taskEditor = useRef<ListSectionHandle>(null);
+  const [addRequested, setAddRequested] = useState(false);
+  useEffect(() => {
+    if (
+      addRequested &&
+      panel === "tasks" &&
+      !store.loading &&
+      taskEditor.current
+    ) {
+      taskEditor.current.startAdding();
+      setAddRequested(false);
+    }
+  }, [addRequested, panel, store.loading]);
   const [listName, setListName] = useState("");
+  const previousListAction = useRef(listAction);
+  useEffect(() => {
+    if (previousListAction.current && !listAction)
+      document.querySelector<HTMLButtonElement>(".top-list-picker")?.focus();
+    previousListAction.current = listAction;
+  }, [listAction]);
   const [showMedia, setShowMedia] = useState(
     () => localStorage.getItem("tasker:showMediaPreviews") !== "false",
   );
@@ -97,15 +129,11 @@ function App() {
     setMediaReset((v) => v + 1);
     localStorage.setItem("tasker:showMediaPreviews", String(next));
   }, [showMedia]);
-  const [search, setSearch] = useState("");
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
+  const search = store.searchQuery;
+  const setSearch = store.setSearch;
   const searchRef = useRef<HTMLInputElement>(null);
   const focusSearchOnMount = useRef(false);
   const clearSearch = useCallback(() => {
-    clearTimeout(searchTimer.current);
-    setSearch("");
     store.setSearch("");
   }, [store.setSearch]);
   useEffect(() => {
@@ -161,15 +189,6 @@ function App() {
         !event.shiftKey &&
         !event.altKey &&
         !editing &&
-        event.key === "e"
-      ) {
-        event.preventDefault();
-        void store.toggleCollapseAll();
-      } else if (
-        event.metaKey &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !editing &&
         event.key === "j"
       ) {
         event.preventDefault();
@@ -188,6 +207,9 @@ function App() {
         event.preventDefault();
         if (panel === "help") closeHelp();
         else setPanel("help");
+      } else if (event.key === "Escape" && panel === "about") {
+        event.preventDefault();
+        setPanel("help");
       } else if (event.key === "Escape" && panel === "help") {
         event.preventDefault();
         closeHelp();
@@ -197,7 +219,6 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     panel,
-    store.toggleCollapseAll,
     store.applySystemSort,
     store.undo,
     store.redo,
@@ -213,80 +234,117 @@ function App() {
         aria-label="Tasker"
       >
         <nav className="popover-toolbar" aria-label="Task tools">
-          <Button
-            variant="ghost"
-            size="xs"
-            className="tasks-tab"
-            onClick={() => setPanel("tasks")}
-            aria-current={panel === "tasks" ? "page" : undefined}
-          >
-            Tasks
-          </Button>
-          <span className="toolbar-spacer" />
-          <IconButton
-            label="Create list"
-            onClick={() => {
+          <ListPicker
+            className="top-list-picker"
+            lists={store.lists}
+            selected={store.selectedList}
+            defaultList={store.defaultList}
+            disabled={store.loading || store.isEditing || !!listAction}
+            onSelect={(name) => {
+              store.selectList(name);
               setPanel("tasks");
-              setCreatingList(true);
             }}
-          >
-            <Plus />
-          </IconButton>
-          <IconButton
-            label={
-              store.lists.every((name) => store.collapsedLists.has(name))
-                ? "Expand all lists"
-                : "Collapse all lists"
-            }
-            aria-keyshortcuts="Meta+E"
-            onClick={() => void store.toggleCollapseAll()}
-          >
-            <ChevronsDownUp />
-          </IconButton>
-          <IconButton
-            label={showMedia ? "Hide previews" : "Show previews"}
-            aria-keyshortcuts="Meta+P"
-            onClick={togglePreviews}
-          >
-            {showMedia ? <Images /> : <ImageOff />}
-          </IconButton>
-          <IconButton
-            label="System sort"
-            aria-keyshortcuts="Meta+J"
-            onClick={() => void store.applySystemSort()}
-          >
-            <ArrowUpDown />
-          </IconButton>
-          <IconButton
-            label="Trash"
-            aria-pressed={panel === "trash"}
-            onClick={() => setPanel("trash")}
-          >
-            <Trash2 />
-          </IconButton>
-          <IconButton
-            label="Backups"
-            aria-pressed={panel === "backups"}
-            onClick={() => setPanel("backups")}
-          >
-            <Archive />
-          </IconButton>
-          <IconButton
-            ref={helpButtonRef}
-            label="Help"
-            tooltipLabel="Toggle help"
-            aria-keyshortcuts="Meta+/"
-            aria-pressed={panel === "help"}
-            onClick={() => (panel === "help" ? closeHelp() : setPanel("help"))}
-          >
-            <CircleHelp />
-          </IconButton>
+            onCreate={() => {
+              setPanel("tasks");
+              setListName("");
+              setListAction("create");
+            }}
+            onRename={() => {
+              setPanel("tasks");
+              setListName(store.selectedList);
+              setListAction("rename");
+            }}
+            onDelete={() => {
+              setPanel("tasks");
+              void store.deleteList(store.selectedList);
+            }}
+          />
+          <div className="app-controls" aria-label="App controls">
+            <IconButton
+              label="Add task"
+              disabled={store.loading || store.isEditing || !!listAction}
+              onClick={() => {
+                setPanel("tasks");
+                setAddRequested(true);
+              }}
+            >
+              <Plus />
+            </IconButton>
+            <IconButton
+              label={
+                store.hideCompletedLists.has(store.selectedList)
+                  ? "Show completed tasks"
+                  : "Hide completed tasks"
+              }
+              aria-pressed={store.hideCompletedLists.has(store.selectedList)}
+              disabled={store.loading || store.isEditing || !!listAction}
+              onClick={() => {
+                setPanel("tasks");
+                void store.toggleHideCompleted(store.selectedList);
+              }}
+            >
+              {store.hideCompletedLists.has(store.selectedList) ? (
+                <EyeOff />
+              ) : (
+                <Eye />
+              )}
+            </IconButton>
+            <IconButton
+              label={showMedia ? "Hide previews" : "Show previews"}
+              aria-keyshortcuts="Meta+P"
+              onClick={togglePreviews}
+            >
+              {showMedia ? <Images /> : <ImageOff />}
+            </IconButton>
+            <IconButton
+              label="System sort"
+              aria-keyshortcuts="Meta+J"
+              onClick={() => void store.applySystemSort()}
+            >
+              <ArrowUpDown />
+            </IconButton>
+            <IconButton
+              label="Trash"
+              tooltipLabel="View trash"
+              aria-pressed={panel === "trash"}
+              onClick={() => setPanel("trash")}
+            >
+              <Trash2 />
+            </IconButton>
+            <IconButton
+              label="Backups"
+              tooltipLabel="View backups"
+              aria-pressed={panel === "backups"}
+              onClick={() => setPanel("backups")}
+            >
+              <Archive />
+            </IconButton>
+            <IconButton
+              ref={helpButtonRef}
+              label="Help"
+              tooltipLabel="View help"
+              aria-keyshortcuts="Meta+/"
+              aria-pressed={panel === "help"}
+              onClick={() => setPanel("help")}
+            >
+              <CircleHelp />
+            </IconButton>
+          </div>
         </nav>
         <div className="popover-content">
           {panel === "help" ? (
-            <HelpPanel onClose={closeHelp} />
+            <HelpPanel onClose={closeHelp} onAbout={() => setPanel("about")} />
+          ) : panel === "about" ? (
+            <About onClose={() => setPanel("help")} />
+          ) : panel === "sync" ? (
+            <SyncPanel
+              manage={manage}
+              onClose={() => setPanel("tasks")}
+              onViewBackups={() => setPanel("backups")}
+            />
           ) : panel === "backups" ? (
             <Backups
+              onViewSync={() => setPanel("sync")}
               onClose={() => setPanel("tasks")}
               onRestored={() => void store.refresh()}
             />
@@ -307,7 +365,7 @@ function App() {
                       aria-keyshortcuts="Meta+K"
                       className="search"
                       aria-label="Search tasks"
-                      placeholder="Search tasks…"
+                      placeholder={`Search ${store.selectedList}…`}
                       value={search}
                       onKeyDown={(event) => {
                         if (event.key === "Escape" && search) {
@@ -316,18 +374,10 @@ function App() {
                           clearSearch();
                         }
                       }}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSearch(value);
-                        clearTimeout(searchTimer.current);
-                        searchTimer.current = setTimeout(
-                          () => store.setSearch(value),
-                          200,
-                        );
-                      }}
+                      onChange={(e) => setSearch(e.target.value)}
                     />
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent className="search-tooltip pointer-events-none">
                     <span className="flex items-center gap-1.5">
                       Focus search{" "}
                       <KbdGroup>
@@ -352,45 +402,71 @@ function App() {
                 data-testid="task-workspace"
                 aria-busy={store.loading}
               >
-                {creatingList && (
+                {listAction && (
                   <form
                     className="create-list"
-                    onSubmit={(event) => {
+                    onSubmit={async (event) => {
                       event.preventDefault();
-                      if (listName.trim()) {
-                        void store.createList(listName.trim());
-                        setListName("");
-                        setCreatingList(false);
+                      if (listBusy || !listName.trim()) return;
+                      setListBusy(true);
+                      try {
+                        const saved =
+                          listAction === "create"
+                            ? await store.createList(listName.trim())
+                            : await store.renameList(
+                                store.selectedList,
+                                listName.trim(),
+                              );
+                        if (saved) {
+                          setListName("");
+                          setListAction(null);
+                        }
+                      } finally {
+                        setListBusy(false);
                       }
                     }}
                   >
                     <Input
                       autoFocus
-                      aria-label="New list name"
-                      placeholder="New list name…"
+                      aria-label={
+                        listAction === "create" ? "New list name" : "List name"
+                      }
+                      placeholder={
+                        listAction === "create"
+                          ? "New list name…"
+                          : "List name…"
+                      }
                       value={listName}
                       onChange={(e) => setListName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Escape") {
-                          setCreatingList(false);
+                          if (listBusy) return;
+                          setListAction(null);
                           setListName("");
                         }
                       }}
                     />
                     <IconButton
-                      label="Add list"
+                      label={
+                        listAction === "create" ? "Add list" : "Save list name"
+                      }
                       aria-keyshortcuts="Enter"
                       type="submit"
-                      disabled={!listName.trim()}
+                      disabled={listBusy || !listName.trim()}
                     >
                       <Check />
                     </IconButton>
                     <IconButton
-                      label="Cancel new list"
+                      label={
+                        listAction === "create"
+                          ? "Cancel new list"
+                          : "Cancel rename"
+                      }
+                      disabled={listBusy}
                       aria-keyshortcuts="Escape"
                       type="button"
                       onClick={() => {
-                        setCreatingList(false);
+                        setListAction(null);
                         setListName("");
                       }}
                     >
@@ -398,45 +474,13 @@ function App() {
                     </IconButton>
                   </form>
                 )}
-                <TaskDragContext store={store}>
-                  {/* Mount lists with their saved preferences, never the initial defaults. */}
-                  {!store.loading &&
-                    store.lists.map((name) => (
-                      <SortableListSection
-                        key={name}
-                        listName={name}
-                        tasks={store.tasksByList[name] ?? []}
-                        lists={store.lists}
-                        relDetails={store.relDetails}
-                        isDefault={name === store.defaultList}
-                        collapsed={store.collapsedLists.has(name)}
-                        hideCompleted={store.hideCompletedLists.has(name)}
-                        onToggleCollapsed={() =>
-                          void store.toggleCollapsed(name)
-                        }
-                        onToggleHideCompleted={() =>
-                          void store.toggleHideCompleted(name)
-                        }
-                        onAddTask={store.addTask}
-                        onToggleStatus={store.toggleStatus}
-                        onSetStatus={store.setStatusTo}
-                        onRename={store.rename}
-                        onDelete={store.deleteTask}
-                        onMove={store.moveTask}
-                        onRenameList={store.renameList}
-                        onDeleteList={store.deleteList}
-                        onShowStatus={store.showStatus}
-                        onNavigateToTask={store.navigateToTask}
-                        showMediaPreviews={showMedia}
-                        mediaPreviewResetSignal={mediaReset}
-                        onTagClick={(tag) => {
-                          clearTimeout(searchTimer.current);
-                          setSearch("#" + tag);
-                          store.setSearch("#" + tag);
-                        }}
-                      />
-                    ))}
-                </TaskDragContext>
+                <TaskWorkspace
+                  store={store}
+                  showListHeader={false}
+                  editorRef={taskEditor}
+                  showMediaPreviews={showMedia}
+                  mediaPreviewResetSignal={mediaReset}
+                />
               </div>
             </>
           )}

@@ -7,11 +7,13 @@ export function PanelHeader({
   icon: Icon,
   onClose,
   children,
+  backLabel = "Back to tasks",
 }: {
   title: string;
   icon: LucideIcon;
   onClose: () => void;
   children?: ReactNode;
+  backLabel?: string;
 }) {
   return (
     <header
@@ -22,7 +24,7 @@ export function PanelHeader({
         variant="ghost"
         size="icon-xs"
         className="h-5 w-5 p-0.5 text-muted-foreground hover:text-foreground"
-        aria-label="Back to tasks"
+        aria-label={backLabel}
         onClick={onClose}
       >
         <ArrowLeft className="size-4" />

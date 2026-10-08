@@ -39,6 +39,47 @@ async function add(page: import("@playwright/test").Page, text: string) {
   await input.press("Meta+Enter");
   await expect(input).not.toBeVisible();
 }
+async function chooseList(page: import("@playwright/test").Page, name: string) {
+  await page.getByRole("button", { name: "Choose list", exact: true }).click();
+  await page.getByRole("menuitemradio", { name, exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Choose list", exact: true }),
+  ).toHaveText(name);
+}
+async function startCreateList(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Choose list", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Create list", exact: true })
+    .click();
+}
+async function createList(page: import("@playwright/test").Page, name: string) {
+  await startCreateList(page);
+  await page.getByRole("textbox", { name: "New list name" }).fill(name);
+  await page.getByRole("button", { name: "Add list", exact: true }).click();
+  await expect(page.getByTestId(`list-section-${name}`)).toBeVisible();
+}
+async function rpc(
+  page: import("@playwright/test").Page,
+  channel: string,
+  args: unknown[] = [],
+) {
+  return page.evaluate(
+    async ({ channel, args }) => {
+      const response = await fetch("/rpc", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-tasker-request": "1",
+        },
+        body: JSON.stringify({ channel, args }),
+      });
+      const [error, result] = await response.json();
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    { channel, args },
+  );
+}
 test("creates tasks with metadata, persists exact checkbox line, and undoes it", async ({
   page,
 }) => {
@@ -187,7 +228,7 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
   await page.getByRole("button", { name: "Backups", exact: true }).click();
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
   await expect(page.locator(".backup-row")).toHaveCount(1);
-  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await chooseList(page, "tasks");
   await add(page, "Later task");
   await page.getByRole("button", { name: "Backups", exact: true }).click();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
@@ -196,7 +237,7 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(page.locator(".backup-row")).toHaveCount(2);
-  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await chooseList(page, "tasks");
   await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
   await expect(image).toHaveAttribute("src", source!);
   await page.reload();
@@ -213,7 +254,7 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
     .getByRole("button", { name: "Restore backup", exact: true })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await chooseList(page, "tasks");
   await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(2);
 });
 
@@ -242,22 +283,25 @@ test("keeps status order, searches tags, and restores from trash", async ({
   );
   await page.getByTitle("Restore", { exact: true }).click();
   await expect(page.locator('[data-testid^="trash-item-"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await chooseList(page, "tasks");
   await expect(names).toHaveCount(2);
 });
 test("creates a list and moves a task through its nested menu", async ({
   page,
 }) => {
   await add(page, "Move me");
-  await page.getByRole("button", { name: "Create list", exact: true }).click();
+  await startCreateList(page);
   await page.getByRole("textbox", { name: "New list name" }).fill("work");
   await page.getByRole("button", { name: "Add list", exact: true }).click();
   await expect(page.getByTestId("list-section-work")).toBeVisible();
+  await chooseList(page, "tasks");
   await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
   await page.getByRole("menuitem", { name: /Move to/ }).hover();
   const item = page.getByRole("menuitem", { name: "work", exact: true });
   await expect(item).toBeVisible();
   await item.dispatchEvent("click");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveCount(0);
+  await chooseList(page, "work");
   await expect(
     page
       .getByTestId("list-section-work")
@@ -367,7 +411,7 @@ test("keeps compact tools and footer visible while tasks scroll", async ({
   }
   // A narrow host must keep the contextual list form on one row.
   await page.setViewportSize({ width: 360, height: 500 });
-  await page.getByRole("button", { name: "Create list", exact: true }).click();
+  await startCreateList(page);
   const input = page.getByRole("textbox", { name: "New list name" });
   await expect(input).toBeFocused();
   const field = await input.boundingBox();
@@ -402,73 +446,56 @@ test("keeps compact tools and footer visible while tasks scroll", async ({
   ).toBeInViewport();
 });
 
-test("list options work for default and custom lists", async ({ page }) => {
-  const options = page.getByRole("button", {
-    name: "List options for tasks",
-    exact: true,
-  });
-  await options.click();
+test("top picker manages lists and app controls manage tasks without a list header", async ({
+  page,
+}) => {
+  const picker = page.getByRole("button", { name: "Choose list", exact: true });
+  await expect(page.locator('[data-testid^="list-header-"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /List options/ })).toHaveCount(
+    0,
+  );
+  await picker.click();
   await expect(
-    page.getByRole("menuitem", { name: "Rename", exact: true }),
+    page.getByRole("menuitem", { name: "Rename list", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("menuitem", { name: "Delete", exact: true }),
+    page.getByRole("menuitem", { name: "Delete list", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("menuitem", { name: "Add task", exact: true }).click();
-  const editor = page.getByTestId("add-task-input-tasks");
-  await expect(editor).toBeFocused();
-  await editor.fill("From list menu");
-  await editor.press("Meta+Enter");
-  await expect(editor).not.toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Create list", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await add(page, "From app toolbar");
   await page.locator('[data-testid^="task-checkbox-"]').click();
-  await options.click();
   await page
-    .getByRole("menuitem", { name: "Hide completed tasks", exact: true })
+    .getByRole("button", { name: "Hide completed tasks", exact: true })
     .click();
   await expect(page.locator('[data-testid^="task-name-"]')).toHaveCount(0);
-  await options.click();
   await page
-    .getByRole("menuitem", { name: "Show completed tasks", exact: true })
+    .getByRole("button", { name: "Show completed tasks", exact: true })
     .click();
-  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText(
-    "From list menu",
-  );
-  await options.click();
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "From app toolbar",
+  ]);
+  await createList(page, "work");
+  await picker.click();
   await page
-    .getByRole("menuitem", { name: "Collapse list", exact: true })
+    .getByRole("menuitem", { name: "Rename list", exact: true })
     .click();
-  await expect(
-    page.locator('[data-testid^="task-name-"]'),
-  ).not.toBeInViewport();
-  await options.focus();
-  await options.press("Enter");
-  await page
-    .getByRole("menuitem", { name: "Expand list", exact: true })
-    .click();
-  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText(
-    "From list menu",
-  );
-  await page.getByRole("button", { name: "Create list", exact: true }).click();
-  await page.getByRole("textbox", { name: "New list name" }).fill("work");
-  await page.getByRole("button", { name: "Add list", exact: true }).click();
-  await page
-    .getByRole("button", { name: "List options for work", exact: true })
-    .click();
-  await expect(
-    page.getByRole("menuitem", { name: "Delete", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-  const name = page.getByTestId("list-name-input-work");
+  const name = page.getByRole("textbox", { name: "List name", exact: true });
   await expect(name).toBeFocused();
   await name.fill("Projects");
   await name.press("Enter");
-  await expect(page.getByTestId("list-section-Projects")).toBeVisible();
-  await options.click();
+  await expect(name).toHaveCount(0);
+  await expect(picker).toHaveText("Projects");
+  await expect(picker).toBeFocused();
+  await chooseList(page, "tasks");
+  await picker.click();
   await expect(
-    page.getByRole("menuitem", { name: "Add task", exact: true }),
+    page.getByRole("menuitem", { name: "Create list", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("menu")).toHaveCSS("opacity", "1");
-  await page.screenshot({ path: "test-results/list-options.png" });
+  await page.screenshot({ path: "test-results/desktop-list-menu.png" });
 });
 
 test("panel headers match and toolbar icons have equal spacing", async ({
@@ -477,8 +504,8 @@ test("panel headers match and toolbar icons have equal spacing", async ({
   await page.emulateMedia({ colorScheme: "dark" });
   const boxes = await Promise.all(
     [
-      "Create list",
-      "Collapse all lists",
+      "Add task",
+      "Hide completed tasks",
       "Hide previews",
       "System sort",
       "Trash",
@@ -569,59 +596,33 @@ test("opens the original help reference, scrolls it, and returns by keyboard", a
   }
 });
 
-test("toolbar sorts tasks and collapses all lists with persistent results", async ({
+test("picker keeps one list visible, remembers selection and sorts the selected list", async ({
   page,
 }) => {
   await add(page, "High priority\np1");
   await add(page, "Low priority\np3");
-  const names = page
-    .getByTestId("list-section-tasks")
-    .locator('[data-testid^="task-name-"]');
+  const names = page.locator('[data-testid^="task-name-"]');
   await expect(names).toHaveText(["Low priority", "High priority"]);
   await page.getByRole("button", { name: "System sort", exact: true }).click();
   await expect(names).toHaveText(["High priority", "Low priority"]);
+  await createList(page, "work");
+  await add(page, "Work task");
+  await expect(page.locator('[data-testid^="list-section-"]')).toHaveCount(1);
+  await expect(names).toHaveText(["Work task"]);
   await page.reload();
-  await expect(names).toHaveText(["High priority", "Low priority"]);
-  await page.getByRole("button", { name: "Create list", exact: true }).click();
-  await page.getByRole("textbox", { name: "New list name" }).fill("work");
-  await page.getByRole("button", { name: "Add list", exact: true }).click();
-  const work = page.getByTestId("list-section-work");
-  await work.getByRole("button", { name: "Add task", exact: true }).click();
-  const editor = page.getByTestId("add-task-input-work");
-  await editor.fill("Work task");
-  await editor.press("Meta+Enter");
-  await expect(editor).not.toBeVisible();
-  const workName = work.locator('[data-testid^="task-name-"]');
-  await page.getByTestId("list-collapse-work").click();
-  await page
-    .getByRole("button", { name: "Collapse all lists", exact: true })
-    .click();
-  await expect(names.first()).not.toBeInViewport();
-  await expect(workName).not.toBeInViewport();
-  await expect(
-    page.getByRole("button", { name: "Expand all lists", exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Expand all lists", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Expand all lists", exact: true })
-    .click();
-  await expect(names.first()).toBeInViewport();
-  await expect(workName).toBeInViewport();
-  await page.keyboard.press("Meta+e");
-  await expect(
-    page.getByRole("button", { name: "Expand all lists", exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Meta+e");
-  await expect(
-    page.getByRole("button", { name: "Collapse all lists", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "work",
+  );
+  await expect(names).toHaveText(["Work task"]);
   await page.keyboard.press("Meta+j");
   await expect(page.locator("footer").getByRole("status")).toHaveText(
-    "Sorted 2 lists",
+    "Sorted 1 list",
   );
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["High priority", "Low priority"]);
+  await expect(
+    page.getByRole("button", { name: /Collapse|Expand/ }),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 588 });
   await expect(
     page.getByRole("button", { name: "Help", exact: true }),
@@ -629,7 +630,7 @@ test("toolbar sorts tasks and collapses all lists with persistent results", asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     360,
   );
-  await page.screenshot({ path: "test-results/complete-toolbar.png" });
+  await page.screenshot({ path: "test-results/list-picker-desktop.png" });
 });
 
 test("action tooltips show keycaps and undo shortcuts work outside editors", async ({
@@ -642,7 +643,6 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
   });
   const tooltip = page.locator('[role="tooltip"]:not([data-state="closed"])');
   const shortcuts = [
-    { name: "Collapse all lists", keys: ["⌘", "E"] },
     { name: "Hide previews", keys: ["⌘", "P"] },
     { name: "System sort", keys: ["⌘", "J"] },
     { name: "Undo", keys: ["⌘", "Z"] },
@@ -654,21 +654,22 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
     const tip = tooltip;
     await expect(tip).toBeVisible();
     await expect(tip.locator('[data-slot="kbd"]')).toHaveText(keys);
-    await expect(tip).toContainText(name === "Help" ? "Toggle help" : name);
+    await expect(tip).toContainText(name === "Help" ? "View help" : name);
     await page.keyboard.press("Escape");
     await page.mouse.move(10, 300, { steps: 10 });
     await expect(page.getByRole("tooltip")).toHaveCount(0);
   }
   await page.getByRole("button", { name: "Help", exact: true }).hover();
-  await expect(tooltip).toContainText("Toggle help");
+  await expect(tooltip).toContainText("View help");
   await page.screenshot({ path: "test-results/shortcut-tooltip.png" });
   await page.keyboard.press("Escape");
   await page.mouse.move(10, 300, { steps: 10 });
   await expect(page.getByRole("tooltip")).toHaveCount(0);
-  await page.getByRole("button", { name: "Create list", exact: true }).hover();
-  await expect(tooltip).toContainText("Create list");
+  await page.getByRole("button", { name: "Add task", exact: true }).hover();
+  await expect(tooltip).toContainText("Add task");
   await expect(tooltip.locator('[data-slot="kbd"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Create list", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await startCreateList(page);
   const listInput = page.getByRole("textbox", { name: "New list name" });
   await listInput.fill("Draft list");
   for (const [name, key] of [
@@ -1000,88 +1001,40 @@ test("Escape cancels editing and consumes the native dismissal key", async ({
   await expect(page.locator('[data-testid^="task-item-"]')).toHaveCount(1);
 });
 
-test("reopens saved collapsed lists without an initial collapse animation", async ({
+test("ignores old collapsed preferences and falls back after the selected list is deleted", async ({
   page,
 }) => {
-  await add(page, "Remember this collapse\nTask body");
-  const saved = page.waitForResponse(
-    (response) =>
-      response.request().postDataJSON()?.channel === "lists:setCollapsed",
+  await add(page, "Default task");
+  await rpc(page, "lists:setCollapsed", ["tasks", true]);
+  await createList(page, "work");
+  await add(page, "Work task");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "work",
   );
-  await page.getByTestId("list-collapse-tasks").click();
-  await saved;
-  let release!: () => void;
-  let requested!: () => void;
-  const preferencesHeld = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const preferencesRequested = new Promise<void>((resolve) => {
-    requested = resolve;
-  });
-  await page.route("**/rpc", async (route) => {
-    if (route.request().postDataJSON()?.channel === "lists:isCollapsed") {
-      const response = await route.fetch();
-      requested();
-      await preferencesHeld;
-      await route.fulfill({ response });
-    } else await route.continue();
-  });
-  await page.addInitScript(() => {
-    const observations = {
-      expandedBeforeClick: false,
-      transitions: [] as string[],
-    };
-    Reflect.set(window, "collapseStartup", observations);
-    new MutationObserver(() => {
-      const button = document.querySelector<HTMLElement>(
-        '[data-testid="list-collapse-tasks"]',
-      );
-      if (button?.style.transform === "rotate(0deg)")
-        observations.expandedBeforeClick = true;
-    }).observe(document, { childList: true, subtree: true, attributes: true });
-    document.addEventListener("transitionrun", (event) => {
-      const transition = event as TransitionEvent;
-      if (
-        transition.propertyName === "grid-template-rows" ||
-        transition.propertyName === "transform"
-      )
-        observations.transitions.push(transition.propertyName);
-    });
-  });
-  try {
-    await page.reload();
-    await preferencesRequested;
-    // Give the browser a paint while the persisted preferences are still unavailable.
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-    expect(
-      await page.evaluate(
-        () => Reflect.get(window, "collapseStartup").expandedBeforeClick,
-      ),
-    ).toBe(false);
-  } finally {
-    release();
-  }
-  const collapse = page.getByTestId("list-collapse-tasks");
-  await expect(collapse).toHaveAttribute("style", "transform: rotate(-90deg);");
-  await expect(
-    page.locator('[data-testid^="task-name-"]'),
-  ).not.toBeInViewport();
-  await page.waitForTimeout(250);
-  expect(
-    await page.evaluate(() => Reflect.get(window, "collapseStartup")),
-  ).toEqual({ expandedBeforeClick: false, transitions: [] });
-  await collapse.click();
-  await expect(page.locator('[data-testid^="task-name-"]')).toBeInViewport();
-  await expect
-    .poll(() =>
-      page.evaluate(() => Reflect.get(window, "collapseStartup").transitions),
-    )
-    .toContain("grid-template-rows");
+  await page.getByRole("button", { name: "Choose list", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Delete list", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "tasks",
+  );
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Default task",
+  ]);
+  await expect(page.locator('[data-testid^="list-collapse-"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await chooseList(page, "work");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Work task",
+  ]);
+  await page.evaluate(() =>
+    localStorage.setItem("tasker:selectedList", "missing"),
+  );
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "tasks",
+  );
 });
 
 test("search shortcuts focus across panels, clear pending searches, and refresh without navigation", async ({
@@ -1190,49 +1143,28 @@ test("pointer task reorder persists and supports undo, redo, and drag cancellati
   await expect(names).toHaveText(["First", "Third", "Second"]);
 });
 
-test("pointer list reorder persists and does not move its tasks into another list", async ({
+test("desktop picker preserves list order without up/down controls", async ({
   page,
 }) => {
   await add(page, "Default task");
-  for (const name of ["work", "books"]) {
-    await page
-      .getByRole("button", { name: "Create list", exact: true })
-      .click();
-    await page.getByRole("textbox", { name: "New list name" }).fill(name);
-    await page.getByRole("button", { name: "Add list", exact: true }).click();
-  }
-  const headers = page.locator('[data-testid^="list-header-"]');
-  const before = await headers.evaluateAll((els) =>
-    els.map((el) => el.getAttribute("data-testid")),
-  );
-  await dragVertically(page, headers.last(), headers.first());
-  const expected = [before[2]!, before[0]!, before[1]!];
-  await expect
-    .poll(() =>
-      headers.evaluateAll((els) =>
-        els.map((el) => el.getAttribute("data-testid")),
-      ),
-    )
-    .toEqual(expected);
+  await createList(page, "work");
+  await createList(page, "books");
+  await page.getByRole("button", { name: "Choose list" }).click();
+  const items = page.getByRole("menuitemradio");
+  const before = await items.allTextContents();
+  await expect(
+    page.getByRole("menuitem", { name: /Move list (up|down)/ }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await chooseList(page, "work");
   await page.reload();
-  await expect
-    .poll(() =>
-      headers.evaluateAll((els) =>
-        els.map((el) => el.getAttribute("data-testid")),
-      ),
-    )
-    .toEqual(expected);
-  await expect(page.getByTestId("list-section-tasks")).toContainText(
+  await page.getByRole("button", { name: "Choose list" }).click();
+  await expect(items).toHaveText(before);
+  await page.keyboard.press("Escape");
+  await chooseList(page, "tasks");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
     "Default task",
-  );
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect
-    .poll(() =>
-      headers.evaluateAll((els) =>
-        els.map((el) => el.getAttribute("data-testid")),
-      ),
-    )
-    .toEqual(before);
+  ]);
 });
 
 for (const content of [
@@ -1379,3 +1311,213 @@ for (const content of [
     );
   });
 }
+
+test("search stays in the selected list, including empty lists and tag clicks", async ({
+  page,
+}) => {
+  await add(page, "Shared default\n#demo");
+  await createList(page, "work");
+  await add(page, "Shared work\n#demo");
+  const names = page.locator('[data-testid^="task-name-"]');
+  const search = page.getByRole("textbox", { name: "Search tasks" });
+  await search.fill("Shared");
+  await expect(names).toHaveText(["Shared work"]);
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["Shared default"]);
+  await page.locator("[data-task-tag]").click();
+  await expect(search).toHaveValue("#demo");
+  await expect(names).toHaveText(["Shared default"]);
+  await createList(page, "empty");
+  await expect(names).toHaveCount(0);
+  await expect(
+    page.getByText("No matching tasks in this list", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Clear search", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "empty",
+  );
+  await expect(page.getByText("No tasks", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "empty",
+  );
+});
+
+test("relationship navigation switches lists and clears search to reveal a hidden completed task", async ({
+  page,
+}) => {
+  const target = (await rpc(page, "tasks:add", ["Destination", "tasks"])).task;
+  await rpc(page, "tasks:setStatus", [target.id, 2]);
+  await rpc(page, "lists:setHideCompleted", ["tasks", true]);
+  await createList(page, "work");
+  await add(page, `Source\n~${target.id}`);
+  await page.getByRole("textbox", { name: "Search tasks" }).fill("Source");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Source",
+  ]);
+  await page.getByRole("button", { name: /^Related to .*Destination/ }).click();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "tasks",
+  );
+  await expect(page.getByRole("textbox", { name: "Search tasks" })).toHaveValue(
+    "",
+  );
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Destination",
+  ]);
+});
+
+test("slow searches cannot overwrite newer results or the selected list", async ({
+  page,
+}) => {
+  await add(page, "Alpha");
+  await add(page, "Beta");
+  await createList(page, "work");
+  await add(page, "Beta work");
+  await chooseList(page, "tasks");
+  let release!: () => void;
+  let requested!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route("**/rpc", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.channel === "tasks:search" && body.args[0] === "Alpha") {
+      const response = await route.fetch();
+      requested();
+      await held;
+      await route.fulfill({ response });
+    } else await route.continue();
+  });
+  try {
+    const search = page.getByRole("textbox", { name: "Search tasks" });
+    await search.fill("Alpha");
+    await started;
+    await search.fill("Beta");
+    await chooseList(page, "work");
+    await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+      "Beta work",
+    ]);
+  } finally {
+    release();
+  }
+  await page.waitForTimeout(150);
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Beta work",
+  ]);
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "work",
+  );
+});
+
+test("picker supports keyboard selection and waits for edits to be saved or cancelled", async ({
+  page,
+}) => {
+  await createList(page, "work");
+  await chooseList(page, "tasks");
+  const picker = page.getByRole("button", { name: "Choose list", exact: true });
+  await picker.focus();
+  await picker.press("Enter");
+  const work = page.getByRole("menuitemradio", { name: "work", exact: true });
+  await work.focus();
+  await work.press("Enter");
+  await expect(picker).toHaveText("work");
+  await expect(picker).toBeFocused();
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const editor = page.getByTestId("add-task-input-work");
+  await editor.fill("Unfinished task");
+  await expect(picker).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Add task", exact: true }),
+  ).toBeDisabled();
+  await editor.press("Escape");
+  await expect(picker).toBeEnabled();
+  await add(page, "Saved task");
+  await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const taskEditor = page.getByTestId("task-edit-input");
+  await taskEditor.fill("Still editing");
+  await expect(picker).toBeDisabled();
+  await taskEditor.press("Meta+Enter");
+  await expect(picker).toBeEnabled();
+  await chooseList(page, "tasks");
+  await chooseList(page, "work");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Still editing",
+  ]);
+});
+
+test("desktop toolbar keeps picker top left and app controls top right across panels", async ({
+  page,
+}) => {
+  await createList(page, "A_very_long_list_name_that_must_fit_the_toolbar");
+  const picker = page.getByRole("button", { name: "Choose list", exact: true });
+  const addTask = page.getByRole("button", { name: "Add task", exact: true });
+  for (const width of [420, 360]) {
+    await page.setViewportSize({ width, height: 588 });
+    const pick = await picker.boundingBox(),
+      add = await addTask.boundingBox();
+    expect(pick!.x).toBeLessThan(20);
+    expect(pick!.y).toBeLessThan(12);
+    expect(add!.x - (pick!.x + pick!.width)).toBeGreaterThanOrEqual(12);
+    expect(pick!.y).toEqual(add!.y);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+    await expect(
+      page.getByRole("button", { name: "Help", exact: true }),
+    ).toBeInViewport();
+  }
+  for (const [label, tooltip] of [
+    ["Trash", "View trash"],
+    ["Backups", "View backups"],
+    ["Help", "View help"],
+  ]) {
+    const button = page.getByRole("button", { name: label, exact: true });
+    await button.hover();
+    await expect(page.getByRole("tooltip")).toContainText(tooltip!);
+    await page.keyboard.press("Escape");
+    await page.mouse.move(10, 300);
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+  }
+  await page.getByRole("button", { name: "Help", exact: true }).click();
+  await addTask.click();
+  const editor = page.locator('[contenteditable="true"]');
+  await expect(editor).toBeFocused();
+  await editor.fill("Added from Help");
+  await editor.press("Meta+Enter");
+  await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
+    "Added from Help",
+  ]);
+  await page.getByRole("button", { name: "Trash", exact: true }).click();
+  await chooseList(page, "A_very_long_list_name_that_must_fit_the_toolbar");
+  await expect(
+    page.getByRole("textbox", { name: "Search tasks" }),
+  ).toBeVisible();
+  await page.screenshot({ path: "test-results/desktop-toolbar.png" });
+  await page.setViewportSize({ width: 420, height: 588 });
+  await createList(page, "finance books to download");
+  await expect(picker).toHaveAttribute("title", "finance books to download");
+  const name = picker.locator("span");
+  expect(
+    await name.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await add(page, "Real Estate Investing For Dummies");
+  await page.mouse.move(10, 300);
+  await page.screenshot({ path: "test-results/desktop-long-list-name.png" });
+});
+
+test("opens About from Help without adding a desktop toolbar button", async ({page}) => {
+  await page.getByRole('button',{name:'Help',exact:true}).click();
+  await page.getByRole('button',{name:'About Tasker',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'About',exact:true})).toBeVisible();
+  await expect(page.getByText(/Version \d+\.\d+\.\d+ · Mac/)).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Credits',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Back to help',exact:true}).click();
+  await expect(page.getByTestId('help-panel')).toBeVisible();
+});

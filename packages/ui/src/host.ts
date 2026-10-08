@@ -3,6 +3,8 @@ import type { listsInvokerFactory } from './transport/lists/preload.js';
 import type { undoInvokerFactory } from './transport/undo/preload.js';
 export type Operations = ReturnType<typeof tasksInvokerFactory> & ReturnType<typeof listsInvokerFactory> & ReturnType<typeof undoInvokerFactory>;
 export interface Host {
+  /** Enables explicit editor actions for a touch-only host. */
+  touch?: boolean;
   operations: Operations;
   onDbChanged(callback: () => void): () => void;
   onPopupShown(callback: () => void): () => void;

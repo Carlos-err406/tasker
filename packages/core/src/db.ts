@@ -84,3 +84,22 @@ CREATE TABLE IF NOT EXISTS undo_history (
 
 CREATE INDEX IF NOT EXISTS idx_undo_stack_type ON undo_history(stack_type);
 `;
+
+// Reuse Drizzle's transaction object for nested operations. Some supported
+// SQLite clients cannot open another top-level transaction on the connection.
+const activeTransactions = new WeakMap<TaskerDb, TaskerDb>();
+export function withTransaction<T>(db: TaskerDb, work: (tx: TaskerDb) => T): T {
+  const current = activeTransactions.get(db);
+  return (current ?? db).transaction((transaction) => {
+    const tx = transaction as unknown as TaskerDb;
+    activeTransactions.set(db, tx);
+    try {
+      const result = work(tx);
+      if (result instanceof Promise) throw new Error('SQLite transactions must be synchronous');
+      return result;
+    } finally {
+      if (current) activeTransactions.set(db, current);
+      else activeTransactions.delete(db);
+    }
+  });
+}

@@ -12,7 +12,6 @@ interface HastElement { position?: { start: { line: number } } }
 import { CheckSquare, Square, Loader2, Copy, Check, Play, Image as ImageIcon, ImageOff, Images, Video } from "lucide-react";
 import {
   ContextMenu,
-  ContextMenuItem,
   ContextMenuTrigger,
 } from "./ui/context-menu.js";
 import { openExternal } from "../lib/services/window";
@@ -205,7 +204,7 @@ function ImageWithContextMenu({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      <ContextMenuTrigger asChild disabled={getHost().touch}>
         <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
           <MediaPreviewFrame
             kind="image"
@@ -240,14 +239,10 @@ function ImageWithContextMenu({
           {openError && <span role="alert" className="block text-destructive text-[11px]">{openError}</span>}
         </span>
       </ContextMenuTrigger>
-      <TaskContextMenuContent>
-        <ContextMenuItem onSelect={() => { void handleOpenImage(); }}>
-          Open image
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={handleCopyImage}>
-          Copy image
-        </ContextMenuItem>
-      </TaskContextMenuContent>
+      <TaskContextMenuContent mediaLabel={`Image: ${alt || "image"}`} imagePreview={resolvedSrc} actions={[
+        { label: "Open image", onSelect: () => { void handleOpenImage(); }, deferUntilClosed: true },
+        { label: "Copy image", onSelect: handleCopyImage },
+      ]} />
     </ContextMenu>
   );
 }
@@ -377,7 +372,7 @@ function VideoPreviewWithContextMenu({
 }) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      <ContextMenuTrigger asChild disabled={getHost().touch}>
         <span className="group/media block w-full" onContextMenu={(e) => e.stopPropagation()}>
           <MediaPreviewFrame
             kind="video"
@@ -392,14 +387,10 @@ function VideoPreviewWithContextMenu({
           </MediaPreviewFrame>
         </span>
       </ContextMenuTrigger>
-      <TaskContextMenuContent>
-        <ContextMenuItem onSelect={() => openExternal(href)}>
-          Open video
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => navigator.clipboard.writeText(href)}>
-          Copy video URL
-        </ContextMenuItem>
-      </TaskContextMenuContent>
+      <TaskContextMenuContent mediaLabel={`Video: ${label || href}`} actions={[
+        { label: "Open video", onSelect: () => { void openExternal(href); }, deferUntilClosed: true },
+        { label: "Copy video URL", onSelect: () => { void navigator.clipboard.writeText(href); } },
+      ]} />
     </ContextMenu>
   );
 }
@@ -443,7 +434,7 @@ function LinkWithContextMenu({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      <ContextMenuTrigger asChild disabled={getHost().touch}>
         <a
           href={href}
           onClick={(e) => {
@@ -457,17 +448,11 @@ function LinkWithContextMenu({
           {children}
         </a>
       </ContextMenuTrigger>
-      <TaskContextMenuContent>
-        <ContextMenuItem onSelect={() => { if (href) openExternal(href); }}>
-          Open link
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => { if (href) navigator.clipboard.writeText(href); }}>
-          Copy link
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => navigator.clipboard.writeText(textContent)}>
-          Copy link text
-        </ContextMenuItem>
-      </TaskContextMenuContent>
+      <TaskContextMenuContent mediaLabel={`Link: ${textContent || href || "link"}`} actions={[
+        { label: "Open link", onSelect: () => { if (href) void openExternal(href); }, deferUntilClosed: true },
+        { label: "Copy link", onSelect: () => { if (href) void navigator.clipboard.writeText(href); } },
+        { label: "Copy link text", onSelect: () => { void navigator.clipboard.writeText(textContent); } },
+      ]} />
     </ContextMenu>
   );
 }
@@ -484,7 +469,7 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      <ContextMenuTrigger asChild disabled={getHost().touch}>
         <pre
           onClick={(e) => { e.stopPropagation(); copyText(); }}
           onContextMenu={(e) => e.stopPropagation()}
@@ -496,11 +481,9 @@ function CopyableCodeBlock({ children }: { children?: ReactNode }) {
           </span>
         </pre>
       </ContextMenuTrigger>
-      <TaskContextMenuContent>
-        <ContextMenuItem onSelect={copyText}>
-          Copy code
-        </ContextMenuItem>
-      </TaskContextMenuContent>
+      <TaskContextMenuContent mediaLabel={`Code: ${text.split("\n")[0]?.slice(0, 60) || "code block"}`} actions={[
+        { label: "Copy code", onSelect: copyText },
+      ]} />
     </ContextMenu>
   );
 }

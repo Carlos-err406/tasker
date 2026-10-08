@@ -18,3 +18,15 @@ client_secret*.json
 backups/
 
 release/
+
+# Android build and local toolchain state
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+signing.json
+signing.properties

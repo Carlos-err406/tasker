@@ -5,7 +5,7 @@ Canonical checkout: `/Users/carlos/Developer/tasker`; origin: `https://github.co
 Implement the approved plan in `docs/plans/swiftbar-mvp.md`. Apply later scope decisions in `docs/scope-decisions.md`. Track execution evidence separately in `docs/implementation-status.md`.
 
 - This is a separate repository. Do not modify or connect to cli-tasker's live database.
-- MVP: macOS SwiftBar and local/Google Drive backups. Zero hosting budget. No Supabase, mobile implementation, CalDAV or multi-device merge.
+- MVP: macOS SwiftBar and local/Google Drive backups. Zero hosting budget. No Supabase, CalDAV or multi-device merge. The separately approved offline Android app follows `docs/plans/android-offline.md`.
 - Preserve the extracted parsers, rendering/editing behavior and stable task order.
 - Keep Node/SQLite dependencies out of the browser UI. Inject host operations through `packages/ui/src/host.ts`.
 - Use the existing shadcn components rather than direct Radix imports in feature components.
@@ -19,4 +19,4 @@ Implement the approved plan in `docs/plans/swiftbar-mvp.md`. Apply later scope d
 
 - `install.sh` is the public curl installer. It installs verified runtime downloads under `~/.local/share/tasker`, uses existing SwiftBar settings, and supplies the tested fork only when missing. Keep installer tests isolated with temporary paths, a dummy OAuth client, and `TASKER_SWIFTBAR_SERVICE_LABEL`; use `--no-open` to avoid host side effects. Run `shellcheck install.sh` after shell changes. Publish both the runtime archive and its `.sha256` file for each release.
 
-- `.github/workflows/release.yml` validates PRs/main/tags and publishes stable `vX.Y.Z` tags only after checks. Keep all four package versions and the plugin version aligned, with notes in `docs/releases/<version>.md`. The publishing job uses the `TASKER_GOOGLE_DESKTOP_CLIENT_JSON` repository secret; never print its value or expose it to PR checks. `scripts/publish-release.mjs` verifies uploaded assets before making a draft public and never replaces published releases. Tag only commits already merged into main.
+- `.github/workflows/release.yml` validates PRs/main/tags and publishes stable `vX.Y.Z` tags only after checks. Android PR checks build/lint without signing secrets; tag publication requires the verified production APK and checksum alongside the Mac archive. `TASKER_ANDROID_SIGNING_JSON` stays in the tag-only publishing job, and `apps/android/release-certificate.sha256` pins the public certificate. Never commit or regenerate the production signing key as a workaround. Keep all five package versions and the plugin version aligned, with notes in `docs/releases/<version>.md`. The publishing job uses the `TASKER_GOOGLE_DESKTOP_CLIENT_JSON` repository secret; never print its value or expose it to PR checks. `scripts/publish-release.mjs` verifies uploaded assets before making a draft public and never replaces published releases. Tag only commits already merged into main.

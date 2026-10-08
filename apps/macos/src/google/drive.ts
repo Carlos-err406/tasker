@@ -141,12 +141,18 @@ export class DriveBackups {
             !Number.isFinite(Date.parse(manifest.createdAt))
           )
             return [];
-          return [{ ...manifest, fileId: file.id }];
+          return [
+            {
+              ...manifest,
+              fileId: file.id,
+              sourceDevice: file.appProperties?.sourceDevice,
+            },
+          ];
         } catch {
           return [];
         }
       })
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   }
   async download(fileId: string) {
     const manifest = (await this.list()).find((b) => b.fileId === fileId);
@@ -174,7 +180,10 @@ export class DriveBackups {
     return { manifest, bytes: Buffer.concat(chunks) };
   }
   async prune() {
-    const automatic = (await this.list()).filter((b) => b.kind === "automatic");
+    // Android manages retention for snapshots marked with its own device ID.
+    const automatic = (await this.list()).filter(
+      (b) => b.kind === "automatic" && !b.sourceDevice,
+    );
     for (const old of automatic.slice(7))
       await this.call(API + "/" + encodeURIComponent(old.fileId), {
         method: "DELETE",
