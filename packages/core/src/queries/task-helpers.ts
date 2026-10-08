@@ -70,6 +70,11 @@ export function dueDateSortOrder(dueDate: string | null, todayStr: string): numb
   return Math.round((due.getTime() - today.getTime()) / 86400000);
 }
 
+/** Unprioritized tasks count as normal: p3 (low) explicitly ranks below them. */
+function prioritySortOrder(priority: Task['priority']): number {
+  return priority ?? 2.5;
+}
+
 /** Sort tasks for display: active (InProgress, Pending) sorted by status/priority/due, then done by completedAt DESC */
 export function sortTasksForDisplay(
   tasks: Task[],
@@ -85,9 +90,9 @@ export function sortTasksForDisplay(
       // Status: InProgress first
       const s = statusSortOrder(a.status) - statusSortOrder(b.status);
       if (s !== 0) return s;
-      // Priority: lower number = higher priority, null sorts last
-      const pa = a.priority ?? 99;
-      const pb = b.priority ?? 99;
+      // Priority: p1, p2, then no priority (the normal baseline), then p3
+      const pa = prioritySortOrder(a.priority);
+      const pb = prioritySortOrder(b.priority);
       if (pa !== pb) return pa - pb;
       // Due date: sooner first
       const da = dueDateSortOrder(a.dueDate, today);
