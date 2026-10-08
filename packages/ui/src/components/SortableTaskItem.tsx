@@ -21,6 +21,8 @@ interface SortableTaskItemProps {
   onEditingChange?: (taskId: string, editing: boolean) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
+  showListName?: boolean;
+  onSelectList?: (listName: string) => void;
 }
 
 export const SortableTaskItem = memo(function SortableTaskItem({

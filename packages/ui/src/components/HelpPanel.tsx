@@ -73,6 +73,8 @@ export function HelpPanel({
             <span>Blocked by task</span>
             <span className="font-mono">~abc</span>
             <span>Related task</span>
+            <span className="font-mono">&gt;list-name</span>
+            <span>Create in / move to list (removed on save)</span>
           </div>
         </section>
 

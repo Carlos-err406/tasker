@@ -1,4 +1,4 @@
-import { syncAndRefresh } from "@tasker/ui";
+import { listLabel, syncAndRefresh } from "@tasker/ui";
 import { manage } from "./host-adapter.js";
 import { Backups } from "./Backups.js";
 import { About } from "./About.js";
@@ -361,7 +361,7 @@ function App() {
                       aria-keyshortcuts="Meta+K"
                       className="search"
                       aria-label="Search tasks"
-                      placeholder={`Search ${store.selectedList}…`}
+                      placeholder={`Search ${listLabel(store.selectedList)}…`}
                       value={search}
                       onKeyDown={(event) => {
                         if (event.key === "Escape" && search) {

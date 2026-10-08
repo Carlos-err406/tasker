@@ -42,6 +42,7 @@ import {
   usePullToRefresh,
   PullToRefreshIndicator,
   syncAndRefresh,
+  listLabel,
 } from "@tasker/ui";
 import { manageSync } from "./sync";
 import { About } from "./About";
@@ -134,7 +135,7 @@ function App() {
               <Search aria-hidden="true" />
               <Input
                 aria-label="Search tasks"
-                placeholder={`Search ${store.selectedList}…`}
+                placeholder={`Search ${listLabel(store.selectedList)}…`}
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);

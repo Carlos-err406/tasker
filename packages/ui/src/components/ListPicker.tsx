@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
 } from "./ui/dropdown-menu.js";
 import { Button } from "./ui/button.js";
+import { ALL_LISTS, ALL_LISTS_LABEL, listLabel } from "../lib/all-lists.js";
 
 export function ListPicker({
   className,
@@ -44,9 +45,9 @@ export function ListPicker({
           className={className}
           aria-label="Choose list"
           disabled={disabled}
-          title={selected}
+          title={listLabel(selected)}
         >
-          <span>{selected}</span>
+          <span>{listLabel(selected)}</span>
           <ChevronDown aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
@@ -66,6 +67,14 @@ export function ListPicker({
         }}
       >
         <DropdownMenuRadioGroup value={selected}>
+          <DropdownMenuRadioItem
+            value={ALL_LISTS}
+            onSelect={() => onSelect(ALL_LISTS)}
+          >
+            {ALL_LISTS_LABEL}
+          </DropdownMenuRadioItem>
+          {/* Inset so it never lines up with a border behind the menu. */}
+          <DropdownMenuSeparator className="mx-2" />
           {lists.map((name) => (
             <DropdownMenuRadioItem
               key={name}
@@ -85,7 +94,7 @@ export function ListPicker({
         >
           <Plus /> Create list
         </DropdownMenuItem>
-        {selected !== defaultList && (
+        {selected !== defaultList && selected !== ALL_LISTS && (
           <>
             <DropdownMenuItem
               onSelect={() => {

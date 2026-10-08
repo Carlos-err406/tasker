@@ -1,12 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Task } from '@tasker/core/types';
 import * as taskService from '../lib/services/tasks.js';
+import * as listService from '../lib/services/lists.js';
+import { listTargetKey } from '@tasker/core/parsers';
 import { getDisplayTitle, getShortId } from '../lib/task-display.js';
 import { getPlainText, setCaretOffset, getTextBeforeCursor } from '../lib/content-editable-utils.js';
 
 export type Suggestion =
   | { kind: 'task'; task: Task; shortId: string; title: string }
-  | { kind: 'tag'; tag: string; count: number };
+  | { kind: 'tag'; tag: string; count: number }
+  | { kind: 'list'; name: string };
 
 interface AutocompleteState {
   isOpen: boolean;
@@ -29,8 +32,9 @@ const CLOSED: AutocompleteState = {
 
 /** Regex to detect a metadata prefix at cursor position.
  *  Matches: ^, !, ~, -^, -! followed by optional partial ID/query chars,
- *  or # followed by an optional partial tag (same characters as the parser). */
-const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#)([\w-]*)$/;
+ *  # followed by an optional partial tag (same characters as the parser),
+ *  or > followed by an optional partial list name. */
+const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#|>)([\w-]*)$/;
 const TAG_RE = /(?:^|\s)#([\w-]+)/g;
 
 /** Existing tags ranked by prefix match, then usage, skipping ones already in the text. */
@@ -51,6 +55,18 @@ export function suggestTags(tasks: Task[], partial: string, text: string): Sugge
     )
     .slice(0, 50)
     .map(([tag, count]) => ({ kind: 'tag', tag, count }));
+}
+
+/** Lists whose `>` form contains what was typed, prefix matches first. */
+export function suggestLists(lists: string[], partial: string): Suggestion[] {
+  const typed = listTargetKey(partial);
+  return lists
+    .filter((name) => listTargetKey(name).includes(typed))
+    .sort(
+      (a, b) =>
+        Number(listTargetKey(b).startsWith(typed)) - Number(listTargetKey(a).startsWith(typed)),
+    )
+    .map((name) => ({ kind: 'list', name }));
 }
 
 function suggestTasks(tasks: Task[], partial: string, excludeTaskId?: string): Suggestion[] {
@@ -129,6 +145,14 @@ export function useMetadataAutocomplete(
       // matchStart is the absolute index in value where the prefix begins
       const matchStart = lineStart + match.index + (match[0].startsWith(' ') ? 1 : 0);
 
+      if (prefix === '>') {
+        const lists = await listService.getAllLists().catch(() => null);
+        if (!lists || thisVersion !== detectVersionRef.current) return;
+        const suggestions = suggestLists(lists, partial);
+        setState({ isOpen: suggestions.length > 0, suggestions, selectedIndex: 0, prefix, partial, matchStart });
+        return;
+      }
+
       // Fetch tasks if needed
       let tasks = allTasksRef.current;
       if (!tasks) {
@@ -179,14 +203,16 @@ export function useMetadataAutocomplete(
       // in the live text — don't trust state.partial which can be stale due
       // to React closure/batching races.
       const afterMatchStart = liveValue.slice(state.matchStart);
-      const prefixPartialMatch = /^(-[!^]|[!^~]|#)[\w-]*/.exec(afterMatchStart);
+      const prefixPartialMatch = /^(-[!^]|[!^~]|#|>)[\w-]*/.exec(afterMatchStart);
       const replaceLen = prefixPartialMatch ? prefixPartialMatch[0].length : state.prefix.length;
 
       // No trailing space: contenteditable collapses it before the next keystroke.
       const insertion =
         suggestion.kind === 'tag'
           ? `#${suggestion.tag}`
-          : state.prefix + suggestion.shortId;
+          : suggestion.kind === 'list'
+            ? `>${listTargetKey(suggestion.name)}`
+            : state.prefix + suggestion.shortId;
       const newValue = liveValue.slice(0, state.matchStart) + insertion + liveValue.slice(state.matchStart + replaceLen);
       ++detectVersionRef.current; // Cancel in-flight detects so they can't re-open the dropdown
       justSelectedRef.current = true; // Suppress the next detect triggered by the new value

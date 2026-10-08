@@ -79,3 +79,9 @@ export {
   getDefaultList,
   setDefaultList,
 } from './config-queries.js';
+
+// All lists view order (device-local)
+export { getAllListsOrder, reorderAllListsTask, applySystemSortAllLists } from './all-lists-order.js';
+
+// >list metadata (create in / move to a list)
+export { resolveListTarget, takeListTarget } from './list-target.js';

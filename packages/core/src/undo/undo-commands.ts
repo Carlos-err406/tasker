@@ -79,6 +79,13 @@ export interface ReorderTaskCmd extends BaseCommand {
   newIndex: number;
 }
 
+export interface ReorderAllListsTaskCmd extends BaseCommand {
+  $type: 'reorderAllListsTask';
+  taskId: string;
+  oldIndex: number;
+  newIndex: number;
+}
+
 export interface ReorderListCmd extends BaseCommand {
   $type: 'reorderList';
   listName: string;
@@ -137,6 +144,7 @@ export type UndoCommand =
   | MetadataChangedCmd
   | RenameListCmd
   | ReorderTaskCmd
+  | ReorderAllListsTaskCmd
   | ReorderListCmd
   | DeleteListCmd
   | SetParentCmd
@@ -158,6 +166,7 @@ export function getCommandDescription(cmd: UndoCommand): string {
     case 'metadata': return `Changed ${cmd.taskId}`;
     case 'renameList': return `Rename list: ${cmd.oldName} to ${cmd.newName}`;
     case 'reorderTask': return `Reorder task in ${cmd.listName}`;
+    case 'reorderAllListsTask': return 'Reorder task in All lists';
     case 'reorderList': return `Reorder ${cmd.listName} list`;
     case 'deleteList': return `Delete list: ${cmd.listName}`;
     case 'set-parent': return cmd.newParentId ? `Set parent: ${cmd.taskId} → ${cmd.newParentId}` : `Remove parent: ${cmd.taskId}`;

@@ -64,4 +64,91 @@ describe("portable task operations", () => {
     expect(task.tags).toBeNull();
     expect(task.priority).toBeNull();
   });
+
+  it("keeps a device-local All lists order that drags, sorts and undoes independently of list order", async () => {
+    const db = createTestDb();
+    const registry = createRegistry(db, new UndoManager(db));
+    await registry.invoke("lists:create", ["work"]);
+    const add = async (text: string, list: string) =>
+      (await registry.invoke("tasks:add", [text, list]))[1].task.id as string;
+    const low = await add("low\np3", "tasks");
+    const plain = await add("plain", "work");
+    const high = await add("high\np1", "work");
+    const order = async () => (await registry.invoke("tasks:getAllListsOrder", []))[1] as string[];
+    const listOrder = async (list: string) =>
+      ((await registry.invoke("tasks:getAll", [list]))[1] as { id: string }[]).map((t) => t.id);
+
+    // Without a saved order, All starts in system order.
+    expect(await order()).toEqual([high, plain, low]);
+    const workBefore = await listOrder("work");
+
+    // Dragging in All changes only the All order.
+    await registry.invoke("tasks:reorderAllLists", [low, 0]);
+    expect(await order()).toEqual([low, high, plain]);
+    expect(await listOrder("work")).toEqual(workBefore);
+
+    // New tasks appear at the top of All.
+    const fresh = await add("fresh", "work");
+    expect(await order()).toEqual([fresh, low, high, plain]);
+
+    // Undo/redo replay the All reorder.
+    await registry.invoke("undo:undo", []); // undo the add
+    await registry.invoke("undo:undo", []); // undo the All reorder
+    expect((await order()).filter((id) => id !== fresh)).toEqual([high, plain, low]);
+    await registry.invoke("undo:redo", []);
+    expect((await order()).filter((id) => id !== fresh)).toEqual([low, high, plain]);
+
+    // System sort in All restores system order without touching the lists.
+    const workNow = await listOrder("work");
+    await registry.invoke("tasks:applySystemSortAllLists", []);
+    expect((await order()).filter((id) => id !== fresh)).toEqual([high, plain, low]);
+    expect(await listOrder("work")).toEqual(workNow);
+  });
+
+  it("creates in or moves to the list named by >list, stripping the token", async () => {
+    const db = createTestDb();
+    const registry = createRegistry(db, new UndoManager(db));
+    await registry.invoke("lists:create", ["to download"]);
+    await registry.invoke("lists:create", ["work"]);
+    const get = async (id: string) => (await registry.invoke("tasks:getById", [id]))[1];
+
+    // Create: spaces in list names are written with - or _, case-insensitively.
+    const [, added] = await registry.invoke("tasks:add", ["Some book\n#book >To-Download", "tasks"]);
+    expect(added.task.listName).toBe("to download");
+    expect(added.task.description).toBe("Some book\n#book");
+
+    // A lone >list line disappears entirely.
+    const [, plain] = await registry.invoke("tasks:add", ["Standup notes\n>work", "tasks"]);
+    expect(plain.task.listName).toBe("work");
+    expect(plain.task.description).toBe("Standup notes");
+
+    // Edit: moves the task, strips the token, one undo step restores both.
+    const id = added.task.id;
+    await registry.invoke("tasks:rename", [id, "Some book\n#book p2 >work"]);
+    expect(await get(id)).toMatchObject({ listName: "work", description: "Some book\np2 #book" });
+    await registry.invoke("undo:undo", []);
+    expect(await get(id)).toMatchObject({ listName: "to download", description: "Some book\n#book" });
+    await registry.invoke("undo:redo", []);
+    expect(await get(id)).toMatchObject({ listName: "work", description: "Some book\np2 #book" });
+
+    // Unknown lists fail without changing anything.
+    const [error] = await registry.invoke("tasks:rename", [id, "Renamed\n>nowhere"]);
+    expect(error?.message).toContain('No list matches ">nowhere"');
+    expect(await get(id)).toMatchObject({ listName: "work", description: "Some book\np2 #book" });
+    const [addError] = await registry.invoke("tasks:add", ["Lost\n>nowhere", "tasks"]);
+    expect(addError?.message).toContain("No list matches");
+  });
+
+  it("rolls back an edit whose >list move is refused", async () => {
+    const db = createTestDb();
+    const registry = createRegistry(db, new UndoManager(db));
+    await registry.invoke("lists:create", ["work"]);
+    const parent = (await registry.invoke("tasks:add", ["parent", "tasks"]))[1].task.id;
+    const child = (await registry.invoke("tasks:add", [`child\n^${parent}`, "tasks"]))[1].task.id;
+    const [error] = await registry.invoke("tasks:rename", [child, `child renamed\n^${parent} >work`]);
+    expect(error?.message).toContain("Cannot move subtask");
+    const task = (await registry.invoke("tasks:getById", [child]))[1];
+    expect(task.listName).toBe("tasks");
+    expect(task.description).toBe(`child\n^${parent}`);
+  });
 });

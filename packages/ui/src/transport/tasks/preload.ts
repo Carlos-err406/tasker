@@ -10,6 +10,9 @@ import {
   TASKS_DELETE,
   TASKS_MOVE,
   TASKS_REORDER,
+  TASKS_GET_ALL_LISTS_ORDER,
+  TASKS_REORDER_ALL_LISTS,
+  TASKS_APPLY_SYSTEM_SORT_ALL_LISTS,
   TASKS_SET_DUE_DATE,
   TASKS_SET_PRIORITY,
   TASKS_GET_STATS,
@@ -111,6 +114,18 @@ export const tasksInvokerFactory = (ipcRenderer: { invoke: (channel: string, ...
     ipcRenderer.invoke(TASKS_APPLY_SYSTEM_SORT, listName)) as (
     listName?: string,
   ) => TryResult<number>,
+
+  [TASKS_GET_ALL_LISTS_ORDER]: (() =>
+    ipcRenderer.invoke(TASKS_GET_ALL_LISTS_ORDER)) as () => TryResult<string[]>,
+
+  [TASKS_REORDER_ALL_LISTS]: ((taskId: string, newIndex: number) =>
+    ipcRenderer.invoke(TASKS_REORDER_ALL_LISTS, taskId, newIndex)) as (
+    taskId: string,
+    newIndex: number,
+  ) => TryResult<void>,
+
+  [TASKS_APPLY_SYSTEM_SORT_ALL_LISTS]: (() =>
+    ipcRenderer.invoke(TASKS_APPLY_SYSTEM_SORT_ALL_LISTS)) as () => TryResult<void>,
 
   [TASKS_SOFT_DELETE_BY_STATUS]: ((status: TaskStatus, listName?: string) =>
     ipcRenderer.invoke(TASKS_SOFT_DELETE_BY_STATUS, status, listName)) as (

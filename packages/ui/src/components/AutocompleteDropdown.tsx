@@ -4,7 +4,7 @@ import { TaskStatus } from '@tasker/core/types';
 import type { Suggestion } from '../hooks/use-metadata-autocomplete.js';
 import { cn } from '../lib/utils.js';
 import { getTagColor } from '../lib/task-display.js';
-import { Tag } from 'lucide-react';
+import { Tag, List as ListIcon } from 'lucide-react';
 
 interface AutocompleteDropdownProps {
   suggestions: Suggestion[];
@@ -55,7 +55,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
     >
       {suggestions.map((s, i) => (
         <button
-          key={s.kind === 'tag' ? `#${s.tag}` : s.task.id}
+          key={s.kind === 'tag' ? `#${s.tag}` : s.kind === 'list' ? `>${s.name}` : s.task.id}
           ref={i === selectedIndex ? selectedRef : undefined}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -66,7 +66,12 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
             i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
           )}
         >
-          {s.kind === 'tag' ? (
+          {s.kind === 'list' ? (
+            <>
+              <ListIcon className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <span className="truncate flex-1">{s.name}</span>
+            </>
+          ) : s.kind === 'tag' ? (
             <>
               <span
                 className={cn(

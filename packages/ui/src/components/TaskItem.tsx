@@ -29,6 +29,7 @@ import {
   Link2,
   Calendar,
   Tag,
+  List as ListIcon,
   Pencil,
   Trash2,
   FolderInput,
@@ -82,6 +83,10 @@ interface TaskItemProps {
   onEditingChange?: (taskId: string, editing: boolean) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;
+  /** Show which list the task belongs to (only in the All view). */
+  showListName?: boolean;
+  /** Clicking the list label opens that list. */
+  onSelectList?: (listName: string) => void;
 }
 
 export const TaskItem = memo(function TaskItem({
@@ -100,6 +105,8 @@ export const TaskItem = memo(function TaskItem({
   onEditingChange,
   showMediaPreviews = true,
   mediaPreviewResetSignal = 0,
+  showListName = false,
+  onSelectList,
 }: TaskItemProps) {
   const [editing, setEditing] = useState(false);
   useEffect(() => {
@@ -661,10 +668,26 @@ export const TaskItem = memo(function TaskItem({
                     </div>
                   )}
 
-                  {/* Tags */}
-                  {task.tags && task.tags.length > 0 && (
+                  {/* List (All view) and tags */}
+                  {(showListName || (task.tags && task.tags.length > 0)) && (
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      {task.tags.map((tag) => (
+                      {showListName && (
+                        <button
+                          type="button"
+                          data-task-list
+                          title={`Open ${task.listName}`}
+                          aria-label={`Open list ${task.listName}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectList?.(task.listName);
+                          }}
+                          className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border px-1.5 py-0 text-[10px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                        >
+                          <ListIcon className="h-2.5 w-2.5 flex-shrink-0" />
+                          <span className="truncate">{task.listName}</span>
+                        </button>
+                      )}
+                      {(task.tags ?? []).map((tag) => (
                         <button
                           key={tag}
                           data-task-tag

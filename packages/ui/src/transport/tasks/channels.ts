@@ -18,3 +18,6 @@ export const TASKS_SOFT_DELETE_BY_STATUS = 'tasks:softDeleteByStatus';
 export const TASKS_SOFT_DELETE_OLDER_THAN = 'tasks:softDeleteOlderThan';
 export const TASKS_GET_TRASH = 'tasks:getTrash';
 export const TASKS_CLEAR_TRASH = 'tasks:clearTrash';
+export const TASKS_GET_ALL_LISTS_ORDER = "tasks:getAllListsOrder";
+export const TASKS_REORDER_ALL_LISTS = "tasks:reorderAllLists";
+export const TASKS_APPLY_SYSTEM_SORT_ALL_LISTS = "tasks:applySystemSortAllLists";

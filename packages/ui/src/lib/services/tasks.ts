@@ -87,3 +87,16 @@ export async function getTrash(listName?: string): Promise<Task[]> {
 export async function clearTrash(listName?: string): Promise<number> {
   return unwrap(IPC['tasks:clearTrash'](listName));
 }
+
+/** "All lists" view order (task IDs), saved per device. */
+export async function getAllListsOrder(): Promise<string[]> {
+  return unwrap(IPC['tasks:getAllListsOrder']());
+}
+
+export async function reorderAllListsTask(taskId: string, newIndex: number): Promise<void> {
+  return unwrap(IPC['tasks:reorderAllLists'](taskId, newIndex));
+}
+
+export async function applySystemSortAllLists(): Promise<void> {
+  return unwrap(IPC['tasks:applySystemSortAllLists']());
+}

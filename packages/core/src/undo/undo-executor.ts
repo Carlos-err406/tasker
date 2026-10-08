@@ -12,6 +12,7 @@ import {
   setParent, unsetParent, addBlocker, removeBlocker, addRelated, removeRelated,
 } from '../queries/task-queries.js';
 import { renameList, reorderList, deleteList } from '../queries/list-queries.js';
+import { reorderAllListsTask } from '../queries/all-lists-order.js';
 
 /** Execute a command (for redo) */
 export function executeCommand(db: TaskerDb, cmd: UndoCommand): void {
@@ -48,6 +49,9 @@ export function executeCommand(db: TaskerDb, cmd: UndoCommand): void {
       break;
     case 'reorderTask':
       reorderTask(db, cmd.taskId, cmd.newIndex);
+      break;
+    case 'reorderAllListsTask':
+      reorderAllListsTask(db, cmd.taskId, cmd.newIndex);
       break;
     case 'reorderList':
       reorderList(db, cmd.listName, cmd.newIndex);
@@ -118,6 +122,9 @@ export function undoCommand(db: TaskerDb, cmd: UndoCommand): void {
       break;
     case 'reorderTask':
       reorderTask(db, cmd.taskId, cmd.oldIndex);
+      break;
+    case 'reorderAllListsTask':
+      reorderAllListsTask(db, cmd.taskId, cmd.oldIndex);
       break;
     case 'reorderList':
       reorderList(db, cmd.listName, cmd.oldIndex);

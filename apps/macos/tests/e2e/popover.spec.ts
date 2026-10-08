@@ -1610,3 +1610,98 @@ test("wide pasted text wraps in the editor and code blocks keep thin scrollbars"
     await input.evaluate((el: HTMLElement) => el.offsetHeight - el.clientHeight),
   ).toBeLessThanOrEqual(2);
 });
+
+test("All lists shows every list's tasks with a list label only there", async ({
+  page,
+}) => {
+  await add(page, "Default task");
+  await createList(page, "work");
+  await add(page, "Work task\n#demo");
+  const names = page.locator('[data-testid^="task-name-"]');
+  const labels = page.locator("[data-task-list]");
+  await expect(labels).toHaveCount(0);
+
+  await chooseList(page, "All lists");
+  await expect(names).toHaveText(["Work task", "Default task"]);
+  await expect(labels).toHaveText(["work", "tasks"]);
+  await expect(
+    page.getByRole("textbox", { name: "Search tasks" }),
+  ).toHaveAttribute("placeholder", "Search All lists…");
+  // The All view is not a real list: it cannot be renamed or deleted.
+  await page.getByRole("button", { name: "Choose list", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Rename list" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Delete list" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // New tasks from the All view go to the default list.
+  await add(page, "Added from all");
+  await expect(names).toHaveText(["Added from all", "Work task", "Default task"]);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "All lists",
+  );
+  await expect(labels).toHaveCount(3);
+
+  // All lists has its own order: dragging there leaves the lists' order alone.
+  const rows = page.locator("[data-task-id]");
+  await dragVertically(page, rows.nth(2), rows.nth(0));
+  await expect(names).toHaveText(["Default task", "Added from all", "Work task"]);
+  await page.reload();
+  await expect(names).toHaveText(["Default task", "Added from all", "Work task"]);
+  await page.keyboard.press("Meta+j");
+  await expect(page.locator("footer").getByRole("status")).toHaveText(
+    "Sorted All lists",
+  );
+  await expect(names).toHaveText(["Added from all", "Work task", "Default task"]);
+
+  // Clicking a task's list label opens that list.
+  await labels.filter({ hasText: "work" }).click();
+  await expect(page.getByRole("button", { name: "Choose list" })).toHaveText(
+    "work",
+  );
+  await expect(names).toHaveText(["Work task"]);
+  await expect(labels).toHaveCount(0);
+
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["Added from all", "Default task"]);
+  await expect(labels).toHaveCount(0);
+});
+
+test("completes >list and creates or moves the task there, stripping the token", async ({
+  page,
+}) => {
+  await createList(page, "to download");
+  await chooseList(page, "tasks");
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.pressSequentially("Some book");
+  await input.press("Enter");
+  await input.pressSequentially(">to-d");
+  const options = page
+    .getByTestId("metadata-autocomplete-dropdown")
+    .getByRole("button");
+  await expect(options).toHaveText(["to download"]);
+  await input.press("Enter");
+  await input.pressSequentially(" #book");
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  const names = page.locator('[data-testid^="task-name-"]');
+  // Created in "to download", not the visible list.
+  await expect(names).toHaveCount(0);
+  await chooseList(page, "to download");
+  await expect(names).toHaveText(["Some book"]);
+  const row = page.locator('[data-testid^="task-item-"]').first();
+  await expect(row.locator("[data-task-tag]")).toHaveText(["book"]);
+  await expect(row).not.toContainText(">to-download");
+
+  // Editing with >tasks moves it back.
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await editor.press("End");
+  await editor.pressSequentially(" >tasks");
+  await editor.press("Meta+Enter");
+  await expect(names).toHaveCount(0);
+  await chooseList(page, "tasks");
+  await expect(names).toHaveText(["Some book"]);
+});
