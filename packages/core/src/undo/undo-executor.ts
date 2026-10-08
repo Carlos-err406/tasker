@@ -26,7 +26,7 @@ export function executeCommand(db: TaskerDb, cmd: UndoCommand): void {
       setStatus(db, cmd.taskId, cmd.newStatus);
       break;
     case 'rename':
-      renameTask(db, cmd.taskId, cmd.newDescription);
+      renameTask(db, cmd.taskId, cmd.newDescription, { replaceMetadata: true });
       break;
     case 'move':
       moveTask(db, cmd.taskId, cmd.targetList);
@@ -92,7 +92,7 @@ export function undoCommand(db: TaskerDb, cmd: UndoCommand): void {
       setStatus(db, cmd.taskId, cmd.oldStatus);
       break;
     case 'rename':
-      renameTask(db, cmd.taskId, cmd.oldDescription);
+      renameTask(db, cmd.taskId, cmd.oldDescription, { replaceMetadata: true });
       break;
     case 'move':
       moveTask(db, cmd.taskId, cmd.sourceList);

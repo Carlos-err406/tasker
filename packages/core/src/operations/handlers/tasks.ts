@@ -103,7 +103,11 @@ export const tasksRegister: IPCRegisterFunction = (
       const task = getTaskById(db, taskId);
       if (!task) return { type: "not-found" as const, taskId };
       const oldDescription = task.description;
-      const result = renameTask(db, taskId, newDescription);
+      // Editors send the whole description, so a removed metadata line means
+      // the metadata was deleted rather than left untouched.
+      const result = renameTask(db, taskId, newDescription, {
+        replaceMetadata: true,
+      });
       if (result.type === "success") {
         undo.recordCommand({
           $type: "rename",
