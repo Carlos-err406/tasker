@@ -73,7 +73,8 @@ export function ListPicker({
           >
             {ALL_LISTS_LABEL}
           </DropdownMenuRadioItem>
-          <DropdownMenuSeparator />
+          {/* Inset so it never lines up with a border behind the menu. */}
+          <DropdownMenuSeparator className="mx-2" />
           {lists.map((name) => (
             <DropdownMenuRadioItem
               key={name}
