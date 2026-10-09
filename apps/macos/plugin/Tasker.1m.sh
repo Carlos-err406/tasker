@@ -1,6 +1,6 @@
 #!/bin/bash
 # <xbar.title>Tasker</xbar.title>
-# <xbar.version>0.2.2</xbar.version>
+# <xbar.version>1.0.0</xbar.version>
 # <xbar.desc>Local tasks in a SwiftBar popover</xbar.desc>
 # <swiftbar.keepWebViewOpenForOverlays>true</swiftbar.keepWebViewOpenForOverlays>
 set -eu
