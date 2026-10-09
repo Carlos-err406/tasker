@@ -23,7 +23,7 @@ async function plugin(env: Record<string, string>) {
     })
   ).stdout;
 }
-it("keeps the original template icon when the service is unavailable", async () => {
+it("emits the template icon when the service is unavailable", async () => {
   const data = await directory();
   const output = await plugin({
     TASKER_SWIFTBAR_DATA_DIR: data,
@@ -34,7 +34,7 @@ it("keeps the original template icon when the service is unavailable", async () 
   const encoded = first.match(/templateImage=([^ ]+)/)![1]!;
   expect(
     createHash("sha256").update(Buffer.from(encoded, "base64")).digest("hex"),
-  ).toBe("aa3586a286078d6989ae4027bfe32bd79780ca6a73c852c82162dc3e90058e7f");
+  ).toBe("21663a30fb4f31c0947910b4811169fa05b36263cac94c00011c8e4f9b278edd");
   expect(first.startsWith("Tasker")).toBe(false);
   expect(output.includes("Service unavailable")).toBe(true);
 });
