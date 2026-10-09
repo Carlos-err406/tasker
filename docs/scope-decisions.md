@@ -17,7 +17,6 @@ User decisions from the feature comparison on 2026-09-27. These supersede earlie
 ## Future bucket, outside MVP
 
 - Compact command palette, including bulk cleanup and priority/date actions.
-- CLI integration with the new app's database/service.
 - Apple Reminders integration.
 - Due-date notifications.
 
@@ -59,3 +58,9 @@ The mobile actions drawer contains the full desktop task context menu, including
 
 - Group version, updates and credits in About on Mac and Android. The user chose Help → About Tasker on desktop so the main header stays compact. Mobile also nests About inside Help (App options → View help → About Tasker), replacing the standalone update/About menu entry. Mobile Help omits desktop keyboard shortcuts and focuses on touch controls.
 - Use one shared panel, with platform-specific update actions and external-link handlers. Keep mobile actions at the bottom. Mac checks releases and links to the existing installer/release workflow; Android retains its verified APK and system-confirmation flow. Opening About does not automatically check the network.
+
+## Agent access through MCP (2026-10-09)
+
+- The user chose an MCP server, not a CLI, so agents can use Tasker. Agents can read and write: list, search and read tasks with their images; add, edit, change status, move, trash and restore. On 2026-10-09 the user added list tools: create, rename and delete, with the app's rule that the default list can't be renamed or deleted. Deleting a list also deletes its tasks and can be undone in the app.
+- The server runs on the Mac over stdio. It uses the running service's loopback session and `/rpc` operations, so edits keep undo, sync and the single-writer lock. Agent writes bump the change revision so an open popover refreshes. The installer writes a stable `tasker-mcp` launcher. No Android server.
+- The user removed every remnant of the legacy cli-tasker app, including its local checkout, launcher and the `tasker-ref` GitHub archive.

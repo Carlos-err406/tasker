@@ -12,6 +12,7 @@
   "include": [
     "src/service",
     "src/backup",
-    "src/google"
+    "src/google",
+    "src/mcp"
   ]
 }

@@ -44,6 +44,7 @@ it("packages only runtime inputs and excludes account files, local state, and sy
       "packages/core/dist/index.js",
       "apps/macos/dist/index.html",
       "apps/macos/dist-service/service/main.js",
+      "apps/macos/dist-service/mcp/main.js",
       "apps/macos/dist-service/google/public-client.js",
     ])
       await fixture(path);
@@ -66,6 +67,7 @@ it("packages only runtime inputs and excludes account files, local state, and sy
     await stageRelease(root, output);
     const files = (await readdir(output, { recursive: true })).map(String);
     expect(files).toContain("apps/macos/dist-service/google/public-client.js");
+    expect(files).toContain("apps/macos/dist-service/mcp/main.js");
     expect(
       files.some((p) =>
         /google-client|runtime\.json|tasker\.db|snapshot|account-tokens|refresh-token|escape\.js|\.env/.test(

@@ -1,6 +1,6 @@
 # Tasker
 
-Repository: [Carlos-err406/tasker](https://github.com/Carlos-err406/tasker). The original app is retained separately as [tasker-ref](https://github.com/Carlos-err406/tasker-ref).
+Repository: [Carlos-err406/tasker](https://github.com/Carlos-err406/tasker).
 
 A local task manager for macOS in SwiftBar and Android, preserving cli-tasker's parser and React Markdown renderer. Each device stores tasks and pasted images in SQLite. Local snapshots work offline; optional Google Drive backups and sync connect your devices.
 
@@ -46,6 +46,18 @@ Official release archives include the public Google Desktop OAuth configuration.
 
 Click Tasker in the menu bar. Choose a list at the top left; search applies to that list, and Tasker remembers your selection. The selector also contains list creation, rename and delete. Use the top-right plus button to add a task; save with Command-Enter. Completed-task visibility sits beside the other app controls. Right-click a task to edit, change status, move, or trash it. Metadata belongs on trailing metadata-only lines (`p1 #tag @tomorrow`). The existing relationship syntax and Markdown shortcuts are retained. Paste images into new tasks or the task editor. Undo/redo, search, lists, trash recovery, media controls and backups are available in the popover.
 
+## Use from AI agents
+
+Tasker includes an MCP server so agents such as Claude Code can read and manage your tasks, including the images attached to them. The installer writes its launcher to `~/.local/share/tasker/tasker-mcp`. Register it once:
+
+```sh
+claude mcp add --scope user tasker -- ~/.local/share/tasker/tasker-mcp
+```
+
+Other MCP clients run the same command over stdio. From a source checkout, use `node apps/macos/dist-service/mcp/main.js` after `pnpm build`.
+
+Agents can list, search and read tasks, and add, edit, complete, move, trash and restore them. They can also create, rename and delete lists; as in the app, the default list can't be renamed or deleted. The server talks to the running Tasker service on this Mac, so Tasker must be running. Agent edits use the normal task operations: they can be undone in the popover, appear in an open popover, and sync to your other devices. There is no Android MCP server.
+
 See [Google setup](docs/google-setup.md), [backup and recovery behavior](docs/backups.md), [architecture](docs/architecture.md), [source provenance](docs/source-provenance.md), and [validation status](docs/implementation-status.md).
 
 ## Check
@@ -58,7 +70,7 @@ pnpm --filter @tasker/macos exec playwright install webkit
 pnpm test:e2e
 ```
 
-Tests use temporary databases and fake Google endpoints. They never use the original cli-tasker database. For an explicit real-host checklist, run `pnpm test:host`; it does not control macOS or create test data automatically.
+Tests use temporary databases and fake Google endpoints. For an explicit real-host checklist, run `pnpm test:host`; it does not control macOS or create test data automatically.
 
 ## Remove the integration
 
@@ -66,7 +78,7 @@ Tests use temporary databases and fake Google endpoints. They never use the orig
 pnpm uninstall:macos
 ```
 
-This stops/removes the LaunchAgent and its managed SwiftBar plugin. It retains tasks, backups, and Keychain credentials; disconnect Google in the app first if you also want its grant removed. Data defaults to `~/Library/Application Support/tasker-swiftbar`, distinct from cli-tasker.
+This stops/removes the LaunchAgent and its managed SwiftBar plugin. It retains tasks, backups, and Keychain credentials; disconnect Google in the app first if you also want its grant removed. Data defaults to `~/Library/Application Support/tasker-swiftbar`.
 
 The original Mac MVP has expanded to Android and Google Drive sync. No hosting service, Supabase, or CalDAV is required.
 
