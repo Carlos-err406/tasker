@@ -12,7 +12,10 @@ import "../../../android/src/mobile.css";
 
 configureHost({
   touch: true,
-  operations: {} as never,
+  operations: {
+    "lists:getAll": async () => [null, ["Tasks", "Other"]],
+    "tasks:getAll": async () => [null, []],
+  } as never,
   onDbChanged: () => () => {},
   onPopupShown: () => () => {},
   onPopupHidden: () => () => {},

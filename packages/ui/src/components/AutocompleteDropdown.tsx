@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { TaskStatus } from '@tasker/core/types';
 import type { Suggestion } from '../hooks/use-metadata-autocomplete.js';
 import { cn } from '../lib/utils.js';
+import { getHost } from '../host.js';
 import { getTagColor } from '../lib/task-display.js';
 import { Tag, List as ListIcon } from 'lucide-react';
 
@@ -19,26 +20,64 @@ const STATUS_DOT: Record<number, string> = {
   [TaskStatus.Done]: 'bg-green-500',
 };
 
+/** The caret's line within the editor, clamped to the editor's visible box. */
+function caretLine(el: HTMLElement, bounds: DOMRect): { top: number; bottom: number } | null {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount || !el.contains(sel.anchorNode)) return null;
+  const range = sel.getRangeAt(0);
+  const rect = [...range.getClientRects()].find((r) => r.height > 0) ?? range.getBoundingClientRect();
+  if (!rect.height) return null;
+  return {
+    top: Math.min(Math.max(rect.top, bounds.top), bounds.bottom),
+    bottom: Math.min(Math.max(rect.bottom, bounds.top), bounds.bottom),
+  };
+}
+
 export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anchorRef }: AutocompleteDropdownProps) {
   const selectedRef = useRef<HTMLButtonElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({ position: 'fixed', visibility: 'hidden' });
 
-  // Recompute position whenever anchor or suggestions change
+  // Recompute position whenever anchor or suggestions change, and while the
+  // viewport moves (e.g. a soft keyboard opening) or the caret moves.
   useLayoutEffect(() => {
-    const el = anchorRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const showAbove = spaceBelow < 210;
-    setStyle({
-      position: 'fixed',
-      width: `${rect.width}px`,
-      left: `${rect.left}px`,
-      ...(showAbove
-        ? { bottom: `${window.innerHeight - rect.top + 4}px`, top: 'auto' }
-        : { top: `${rect.bottom + 4}px`, bottom: 'auto' }),
-      zIndex: 9999,
-    });
+    const position = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // The touch editor fills the screen, so place the list at the caret line
+      // instead of outside the editor.
+      const line = (getHost().touch && caretLine(el, rect)) || rect;
+      const viewport = window.visualViewport;
+      const viewTop = viewport?.offsetTop ?? 0;
+      const viewBottom = viewTop + (viewport?.height ?? window.innerHeight);
+      const spaceBelow = viewBottom - line.bottom - 8;
+      const spaceAbove = line.top - viewTop - 8;
+      const showAbove = spaceBelow < 210 && spaceAbove > spaceBelow;
+      setStyle({
+        position: 'fixed',
+        width: `${rect.width}px`,
+        left: `${rect.left}px`,
+        maxHeight: `${Math.max(0, Math.min(200, showAbove ? spaceAbove : spaceBelow))}px`,
+        ...(showAbove
+          ? { bottom: `${window.innerHeight - line.top + 4}px`, top: 'auto' }
+          : { top: `${line.bottom + 4}px`, bottom: 'auto' }),
+        zIndex: 9999,
+      });
+    };
+    position();
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', position);
+    viewport?.addEventListener('scroll', position);
+    window.addEventListener('resize', position);
+    document.addEventListener('scroll', position, true);
+    document.addEventListener('selectionchange', position);
+    return () => {
+      viewport?.removeEventListener('resize', position);
+      viewport?.removeEventListener('scroll', position);
+      window.removeEventListener('resize', position);
+      document.removeEventListener('scroll', position, true);
+      document.removeEventListener('selectionchange', position);
+    };
   }, [anchorRef, suggestions]);
 
   // Scroll selected item into view
