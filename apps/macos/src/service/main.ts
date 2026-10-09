@@ -1,4 +1,5 @@
 import { startService } from "./server.js";
+import { swiftBarNotify } from "./reminders.js";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +16,7 @@ const service = await startService({
   google,
   assets: fileURLToPath(new URL("../../dist/", import.meta.url)),
   port: Number(process.env["TASKER_SWIFTBAR_PORT"] ?? 0),
+  notify: swiftBarNotify,
 });
 console.log(`Tasker service listening at ${service.origin}`);
 let closing = false;

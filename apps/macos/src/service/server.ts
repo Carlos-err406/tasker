@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, extname, sep } from "node:path";
 import { createDb, getRawDb, UndoManager } from "@tasker/core";
 import { createRegistry } from "./registry.js";
+import { startReminders, type Notify } from "./reminders.js";
 export interface ServiceOptions {
   directory: string;
   port?: number;
@@ -22,6 +23,10 @@ export interface ServiceOptions {
   automaticBackups?: boolean;
   /** Override the native opener for isolated tests. */
   openTarget?: (target: string) => Promise<void>;
+  /** Posts due-time reminders; reminders are off without it (tests never post real ones). */
+  notify?: Notify;
+  /** Override the clock for reminder tests. */
+  now?: () => Date;
 }
 class HttpError extends Error {
   constructor(
@@ -352,10 +357,15 @@ export async function startService(options: ServiceOptions) {
     coordinator.start();
     sync.engine.start();
   }
+  const reminders = options.notify
+    ? startReminders({ db: () => db, notify: options.notify, paused: () => restoring, now: options.now })
+    : undefined;
   return {
     origin,
     token,
+    reminders,
     async close() {
+      reminders?.close();
       await new Promise<void>((ok, fail) => {
         server.close((error) => (error ? fail(error) : ok()));
         server.closeAllConnections();

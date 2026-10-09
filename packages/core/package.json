@@ -32,6 +32,10 @@
       "types": "./dist/parsers/index.d.ts",
       "default": "./dist/parsers/index.js"
     },
+    "./reminders": {
+      "types": "./dist/reminders.d.ts",
+      "default": "./dist/reminders.js"
+    },
     "./undo": {
       "types": "./dist/undo/index.d.ts",
       "default": "./dist/undo/index.js"
