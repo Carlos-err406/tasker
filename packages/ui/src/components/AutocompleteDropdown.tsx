@@ -5,7 +5,7 @@ import type { Suggestion } from '../hooks/use-metadata-autocomplete.js';
 import { cn } from '../lib/utils.js';
 import { getHost } from '../host.js';
 import { getTagColor } from '../lib/task-display.js';
-import { Tag, List as ListIcon } from 'lucide-react';
+import { Tag, List as ListIcon, Repeat } from 'lucide-react';
 
 interface AutocompleteDropdownProps {
   suggestions: Suggestion[];
@@ -94,7 +94,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
     >
       {suggestions.map((s, i) => (
         <button
-          key={s.kind === 'tag' ? `#${s.tag}` : s.kind === 'list' ? `>${s.name}` : s.task.id}
+          key={s.kind === 'tag' ? `#${s.tag}` : s.kind === 'list' ? `>${s.name}` : s.kind === 'repeat' ? `*${s.token}` : s.task.id}
           ref={i === selectedIndex ? selectedRef : undefined}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -105,7 +105,13 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
             i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
           )}
         >
-          {s.kind === 'list' ? (
+          {s.kind === 'repeat' ? (
+            <>
+              <Repeat className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <span className="font-mono text-xs flex-1">*{s.token}</span>
+              <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.label}</span>
+            </>
+          ) : s.kind === 'list' ? (
             <>
               <ListIcon className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
               <span className="truncate flex-1">{s.name}</span>

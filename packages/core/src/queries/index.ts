@@ -25,6 +25,7 @@ export {
   softDeleteByStatus,
   softDeleteOlderThan,
   setStatuses,
+  rollForward,
   renameTask,
   moveTask,
   clearTasks,
@@ -53,7 +54,7 @@ export {
   getTaskTitles,
   applySystemSort,
 } from './task-queries.js';
-export type { AddResult, TaskRelCounts, TaskSummary } from './task-queries.js';
+export type { AddResult, TaskRelCounts, TaskSummary, RollForward } from './task-queries.js';
 
 // List queries
 export {

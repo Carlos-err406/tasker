@@ -27,6 +27,7 @@ import {
 } from '../parsers/task-description-parser.js';
 import { parseSearchFilters } from '../parsers/search-filter-parser.js';
 import { formatDate, addDays } from '../parsers/date-parser.js';
+import { nextOccurrence } from '../parsers/recurrence.js';
 import { getAllListNames } from './list-queries.js';
 
 // ---------------------------------------------------------------------------
@@ -367,6 +368,8 @@ export function addTask(db: TaskerDb, description: string, listName: ListName): 
     }
   }
 
+  if (parsed.repeatRaw && !task.dueDate) warnings.push(`*${parsed.repeatRaw} needs a due date (@date) to repeat`);
+
   ensureListExists(db, task.listName);
   insertTask(db, task);
 
@@ -553,6 +556,46 @@ export function softDeleteOlderThan(db: TaskerDb, beforeDate: string, listName?:
 }
 
 /** Batch set status for multiple tasks */
+export interface RollForward {
+  next: string;
+  oldDescription: string;
+  newDescription: string;
+  oldStatus: TaskStatus;
+  /** Descendants set back to pending, with their previous status. */
+  resetSubtasks: { id: TaskId; oldStatus: TaskStatus }[];
+}
+
+/**
+ * Completing a repeating task moves it to its next occurrence instead: the due date
+ * advances, and it and its subtasks return to pending. Returns null when the task
+ * doesn't repeat (no `*interval`, or no due date).
+ */
+export function rollForward(db: TaskerDb, taskId: TaskId, now = new Date()): RollForward | null {
+  const task = getTaskById(db, taskId);
+  if (!task?.dueDate) return null;
+  const parsed = parseDescription(task.description);
+  if (!parsed.repeat) return null;
+  const next = nextOccurrence(task.dueDate, parsed.repeat, formatDate(now));
+  const withDate = (dueDate: string) =>
+    syncMetadataToDescription(
+      task.description, task.priority, dueDate, task.tags,
+      parsed.parentId, parsed.blocksIds, parsed.hasSubtaskIds, parsed.blockedByIds, parsed.relatedIds,
+    );
+  // The old text is recorded with its date pinned, so undo restores it exactly on any day.
+  const oldDescription = withDate(task.dueDate);
+  const newDescription = withDate(next);
+  renameTask(db, taskId, newDescription, { replaceMetadata: true });
+  if (task.status !== TS.Pending) setStatus(db, taskId, TS.Pending);
+  const resetSubtasks: RollForward['resetSubtasks'] = [];
+  for (const id of getAllDescendantIds(db, taskId)) {
+    const subtask = getTaskById(db, id);
+    if (!subtask || subtask.status === TS.Pending) continue;
+    resetSubtasks.push({ id, oldStatus: subtask.status });
+    setStatus(db, id, TS.Pending);
+  }
+  return { next, oldDescription, newDescription, oldStatus: task.status, resetSubtasks };
+}
+
 export function setStatuses(db: TaskerDb, taskIds: TaskId[], status: TaskStatus): BatchResult {
   const results: TaskResult[] = [];
 
@@ -612,6 +655,10 @@ export function renameTask(
     newSubtaskIds,
     newBlockedByIds,
     newRelatedIds,
+    {
+      dueTime: hasNewMetadata ? newParsed.dueTime : oldParsed.dueTime,
+      repeatRaw: hasNewMetadata ? newParsed.repeatRaw : oldParsed.repeatRaw,
+    },
   );
 
   let renamedTask: Task = {

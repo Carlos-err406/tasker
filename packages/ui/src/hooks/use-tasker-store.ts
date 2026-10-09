@@ -348,6 +348,17 @@ export function useTaskerStore() {
     [refresh, showStatus],
   );
 
+  // A repeating task rolls forward instead of completing: reload it with its next date.
+  const showRepeat = useCallback(
+    async (result: unknown) => {
+      const repeat = result as { message?: string; repeatsOn?: string } | null;
+      if (!repeat?.repeatsOn) return;
+      showStatus(repeat.message ?? `Repeats on ${repeat.repeatsOn}`);
+      await refresh();
+    },
+    [refresh, showStatus],
+  );
+
   const toggleStatus = useCallback(
     async (taskId: string, currentStatus: TaskStatus) => {
       const newStatus =
@@ -356,7 +367,7 @@ export function useTaskerStore() {
           : TS.Done;
       dispatch({ type: "UPDATE_TASK_STATUS", taskId, status: newStatus });
       try {
-        await taskService.setTaskStatus(taskId, newStatus);
+        await showRepeat(await taskService.setTaskStatus(taskId, newStatus));
       } catch (err) {
         showStatus(
           `Error: ${err instanceof Error ? err.message : String(err)}`,
@@ -364,14 +375,14 @@ export function useTaskerStore() {
         await refresh();
       }
     },
-    [refresh, showStatus],
+    [refresh, showStatus, showRepeat],
   );
 
   const setStatusTo = useCallback(
     async (taskId: string, status: TaskStatus) => {
       dispatch({ type: "UPDATE_TASK_STATUS", taskId, status });
       try {
-        await taskService.setTaskStatus(taskId, status);
+        await showRepeat(await taskService.setTaskStatus(taskId, status));
       } catch (err) {
         showStatus(
           `Error: ${err instanceof Error ? err.message : String(err)}`,
@@ -379,7 +390,7 @@ export function useTaskerStore() {
         await refresh();
       }
     },
-    [refresh, showStatus],
+    [refresh, showStatus, showRepeat],
   );
 
   const rename = useCallback(

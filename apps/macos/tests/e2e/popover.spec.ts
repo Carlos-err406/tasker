@@ -1705,3 +1705,37 @@ test("completes >list and creates or moves the task there, stripping the token",
   await chooseList(page, "tasks");
   await expect(names).toHaveText(["Some book"]);
 });
+
+test("repeating tasks show their time, roll forward when completed, and undo restores them", async ({
+  page,
+}) => {
+  await add(page, "Watch Frieren\n@tomorrow 6:30pm *weekly #anime");
+  const row = page.locator('[data-testid^="task-item-"]').filter({ hasText: "Watch Frieren" });
+  await expect(row).toContainText("Tomorrow 6:30pm");
+  await expect(row.locator('[data-testid^="task-repeat-"]')).toHaveAttribute("aria-label", "Repeats every week");
+
+  await row.locator('[data-testid^="task-checkbox-"]').click();
+  await expect(page.getByText(/repeats on \d{4}-\d{2}-\d{2}/)).toBeVisible();
+  // A week after tomorrow is more than 7 days out, so the date itself is shown.
+  await expect(row).toContainText(/\d{4}-\d{2}-\d{2} 6:30pm/);
+  // Back to pending: the status box shows no check mark.
+  await expect(row.locator('[data-testid^="task-checkbox-"] svg')).toHaveCount(0);
+
+  await page.keyboard.press("Meta+z");
+  await expect(row).toContainText("Tomorrow 6:30pm");
+});
+
+test("suggests repeat rules after *", async ({ page }) => {
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.pressSequentially("Water plants");
+  await input.press("Enter");
+  await input.pressSequentially("@today *w");
+  const options = page.getByTestId("metadata-autocomplete-dropdown").getByRole("button");
+  await expect(options).toHaveText(["*weeklyevery week"]);
+  await input.press("Enter");
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  const row = page.locator('[data-testid^="task-item-"]').filter({ hasText: "Water plants" });
+  await expect(row.locator('[data-testid^="task-repeat-"]')).toHaveAttribute("aria-label", "Repeats every week");
+});

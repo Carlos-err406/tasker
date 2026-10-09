@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Task } from "@tasker/core";
+import { parseTaskDescription, formatTime } from "@tasker/core/parsers";
 import type { ServiceClient } from "./client.js";
 
 const STATUSES = ["pending", "in_progress", "done", "wont_do"] as const;
@@ -16,8 +17,9 @@ type TaskResult =
 export const instructions = `Tasker is the user's personal task manager. Task IDs are 3 characters (e.g. "a1b").
 
 A task's text is free markdown. Metadata goes on its own last line:
-p1/p2/p3 priority (high/medium/low) · @date due (today, tomorrow, mon..sun, jan15, +3d, 2026-02-15) · #tag · ^abc parent task · !abc blocks task · -^abc has subtask · -!abc blocked by task · ~abc related task · >list-name create in / move to that list (removed on save).
+p1/p2/p3 priority (high/medium/low) · @date due (today, tomorrow, mon..sun, jan15, +3d, 2026-02-15), optionally followed by a time (@sat 6:30pm, @nov1 9am) · *interval repeat (*daily, *weekly, *monthly, *yearly, *3d, *2w, *2m; needs a due date) · #tag · ^abc parent task · !abc blocks task · -^abc has subtask · -!abc blocked by task · ~abc related task · >list-name create in / move to that list (removed on save).
 
+Completing a repeating task (done or won't do) moves it to its next due date and back to pending instead; remove the *interval token to stop it.
 Images in a task appear as ![name](/attachments/<id>); get_task returns them as images.
 Search filters: tag:name status:pending|wip|done priority:high|medium|low due:today|overdue|week|month list:name has:subtasks|parent|due|tags id:abc; prefix a value with ! to negate; other words match the text.
 
@@ -28,6 +30,7 @@ function title(task: Task) {
 }
 
 function summary(task: Task) {
+  const parsed = parseTaskDescription(task.description);
   return {
     id: task.id,
     title: title(task),
@@ -35,6 +38,8 @@ function summary(task: Task) {
     status: STATUSES[task.status],
     priority: task.priority ? PRIORITIES[task.priority] : null,
     due: task.dueDate,
+    time: task.dueDate && parsed.dueTime ? formatTime(parsed.dueTime) : null,
+    repeat: parsed.repeatRaw ? `*${parsed.repeatRaw}` : null,
     tags: task.tags ?? [],
     parent: task.parentId,
   };

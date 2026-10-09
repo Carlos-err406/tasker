@@ -9,7 +9,15 @@ import { getPlainText, setCaretOffset, getTextBeforeCursor } from '../lib/conten
 export type Suggestion =
   | { kind: 'task'; task: Task; shortId: string; title: string }
   | { kind: 'tag'; tag: string; count: number }
-  | { kind: 'list'; name: string };
+  | { kind: 'list'; name: string }
+  | { kind: 'repeat'; token: string; label: string };
+
+const REPEATS = [
+  { token: 'daily', label: 'every day' },
+  { token: 'weekly', label: 'every week' },
+  { token: 'monthly', label: 'every month' },
+  { token: 'yearly', label: 'every year' },
+];
 
 interface AutocompleteState {
   isOpen: boolean;
@@ -33,8 +41,8 @@ const CLOSED: AutocompleteState = {
 /** Regex to detect a metadata prefix at cursor position.
  *  Matches: ^, !, ~, -^, -! followed by optional partial ID/query chars,
  *  # followed by an optional partial tag (same characters as the parser),
- *  or > followed by an optional partial list name. */
-const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#|>)([\w-]*)$/;
+ *  > followed by an optional partial list name, or * followed by a partial repeat rule. */
+const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#|>|\*)([\w-]*)$/;
 const TAG_RE = /(?:^|\s)#([\w-]+)/g;
 
 /** Existing tags ranked by prefix match, then usage, skipping ones already in the text. */
@@ -145,6 +153,13 @@ export function useMetadataAutocomplete(
       // matchStart is the absolute index in value where the prefix begins
       const matchStart = lineStart + match.index + (match[0].startsWith(' ') ? 1 : 0);
 
+      if (prefix === '*') {
+        const typed = partial.toLowerCase();
+        const suggestions: Suggestion[] = REPEATS.filter((r) => r.token.startsWith(typed)).map((r) => ({ kind: 'repeat', ...r }));
+        setState({ isOpen: suggestions.length > 0, suggestions, selectedIndex: 0, prefix, partial, matchStart });
+        return;
+      }
+
       if (prefix === '>') {
         const lists = await listService.getAllLists().catch(() => null);
         if (!lists || thisVersion !== detectVersionRef.current) return;
@@ -203,7 +218,7 @@ export function useMetadataAutocomplete(
       // in the live text — don't trust state.partial which can be stale due
       // to React closure/batching races.
       const afterMatchStart = liveValue.slice(state.matchStart);
-      const prefixPartialMatch = /^(-[!^]|[!^~]|#|>)[\w-]*/.exec(afterMatchStart);
+      const prefixPartialMatch = /^(-[!^]|[!^~]|#|>|\*)[\w-]*/.exec(afterMatchStart);
       const replaceLen = prefixPartialMatch ? prefixPartialMatch[0].length : state.prefix.length;
 
       // No trailing space: contenteditable collapses it before the next keystroke.
@@ -212,7 +227,9 @@ export function useMetadataAutocomplete(
           ? `#${suggestion.tag}`
           : suggestion.kind === 'list'
             ? `>${listTargetKey(suggestion.name)}`
-            : state.prefix + suggestion.shortId;
+            : suggestion.kind === 'repeat'
+              ? `*${suggestion.token}`
+              : state.prefix + suggestion.shortId;
       const newValue = liveValue.slice(0, state.matchStart) + insertion + liveValue.slice(state.matchStart + replaceLen);
       ++detectVersionRef.current; // Cancel in-flight detects so they can't re-open the dropdown
       justSelectedRef.current = true; // Suppress the next detect triggered by the new value

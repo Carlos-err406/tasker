@@ -61,6 +61,10 @@ export function HelpPanel({
             <span>Priority (high, medium, low)</span>
             <span className="font-mono">@date</span>
             <span>Due date</span>
+            <span className="font-mono">@date 6:30pm</span>
+            <span>Due date and time (9am, 18:30)</span>
+            <span className="font-mono">*weekly</span>
+            <span>Repeat: *daily, *monthly, *yearly, *3d, *2w</span>
             <span className="font-mono">#tag</span>
             <span>Tag</span>
             <span className="font-mono">^abc</span>
@@ -92,6 +96,10 @@ export function HelpPanel({
             <span className="font-mono">2026-02-15</span>
             <span>Exact date</span>
           </div>
+          <p className="text-muted-foreground mt-2">
+            Completing a repeating task moves it to its next date instead. Won&apos;t Do skips one date. Remove the *
+            token to stop repeating.
+          </p>
         </section>
 
         <section>

@@ -1,6 +1,6 @@
 import type { Task } from '@tasker/core/types';
 import { TaskStatus, Priority, PriorityName } from '@tasker/core/types';
-import { getDisplayDescription } from '@tasker/core/parsers';
+import { getDisplayDescription, parseTaskDescription, formatTime } from '@tasker/core/parsers';
 
 /** First line of the display description (title). */
 export function getDisplayTitle(task: Task): string {
@@ -97,6 +97,21 @@ export function formatDueDate(dueDate: string | null): string | null {
   if (diff === 1) return 'tomorrow';
   if (diff <= 7) return `in ${diff}d`;
   return dueDate;
+}
+
+/** The due time (e.g. `6:30pm`) and repeat description (e.g. `every 3 days`) from a task's metadata line. */
+export function getSchedule(task: Task): { time: string | null; repeat: string | null } {
+  if (!task.dueDate) return { time: null, repeat: null };
+  const parsed = parseTaskDescription(task.description);
+  const units = { d: 'day', w: 'week', m: 'month' } as const;
+  const repeat = parsed.repeat
+    ? parsed.repeatRaw === 'yearly'
+      ? 'every year'
+      : parsed.repeat.every === 1
+        ? `every ${units[parsed.repeat.unit]}`
+        : `every ${parsed.repeat.every} ${units[parsed.repeat.unit]}s`
+    : null;
+  return { time: parsed.dueTime ? formatTime(parsed.dueTime) : null, repeat };
 }
 
 /** Status label for linked tasks (relationship lines). Null for pending. */

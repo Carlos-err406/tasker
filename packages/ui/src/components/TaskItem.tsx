@@ -28,6 +28,7 @@ import {
   Ban,
   Link2,
   Calendar,
+  Repeat,
   Tag,
   List as ListIcon,
   Pencil,
@@ -62,6 +63,7 @@ import {
   getPriorityColor,
   getDueDateColor,
   formatDueDate,
+  getSchedule,
   getTagColor,
   getLinkedStatusLabel,
   getLinkedStatusColor,
@@ -128,6 +130,7 @@ export const TaskItem = memo(function TaskItem({
   const priorityColor = getPriorityColor(task.priority);
   const dueDateLabel = formatDueDate(task.dueDate);
   const dueDateColor = getDueDateColor(task.dueDate);
+  const schedule = getSchedule(task);
 
   const handleToggleCheckbox = useCallback(
     (contentLineNumber: number) => {
@@ -665,6 +668,16 @@ export const TaskItem = memo(function TaskItem({
                       <Calendar className="h-3 w-3 flex-shrink-0" />
                       {dueDateLabel.charAt(0).toUpperCase() +
                         dueDateLabel.slice(1)}
+                      {schedule.time && ` ${schedule.time}`}
+                      {schedule.repeat && (
+                        <Repeat
+                          className="h-3 w-3 flex-shrink-0"
+                          data-testid={`task-repeat-${task.id}`}
+                          aria-label={`Repeats ${schedule.repeat}`}
+                        >
+                          <title>{`Repeats ${schedule.repeat}`}</title>
+                        </Repeat>
+                      )}
                     </div>
                   )}
 
