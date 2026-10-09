@@ -1757,8 +1757,8 @@ test("Settings keeps device options together, and auto sort orders lists and tur
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const panel = page.getByTestId("settings-panel");
   await expect(panel).toContainText("These settings apply to this device only.");
-  // Notifications appear once this host can deliver them.
-  await expect(page.getByRole("switch", { name: "Notifications" })).toHaveCount(0);
+  // The Mac service delivers reminders, so its switch is offered and on by default.
+  await expect(page.getByRole("switch", { name: "Notifications" })).toBeChecked();
   await page.getByRole("button", { name: "About auto sort", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Dragging to reorder tasks is turned off");
   await page.keyboard.press("Escape");

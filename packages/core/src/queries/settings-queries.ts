@@ -40,3 +40,30 @@ export function getSettings(db: TaskerDb): Settings {
 export function setSetting(db: TaskerDb, key: SettingKey, value: boolean): void {
   setConfig(db, `setting:${key}`, String(value));
 }
+
+const DELIVERED_KEY = 'reminders:delivered';
+/** Delivery records are kept long enough to outlast the 12-hour lateness window. */
+const DELIVERED_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** Reminder occurrences already shown on this device. */
+export function getDeliveredReminders(db: TaskerDb): Set<string> {
+  try {
+    const records = JSON.parse(getConfig(db, DELIVERED_KEY) ?? '[]') as { key: string }[];
+    return new Set(records.map((r) => r.key));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Record reminders as shown, dropping records old enough to no longer matter. */
+export function markRemindersDelivered(db: TaskerDb, keys: readonly string[], now: Date): void {
+  let records: { key: string; at: number }[] = [];
+  try {
+    records = JSON.parse(getConfig(db, DELIVERED_KEY) ?? '[]');
+  } catch {
+    /* Start over from a corrupt record. */
+  }
+  const cutoff = now.getTime() - DELIVERED_TTL_MS;
+  const kept = records.filter((r) => r.at >= cutoff && !keys.includes(r.key));
+  setConfig(db, DELIVERED_KEY, JSON.stringify([...kept, ...keys.map((key) => ({ key, at: now.getTime() }))]));
+}

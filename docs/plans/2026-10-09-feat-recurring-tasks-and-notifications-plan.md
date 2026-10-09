@@ -55,7 +55,8 @@ A task notifies once per occurrence, at its due time or at 9:00 for a date-only 
 
 - The service checks every minute for occurrences that are due. A one-minute timer survives sleep and clock changes better than one long timer.
 - It posts through the SwiftBar fork's existing `swiftbar://notify?plugin=…&title=…&body=…` handler, so notifications appear as SwiftBar's. No new native code is needed.
-- A **Notifications** switch on the Mac, on by default, sits beside the other app options.
+- The **Notifications** switch lives on the Settings page (see scope decisions, 2026-10-09), on by default.
+- The service starts reminders only when given a notifier: `main.ts` passes SwiftBar's, so tests and isolated services never post real notifications.
 - Tests use a fake notifier and never open `swiftbar://` links.
 
 ### Android
