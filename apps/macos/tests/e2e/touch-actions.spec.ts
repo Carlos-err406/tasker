@@ -207,6 +207,40 @@ test("drawer exposes every task action and defers mutations until the exit anima
   await expect(page.locator(".touch-task-sheet")).toHaveCount(0);
 });
 
+test("metadata suggestions open beside the caret inside the visible editor", async ({
+  page,
+}) => {
+  await taskFixture(page);
+  await openTaskActions(page);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await expect(editor).toBeFocused();
+  await editor.press("Meta+ArrowUp");
+  await editor.press("Meta+ArrowRight");
+  await editor.pressSequentially(" >");
+  const dropdown = page.getByTestId("metadata-autocomplete-dropdown");
+  await expect(dropdown).toBeVisible();
+  const caret = await page.evaluate(() => {
+    const rect = getSelection()!.getRangeAt(0).getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  });
+  const heading = await page.locator(".touch-editor-heading").boundingBox();
+  const box = (await dropdown.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(heading!.y + heading!.height);
+  expect(box.y + box.height).toBeLessThanOrEqual(588);
+  expect(box.y).toBeGreaterThanOrEqual(caret.bottom);
+  expect(box.y - caret.bottom).toBeLessThan(12);
+
+  // A keyboard opening shrinks the viewport; the list must stay on screen.
+  await page.setViewportSize({ width: 420, height: 300 });
+  await expect
+    .poll(async () => {
+      const b = (await dropdown.boundingBox())!;
+      return b.y >= 0 && b.y + b.height <= 300;
+    })
+    .toBe(true);
+});
+
 test("drawer contains the image, video, link and code context actions", async ({
   page,
 }) => {
