@@ -1782,3 +1782,55 @@ test("Settings keeps device options together, and auto sort orders lists and tur
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(autoSort).toBeChecked();
 });
+
+test("saving through the editor keeps blank lines as they are", async ({
+  page,
+}) => {
+  const text =
+    "apothecary diaries\n- [x] 1 https://t.me/c/1/2\n\nSecond paragraph\n\n\nAfter two blank lines\n#anime";
+  await add(page, text);
+  const description = async () =>
+    ((await rpc(page, "tasks:getAll")) as { description: string }[])[0]!.description;
+  expect(await description()).toBe(text);
+  for (let round = 0; round < 3; round++) {
+    await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const editor = page.getByTestId("task-edit-input");
+    await expect(editor).toBeFocused();
+    // Saving without changes must not add a line per blank line.
+    await editor.press("Meta+Enter");
+    await expect(editor).not.toBeVisible();
+    expect(await description()).toBe(text);
+  }
+  // Typed blank lines (WebKit's <div><br></div>) count once too.
+  await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await editor.press("Meta+ArrowUp");
+  await editor.press("Meta+ArrowRight");
+  await editor.press("Enter");
+  await editor.press("Enter");
+  await editor.pressSequentially("typed");
+  await editor.press("Meta+Enter");
+  await expect(editor).not.toBeVisible();
+  expect(await description()).toBe(text.replace("apothecary diaries", "apothecary diaries\n\ntyped"));
+});
+
+test("picking an autocomplete suggestion keeps blank lines as they are", async ({
+  page,
+}) => {
+  await add(page, "tokyo revengers\n- [x] 1 https://t.me/c/1/2\n\n@today #anime");
+  await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await expect(editor).toBeFocused();
+  await editor.press("Meta+ArrowDown");
+  await editor.pressSequentially(" *we");
+  const options = page.getByTestId("metadata-autocomplete-dropdown").getByRole("button");
+  await expect(options).toHaveText(["*weeklyevery week"]);
+  await options.first().click();
+  await editor.press("Meta+Enter");
+  await expect(editor).not.toBeVisible();
+  const [task] = (await rpc(page, "tasks:getAll")) as { description: string }[];
+  expect(task!.description).toMatch(/^tokyo revengers\n- \[x\] 1 https:\/\/t\.me\/c\/1\/2\n\n@\d{4}-\d{2}-\d{2} \*weekly #anime$/);
+});
