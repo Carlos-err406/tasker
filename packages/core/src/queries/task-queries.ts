@@ -1233,7 +1233,10 @@ export function applySystemSort(db: TaskerDb, listName?: ListName): number {
       const sorted = sortTasksForDisplay(listTasks);
       // Highest sort_order = first in display (sorted[0])
       for (let i = 0; i < sorted.length; i++) {
-        tx.update(tasks).set({ sortOrder: sorted.length - 1 - i }).where(eq(tasks.id, sorted[i]!.id)).run();
+        const sortOrder = sorted.length - 1 - i;
+        // Only rows that move are written, so a sort that changes nothing syncs nothing.
+        if (sorted[i]!.sortOrder !== sortOrder)
+          tx.update(tasks).set({ sortOrder }).where(eq(tasks.id, sorted[i]!.id)).run();
       }
     }
   });

@@ -4,6 +4,8 @@ import type { UndoManager } from "../undo/index.js";
 import { tasksRegister } from "./handlers/tasks.js";
 import { listsRegister } from "./handlers/lists.js";
 import { undoRegister } from "./handlers/undo.js";
+import { settingsRegister, autoSort } from "./handlers/settings.js";
+import { isSettingKey } from "../queries/settings-queries.js";
 import type { SyncStore } from "../sync/store.js";
 type Handler = (event: unknown, ...args: any[]) => unknown;
 export type IPCRegisterFunction = (
@@ -70,6 +72,8 @@ const schemas: Record<string, Check[]> = {
   "undo:canUndo": [],
   "undo:canRedo": [],
   "undo:reload": [],
+  "settings:get": [],
+  "settings:set": [isSettingKey, bool],
 };
 export function createRegistry(
   db: TaskerDb,
@@ -82,7 +86,7 @@ export function createRegistry(
       handlers.set(channel, handler);
     },
   };
-  for (const register of [tasksRegister, listsRegister, undoRegister])
+  for (const register of [tasksRegister, listsRegister, undoRegister, settingsRegister])
     register(registry, null, { db, undo });
   return {
     async invoke(channel: unknown, args: unknown) {
@@ -100,7 +104,7 @@ export function createRegistry(
         throw new Error("Invalid arguments");
       const handler = handlers.get(channel)!;
       const mutation =
-        !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload))/.test(
+        !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload)|settings:)/.test(
           channel,
         );
       if (mutation || channel.startsWith("undo:")) undo.reloadHistory();
@@ -118,6 +122,7 @@ export function createRegistry(
             throw new Error("Task mutations must be synchronous");
           if (Array.isArray(result) && result[0])
             throw new Error(result[0].message);
+          autoSort(db);
           if (sync) {
             if (channel === "lists:rename")
               sync.renameList(args[0] as string, args[1] as string);

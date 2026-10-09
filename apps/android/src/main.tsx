@@ -2,12 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
 import {
-  Archive,
   Plus,
-  Eye,
-  EyeOff,
-  Images,
-  ImageOff,
+  Settings,
   ArrowUpDown,
   Ellipsis,
   Search,
@@ -34,6 +30,7 @@ import {
   TrashPanel,
   HelpPanel,
   BackupsPanel,
+  SettingsPanel,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -48,6 +45,8 @@ import { manageSync } from "./sync";
 import { About } from "./About";
 import { manageBackups } from "./backups";
 import { connectAndroidHost } from "./host";
+import { getHost } from "@tasker/ui/host";
+import type { SettingKey } from "@tasker/core/queries";
 import "@tasker/ui/styles.css";
 import "./mobile.css";
 
@@ -68,7 +67,7 @@ function App() {
   const search = store.searchQuery;
   const setSearch = store.setSearch;
   const [panel, setPanel] = useState<
-    "tasks" | "trash" | "help" | "backups" | "about"
+    "tasks" | "trash" | "help" | "settings" | "backups" | "about"
   >("tasks");
   const [listAction, setListAction] = useState<"create" | "rename" | null>(
     null,
@@ -77,10 +76,12 @@ function App() {
   const [backupBusy, setBackupBusy] = useState(false);
   const taskEditor = useRef<ListSectionHandle>(null);
   const [addRequested, setAddRequested] = useState(false);
-  const [showMedia, setShowMedia] = useState(
-    () => localStorage.getItem("tasker:showMediaPreviews") !== "false",
-  );
+  const showMedia = store.settings.mediaPreviews;
   const [mediaReset, setMediaReset] = useState(0);
+  const changeSetting = (key: SettingKey, value: boolean) => {
+    if (key === "mediaPreviews") setMediaReset((v) => v + 1);
+    void store.setSetting(key, value);
+  };
   const controlsDisabled =
     store.loading || store.isEditing || !!listAction || backupBusy;
   const workspace = useRef<HTMLDivElement>(null);
@@ -112,7 +113,7 @@ function App() {
       if (backupBusy) return true;
       if (panel !== "tasks") {
         setPanel(
-          panel === "about" ? "help" : "tasks",
+          panel === "about" ? "help" : panel === "backups" ? "settings" : "tasks",
         );
         return true;
       }
@@ -240,6 +241,17 @@ function App() {
           <div className="mobile-workspace mobile-backups">
             <About onClose={() => setPanel("help")} />
           </div>
+        ) : panel === "settings" ? (
+          <div className="mobile-workspace mobile-backups">
+            <SettingsPanel
+              settings={store.settings}
+              onChange={changeSetting}
+              onOpenBackups={() => setPanel("backups")}
+              onClose={() => setPanel("tasks")}
+              notifications={!!getHost().notifications}
+              touch
+            />
+          </div>
         ) : panel === "backups" ? (
           <div className="mobile-workspace mobile-backups">
             <BackupsPanel
@@ -247,7 +259,7 @@ function App() {
               manageSync={manageSync}
               deviceName="phone"
               onBusyChange={setBackupBusy}
-              onClose={() => setPanel("tasks")}
+              onClose={() => setPanel("settings")}
               onRestored={async () => {
                 setMediaReset((v) => v + 1);
                 await store.refresh();
@@ -324,21 +336,6 @@ function App() {
                     side="top"
                     collisionPadding={8}
                   >
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setPanel("tasks");
-                        void store.toggleHideCompleted(store.selectedList);
-                      }}
-                    >
-                      {store.hideCompletedLists.has(store.selectedList) ? (
-                        <EyeOff />
-                      ) : (
-                        <Eye />
-                      )}
-                      {store.hideCompletedLists.has(store.selectedList)
-                        ? "Show completed tasks"
-                        : "Hide completed tasks"}
-                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => void store.undo()}>
                       <Undo2 />
                       Undo
@@ -348,20 +345,6 @@ function App() {
                       Redo
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        const next = !showMedia;
-                        setShowMedia(next);
-                        setMediaReset((value) => value + 1);
-                        localStorage.setItem(
-                          "tasker:showMediaPreviews",
-                          String(next),
-                        );
-                      }}
-                    >
-                      {showMedia ? <ImageOff /> : <Images />}
-                      {showMedia ? "Hide previews" : "Show previews"}
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => {
                         setPanel("tasks");
@@ -374,8 +357,8 @@ function App() {
                     <DropdownMenuItem onSelect={() => setPanel("trash")}>
                       <Trash2 /> View trash
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setPanel("backups")}>
-                      <Archive /> Backups & sync
+                    <DropdownMenuItem onSelect={() => setPanel("settings")}>
+                      <Settings /> Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setPanel("help")}>
                       <CircleHelp /> View help

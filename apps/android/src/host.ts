@@ -3,6 +3,7 @@ import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
 import { undoInvokerFactory } from "@tasker/ui/transport/undo/preload";
+import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 import { UndoManager } from "@tasker/core/undo";
 import { createRegistry } from "@tasker/core/operations";
 import {
@@ -51,6 +52,7 @@ export function connectAndroidHost() {
       ...tasksInvokerFactory(transport),
       ...listsInvokerFactory(transport),
       ...undoInvokerFactory(transport),
+    ...settingsInvokerFactory(transport),
     },
     onDbChanged: (cb) => {
       window.addEventListener("tasker:db-changed", cb);
