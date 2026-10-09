@@ -2,6 +2,25 @@
  * Utilities for treating a contentEditable div like a textarea.
  */
 
+const BLOCKS = new Set(['DIV', 'P', 'LI']);
+
+/**
+ * A <br> right before a block boundary only holds the line open: an empty line
+ * is <div><br></div> (WebKit may wrap the <br> in a <span>), and `text<br>`
+ * followed by a block ends there anyway. The boundary itself is the line break,
+ * so such a <br> adds nothing.
+ */
+function isPlaceholderBreak(node: Node, root: Node): boolean {
+  let n: Node = node;
+  while (!n.nextSibling) {
+    const parent = n.parentNode;
+    if (!parent || parent === root) return false;
+    if (BLOCKS.has(parent.nodeName)) return true;
+    n = parent;
+  }
+  return BLOCKS.has(n.nextSibling.nodeName);
+}
+
 /**
  * Extract plain text from a contentEditable element.
  * Handles raw text, div-per-line editing, and paragraphs/list items retained by rich-text paste.
@@ -14,9 +33,10 @@ export function getPlainText(el: HTMLElement): string {
     if (node.nodeType === Node.TEXT_NODE) {
       current += node.textContent ?? '';
     } else if (node.nodeName === 'BR') {
+      if (isPlaceholderBreak(node, el)) return;
       lines.push(current);
       current = '';
-    } else if (node.nodeName === 'DIV' || node.nodeName === 'P' || node.nodeName === 'LI') {
+    } else if (BLOCKS.has(node.nodeName)) {
       if (lines.length > 0 || current.length > 0) {
         lines.push(current);
         current = '';
@@ -103,13 +123,14 @@ function findDomPosition(el: HTMLElement, targetOffset: number): [Node, number] 
     }
 
     if (node.nodeName === 'BR') {
+      if (isPlaceholderBreak(node, el)) return null;
       // BR pushes current line → adds \n
       pos += 1;
       hasContent = true;
       return null;
     }
 
-    if (node.nodeName === 'DIV' || node.nodeName === 'P' || node.nodeName === 'LI') {
+    if (BLOCKS.has(node.nodeName)) {
       // DIV/P/LI adds \n before its content if there was prior content
       if (hasContent) {
         if (targetOffset === pos) {
