@@ -1834,3 +1834,59 @@ test("picking an autocomplete suggestion keeps blank lines as they are", async (
   const [task] = (await rpc(page, "tasks:getAll")) as { description: string }[];
   expect(task!.description).toMatch(/^tokyo revengers\n- \[x\] 1 https:\/\/t\.me\/c\/1\/2\n\n@\d{4}-\d{2}-\d{2} \*weekly #anime$/);
 });
+
+test("@ opens the date picker: quick picks, a calendar, then an optional time", async ({
+  page,
+}) => {
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = new Date();
+  const monday = new Date(today);
+  do monday.setDate(monday.getDate() + 1);
+  while (monday.getDay() !== 1);
+  const description = async (title: string) =>
+    ((await rpc(page, "tasks:getAll")) as { description: string }[]).find((t) =>
+      t.description.startsWith(title),
+    )!.description;
+  const dropdown = page.getByTestId("metadata-autocomplete-dropdown");
+  const options = dropdown.getByRole("button", { name: /^(?!Pick |Previous month|Next month)/ });
+
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const input = page.locator("[contenteditable=true]").first();
+  await input.pressSequentially("Gym");
+  await input.press("Enter");
+  await input.pressSequentially("@");
+  await expect(options.first()).toContainText("Today");
+  await expect(page.getByTestId("date-picker-calendar")).toBeVisible();
+  await input.pressSequentially("mo");
+  await expect(options).toHaveCount(1);
+  await expect(options.first()).toContainText("Monday");
+  await input.press("Enter");
+  // A time comes next; arrow to 6pm and take it.
+  await expect(options).toHaveText(["9am", "12pm", "3pm", "6pm", "9pm"]);
+  for (let i = 0; i < 3; i++) await input.press("ArrowDown");
+  await input.press("Enter");
+  await expect(dropdown).toHaveCount(0);
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  expect(await description("Gym")).toBe(`Gym\n@${iso(monday)} 6pm`);
+
+  // The calendar picks any date; Escape skips the time.
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await input.pressSequentially("Dentist");
+  await input.press("Enter");
+  await input.pressSequentially("@");
+  await page.getByRole("button", { name: "Next month", exact: true }).click();
+  const next = new Date(today.getFullYear(), today.getMonth() + 1, 15);
+  await page.getByTestId("date-picker-calendar").getByRole("button", { name: /^Pick .* 15/ }).click();
+  await expect(options.first()).toHaveText("9am");
+  await input.press("Escape");
+  await expect(dropdown).toHaveCount(0);
+  await input.pressSequentially(" 4:3");
+  await expect(options).toHaveText(["4:30am", "4:30pm"]);
+  await input.press("ArrowDown");
+  await input.press("Enter");
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  expect(await description("Dentist")).toBe(`Dentist\n@${iso(next)} 4:30pm`);
+});

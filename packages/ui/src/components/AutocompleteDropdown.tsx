@@ -5,13 +5,75 @@ import type { Suggestion } from '../hooks/use-metadata-autocomplete.js';
 import { cn } from '../lib/utils.js';
 import { getHost } from '../host.js';
 import { getTagColor } from '../lib/task-display.js';
-import { Tag, List as ListIcon, Repeat } from 'lucide-react';
+import { Tag, List as ListIcon, Repeat, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDate } from '@tasker/core/parsers';
+import { calendarWeeks, describeDate, fromIso } from '../lib/date-suggestions.js';
 
 interface AutocompleteDropdownProps {
   suggestions: Suggestion[];
   selectedIndex: number;
-  onSelect: (index: number) => void;
+  /** A list index, or a date picked from the calendar. */
+  onSelect: (choice: number | Suggestion) => void;
   anchorRef: React.RefObject<HTMLElement | null>;
+  /** Shows a month calendar under date suggestions, opened at this date. */
+  calendarDate?: string | null;
+}
+
+const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+
+/** A month grid for picking any due date; days are buttons that keep the editor focused. */
+function MonthCalendar({ date, onPick }: { date: string; onPick: (date: string) => void }) {
+  const [shown, setShown] = useState(() => fromIso(date));
+  useEffect(() => setShown(fromIso(date)), [date]);
+  const today = formatDate(new Date());
+  const year = shown.getFullYear();
+  const month = shown.getMonth();
+  const step = (delta: number) => setShown(new Date(year, month + delta, 1));
+  const nav = 'rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground';
+  return (
+    <div data-testid="date-picker-calendar" className="border-t border-border px-2 pb-2 pt-1 text-xs">
+      <div className="flex items-center justify-between py-1">
+        <button type="button" aria-label="Previous month" className={nav} onMouseDown={(e) => { e.preventDefault(); step(-1); }}>
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        <span className="font-medium" aria-live="polite">{MONTH.format(shown)}</span>
+        <button type="button" aria-label="Next month" className={nav} onMouseDown={(e) => { e.preventDefault(); step(1); }}>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 text-center text-[10px] text-muted-foreground">
+        {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => <span key={d}>{d}</span>)}
+      </div>
+      {calendarWeeks(year, month).map((week, w) => (
+        <div key={w} className="grid grid-cols-7">
+          {week.map((day, d) =>
+            day ? (
+              <button
+                key={day}
+                type="button"
+                aria-label={`Pick ${describeDate(day, new Date(0))}`}
+                aria-current={day === today ? 'date' : undefined}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onPick(day);
+                }}
+                className={cn(
+                  'm-px rounded py-1 text-center hover:bg-accent',
+                  day < today && 'text-muted-foreground/50',
+                  day === today && 'font-semibold text-orange-400',
+                  day === date && 'bg-accent text-accent-foreground',
+                )}
+              >
+                {Number(day.slice(8))}
+              </button>
+            ) : (
+              <span key={`empty-${d}`} />
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const STATUS_DOT: Record<number, string> = {
@@ -33,7 +95,8 @@ function caretLine(el: HTMLElement, bounds: DOMRect): { top: number; bottom: num
   };
 }
 
-export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anchorRef }: AutocompleteDropdownProps) {
+export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anchorRef, calendarDate }: AutocompleteDropdownProps) {
+  const maxHeight = calendarDate ? 380 : 200;
   const selectedRef = useRef<HTMLButtonElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({ position: 'fixed', visibility: 'hidden' });
 
@@ -52,12 +115,12 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
       const viewBottom = viewTop + (viewport?.height ?? window.innerHeight);
       const spaceBelow = viewBottom - line.bottom - 8;
       const spaceAbove = line.top - viewTop - 8;
-      const showAbove = spaceBelow < 210 && spaceAbove > spaceBelow;
+      const showAbove = spaceBelow < maxHeight + 10 && spaceAbove > spaceBelow;
       setStyle({
         position: 'fixed',
         width: `${rect.width}px`,
         left: `${rect.left}px`,
-        maxHeight: `${Math.max(0, Math.min(200, showAbove ? spaceAbove : spaceBelow))}px`,
+        maxHeight: `${Math.max(0, Math.min(maxHeight, showAbove ? spaceAbove : spaceBelow))}px`,
         ...(showAbove
           ? { bottom: `${window.innerHeight - line.top + 4}px`, top: 'auto' }
           : { top: `${line.bottom + 4}px`, bottom: 'auto' }),
@@ -78,7 +141,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
       document.removeEventListener('scroll', position, true);
       document.removeEventListener('selectionchange', position);
     };
-  }, [anchorRef, suggestions]);
+  }, [anchorRef, suggestions, maxHeight]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -89,12 +152,24 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
     <div
       data-testid="metadata-autocomplete-dropdown"
       style={style}
-      className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg"
+      className="overflow-y-auto rounded-md border border-border bg-popover shadow-lg"
       onMouseDown={(e) => e.preventDefault()} // prevent input blur
     >
       {suggestions.map((s, i) => (
         <button
-          key={s.kind === 'tag' ? `#${s.tag}` : s.kind === 'list' ? `>${s.name}` : s.kind === 'repeat' ? `*${s.token}` : s.task.id}
+          key={
+            s.kind === 'tag'
+              ? `#${s.tag}`
+              : s.kind === 'list'
+                ? `>${s.name}`
+                : s.kind === 'repeat'
+                  ? `*${s.token}`
+                  : s.kind === 'date'
+                    ? `@${s.date}`
+                    : s.kind === 'time'
+                      ? `time:${s.token}`
+                      : s.task.id
+          }
           ref={i === selectedIndex ? selectedRef : undefined}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -105,7 +180,18 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
             i === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
           )}
         >
-          {s.kind === 'repeat' ? (
+          {s.kind === 'date' ? (
+            <>
+              <Calendar className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <span className="truncate flex-1">{s.label}</span>
+              <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.detail}</span>
+            </>
+          ) : s.kind === 'time' ? (
+            <>
+              <Clock className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <span className="flex-1 font-mono text-xs">{s.token}</span>
+            </>
+          ) : s.kind === 'repeat' ? (
             <>
               <Repeat className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
               <span className="font-mono text-xs flex-1">*{s.token}</span>
@@ -142,6 +228,12 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
           )}
         </button>
       ))}
+      {calendarDate && (
+        <MonthCalendar
+          date={calendarDate}
+          onPick={(date) => onSelect({ kind: 'date', date, label: '', detail: '' })}
+        />
+      )}
     </div>,
     document.body,
   );

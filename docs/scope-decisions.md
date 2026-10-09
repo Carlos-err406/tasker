@@ -78,3 +78,7 @@ The user approved [the plan](plans/2026-10-09-feat-recurring-tasks-and-notificat
 - **Auto sort** re-applies the system sort to every list after each change, wherever the change comes from (app, undo, MCP). An info popover explains that dragging to reorder is off while it's enabled.
 - Settings live in the device-local `config` table, not browser storage, because the Mac popover's local address changes when the service restarts.
 - Mac header: Add, Undo, Redo, System sort, Trash, Settings, Help. The footer keeps status messages only. Android's App options keeps Undo/Redo, System sort, View trash and View help, and gains Settings.
+
+## Due date picker (2026-10-09)
+
+The user asked for a date picker in the metadata autocomplete (Tasker task `u68`), replacing the MVP decision that none was needed. Typing `@` shows Today, Tomorrow, the coming Monday and Next week (typing filters every weekday and previews any date the parser understands), with a month calendar below. Picking a date inserts the exact date (`@2026-10-12`), then offers an optional time (9am, 12pm, 3pm, 6pm, 9pm; typing `6:3` suggests 6:30am/pm). Escape or any other key skips the time.
