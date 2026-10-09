@@ -4,6 +4,7 @@ import {
   searchTasks,
   addTask,
   setStatus,
+  rollForward,
   renameTask,
   deleteTask,
   moveTask,
@@ -27,6 +28,8 @@ import {
   takeListTarget,
 } from "../../queries/index.js";
 import type { TaskStatus, Priority } from "../../types/index.js";
+import { TaskStatus as TS } from "../../types/task-status.js";
+import { withTransaction } from "../../db.js";
 import $try from "../try.js";
 import type { IPCRegisterFunction } from "../registry.js";
 import {
@@ -91,6 +94,31 @@ export const tasksRegister: IPCRegisterFunction = (
     return $try(() => {
       const task = getTaskById(db, taskId);
       if (!task) return { type: "not-found" as const, taskId };
+      if (status === TS.Done || status === TS.WontDo) {
+        const rolled = withTransaction(db, () => rollForward(db, taskId));
+        if (rolled) {
+          const executedAt = new Date().toISOString();
+          undo.recordCommand({
+            $type: "batch",
+            batchDescription: `Repeat ${taskId}`,
+            executedAt,
+            commands: [
+              { $type: "rename", taskId, oldDescription: rolled.oldDescription, newDescription: rolled.newDescription, executedAt },
+              ...[{ id: taskId, oldStatus: rolled.oldStatus }, ...rolled.resetSubtasks]
+                .filter((change) => change.oldStatus !== TS.Pending)
+                .map((change) => ({
+                  $type: "set-status" as const,
+                  taskId: change.id,
+                  oldStatus: change.oldStatus,
+                  newStatus: TS.Pending,
+                  executedAt,
+                })),
+            ],
+          });
+          undo.saveHistory();
+          return { type: "success" as const, message: `${taskId} repeats on ${rolled.next}`, repeatsOn: rolled.next };
+        }
+      }
       const oldStatus = task.status;
       const result = setStatus(db, taskId, status);
       if (result.type === "success") {

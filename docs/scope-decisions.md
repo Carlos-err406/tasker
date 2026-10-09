@@ -18,7 +18,6 @@ User decisions from the feature comparison on 2026-09-27. These supersede earlie
 
 - Compact command palette, including bulk cleanup and priority/date actions.
 - Apple Reminders integration.
-- Due-date notifications.
 
 ## Not part of this version
 
@@ -64,3 +63,11 @@ The mobile actions drawer contains the full desktop task context menu, including
 - The user chose an MCP server, not a CLI, so agents can use Tasker. Agents can read and write: list, search and read tasks with their images; add, edit, change status, move, trash and restore. On 2026-10-09 the user added list tools: create, rename and delete, with the app's rule that the default list can't be renamed or deleted. Deleting a list also deletes its tasks and can be undone in the app.
 - The server runs on the Mac over stdio. It uses the running service's loopback session and `/rpc` operations, so edits keep undo, sync and the single-writer lock. Agent writes bump the change revision so an open popover refreshes. The installer writes a stable `tasker-mcp` launcher. No Android server.
 - The user removed every remnant of the legacy cli-tasker app, including its local checkout, launcher and the `tasker-ref` GitHub archive.
+
+## Recurring tasks and notifications (2026-10-09)
+
+The user approved [the plan](plans/2026-10-09-feat-recurring-tasks-and-notifications-plan.md):
+- Repeating tasks (`*weekly`, `*3d`, …) roll forward in place when completed or marked Won't Do; subtasks reset with them.
+- Due dates take an optional 12-hour time (`@sat 6:30pm`), and 24-hour input is also accepted.
+- Both Mac and Android notify at the due time, or at 9:00 for date-only tasks. Reminders up to 12 hours late are still delivered.
+- Repeating tasks ship first as 1.1.0, then Mac notifications, then Android notifications.

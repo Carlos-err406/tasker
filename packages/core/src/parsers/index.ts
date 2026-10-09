@@ -1,4 +1,6 @@
 export { parseDate, formatDate, addDays } from './date-parser.js';
+export { parseTime, formatTime, parseRepeat, nextOccurrence } from './recurrence.js';
+export type { Repeat, RepeatUnit } from './recurrence.js';
 export {
   parse as parseTaskDescription,
   getDisplayDescription,

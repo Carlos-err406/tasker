@@ -138,6 +138,17 @@ describe("Tasker MCP server", () => {
     expect((await call("get_task", { id: two })).isError).toBe(true);
   });
 
+  it("shows due times and repeats, and rolls repeating tasks forward", async () => {
+    const { call } = await fixture();
+    const added = await call("add_task", { text: "Watch Frieren\n@tomorrow 6:30pm *weekly #anime" });
+    expect(added.data).toMatchObject({ time: "6:30pm", repeat: "*weekly", status: "pending" });
+    const done = await call("set_task_status", { id: added.data.id, status: "done" });
+    expect(done.data).toMatch(new RegExp(`^${added.data.id} repeats on \\d{4}-\\d{2}-\\d{2}$`));
+    const task = await call("get_task", { id: added.data.id });
+    expect(task.data).toMatchObject({ status: "pending", time: "6:30pm", repeat: "*weekly" });
+    expect(task.data.due > added.data.due).toBe(true);
+  });
+
   it("returns a task's images as image content", async () => {
     const { call, service } = await fixture();
     const session = await fetch(service.origin + "/session", {

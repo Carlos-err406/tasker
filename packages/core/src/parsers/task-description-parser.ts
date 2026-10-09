@@ -2,7 +2,8 @@
  * Parses inline metadata from task descriptions.
  * Parses trailing lines if they contain ONLY metadata markers.
  * Keeps original text intact (does not strip markers).
- * Supports: p1/p2/p3 (priority), @date (due date), #tag (tags),
+ * Supports: p1/p2/p3 (priority), @date (due date) with an optional time right after it
+ * (@sat 6:30pm), *interval (repeat), #tag (tags),
  * ^abc (parent), !abc (blocks), -^abc (has subtask), -!abc (blocked by), ~abc (related),
  * >list-name (create in / move to that list; one-shot, stripped when saved)
  */
@@ -10,11 +11,16 @@
 import type { Priority } from '../types/priority.js';
 import { Priority as P } from '../types/priority.js';
 import { parseDate } from './date-parser.js';
+import { TIME_PATTERN, REPEAT_PATTERN, parseTime, parseRepeat, formatTime, type Repeat } from './recurrence.js';
 
 // Match p1, p2, p3 for priority (must be standalone token)
 const PRIORITY_RE = /(?:^|\s)p([123])(?=\s|$)/i;
 // Match @word for due dates
 const DUE_DATE_RE = /@(\S+)/;
+// Match a time token directly after the due date token
+const DUE_TIME_RE = new RegExp(`^\\s+(${TIME_PATTERN})(?=\\s|$)`, 'i');
+// Match *interval for repeating tasks
+const REPEAT_RE = new RegExp(`(?:^|\\s)\\*(${REPEAT_PATTERN})(?=\\s|$)`, 'gi');
 // Match #word for tags (supports hyphens like #cli-only)
 const TAG_RE = /#([\w-]+)/g;
 // Match ^abc for parent reference (subtask of)
@@ -42,6 +48,11 @@ export interface ParsedTask {
   readonly blockedByIds: string[] | null;
   readonly relatedIds: string[] | null;
   readonly dueDateRaw: string | null;
+  /** Due time as 24-hour HH:MM, from a time token directly after the due date. */
+  readonly dueTime: string | null;
+  /** Repeat rule from a `*interval` token (last one wins); only effective with a due date. */
+  readonly repeat: Repeat | null;
+  readonly repeatRaw: string | null;
   /** Raw `>list` token text (last one wins); resolved and stripped when saving. */
   readonly listTarget: string | null;
 }
@@ -62,7 +73,8 @@ function allMatches(re: RegExp, str: string): string[] {
 function stripMetadata(line: string): string {
   let s = line;
   s = s.replace(/(?:^|\s)p[123](?=\s|$)/gi, ' ');
-  s = s.replace(/@\S+/g, ' ');
+  s = s.replace(new RegExp(`@\\S+(?:\\s+${TIME_PATTERN}(?=\\s|$))?`, 'gi'), ' ');
+  s = s.replace(new RegExp(`(?:^|\\s)\\*${REPEAT_PATTERN}(?=\\s|$)`, 'gi'), ' ');
   s = s.replace(/#[\w-]+/g, ' ');
   s = s.replace(/(?:^|\s)-\^(\w{3})(?=\s|$)/g, ' ');
   s = s.replace(/(?:^|\s)-!(\w{3})(?=\s|$)/g, ' ');
@@ -113,6 +125,9 @@ export function parse(input: string, now?: Date): ParsedTask {
       blockedByIds: null,
       relatedIds: null,
       dueDateRaw: null,
+      dueTime: null,
+      repeat: null,
+      repeatRaw: null,
       listTarget: null,
     };
   }
@@ -134,6 +149,9 @@ export function parse(input: string, now?: Date): ParsedTask {
       blockedByIds: null,
       relatedIds: null,
       dueDateRaw: null,
+      dueTime: null,
+      repeat: null,
+      repeatRaw: null,
       listTarget: null,
     };
   }
@@ -153,10 +171,17 @@ export function parse(input: string, now?: Date): ParsedTask {
   let dueDate: string | null = null;
   let dueDateRaw: string | null = null;
   const dueDateMatch = DUE_DATE_RE.exec(metadataText);
+  let dueTime: string | null = null;
   if (dueDateMatch) {
     dueDateRaw = dueDateMatch[1]!;
     dueDate = parseDate(dueDateRaw, now);
+    const timeMatch = DUE_TIME_RE.exec(metadataText.slice(dueDateMatch.index + dueDateMatch[0].length));
+    if (timeMatch && dueDate) dueTime = parseTime(timeMatch[1]!);
   }
+
+  // Extract repeat rule (last one wins)
+  const repeatRaw = allMatches(REPEAT_RE, metadataText).at(-1)?.toLowerCase() ?? null;
+  const repeat = repeatRaw ? parseRepeat(repeatRaw) : null;
 
   // Extract tags
   const tags = allMatches(TAG_RE, metadataText);
@@ -192,6 +217,9 @@ export function parse(input: string, now?: Date): ParsedTask {
     blockedByIds: blockedByIds.length > 0 ? blockedByIds : null,
     relatedIds: relatedIds.length > 0 ? relatedIds : null,
     dueDateRaw,
+    dueTime,
+    repeat,
+    repeatRaw,
     listTarget,
   };
 }
@@ -242,7 +270,8 @@ export function getDisplayDescription(description: string): string {
 /**
  * Updates the description to sync metadata changes.
  * Updates existing metadata line or appends a new one.
- * Order: ^parent !blocks -^subtasks -!blockedBy ~related pN @date #tags
+ * Order: ^parent !blocks -^subtasks -!blockedBy ~related pN @date time *repeat #tags
+ * The time and repeat tokens are kept from the description unless `extra` overrides them.
  */
 export function syncMetadataToDescription(
   description: string,
@@ -254,9 +283,13 @@ export function syncMetadataToDescription(
   hasSubtaskIds?: string[] | null,
   blockedByIds?: string[] | null,
   relatedIds?: string[] | null,
+  extra?: { dueTime?: string | null; repeatRaw?: string | null },
 ): string {
   const lines = description.split('\n');
   const metadataRange = trailingMetadataRange(lines);
+  const current = extra && 'dueTime' in extra && 'repeatRaw' in extra ? null : parse(description);
+  const dueTime = extra && 'dueTime' in extra ? extra.dueTime : current!.dueTime;
+  const repeatRaw = extra && 'repeatRaw' in extra ? extra.repeatRaw : current!.repeatRaw;
 
   // Build the new metadata line (deduplicate IDs to prevent corruption from undo replays)
   const unique = (ids: string[]) => [...new Set(ids)];
@@ -274,6 +307,8 @@ export function syncMetadataToDescription(
   }
 
   if (dueDate) parts.push(`@${dueDate}`);
+  if (dueDate && dueTime) parts.push(formatTime(dueTime));
+  if (repeatRaw) parts.push(`*${repeatRaw}`);
   if (tags?.length) parts.push(...unique(tags).map(t => `#${t}`));
 
   const newMetaLine = parts.join(' ');
