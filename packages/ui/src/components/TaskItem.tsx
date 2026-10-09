@@ -490,6 +490,7 @@ export const TaskItem = memo(function TaskItem({
                       anchorRef={inputRef}
                       suggestions={ac.suggestions}
                       selectedIndex={ac.selectedIndex}
+                      calendarDate={ac.calendarDate}
                       onSelect={(i) => {
                         const newVal = ac.select(i);
                         if (newVal !== null) {

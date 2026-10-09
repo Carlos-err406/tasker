@@ -5,12 +5,17 @@ import * as listService from '../lib/services/lists.js';
 import { listTargetKey } from '@tasker/core/parsers';
 import { getDisplayTitle, getShortId } from '../lib/task-display.js';
 import { getPlainText, setCaretOffset, getTextBeforeCursor } from '../lib/content-editable-utils.js';
+import { parseDate } from '@tasker/core/parsers';
+import { dateSuggestions, timeSuggestions } from '../lib/date-suggestions.js';
 
 export type Suggestion =
   | { kind: 'task'; task: Task; shortId: string; title: string }
   | { kind: 'tag'; tag: string; count: number }
   | { kind: 'list'; name: string }
-  | { kind: 'repeat'; token: string; label: string };
+  | { kind: 'repeat'; token: string; label: string }
+  | { kind: 'date'; date: string; label: string; detail: string }
+  /** `leading`: inserted right after a just-picked date, so it brings its own space. */
+  | { kind: 'time'; token: string; leading: boolean };
 
 const REPEATS = [
   { token: 'daily', label: 'every day' },
@@ -41,8 +46,16 @@ const CLOSED: AutocompleteState = {
 /** Regex to detect a metadata prefix at cursor position.
  *  Matches: ^, !, ~, -^, -! followed by optional partial ID/query chars,
  *  # followed by an optional partial tag (same characters as the parser),
- *  > followed by an optional partial list name, or * followed by a partial repeat rule. */
-const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#|>|\*)([\w-]*)$/;
+ *  > followed by an optional partial list name, * followed by a partial repeat rule,
+ *  or @ followed by a partial date. */
+const PREFIX_RE = /(?:^|\s)(-[!^]|[!^~]|#|>|\*|@)([\w+-]*)$/;
+/** A time being typed after a due date: `@fri 6`, `@2026-10-12 6:3`. */
+const TIME_AFTER_DATE_RE = /(?:^|\s)@(\S+)\s(\d[\d:]*(?:[ap]m?)?)$/i;
+/** The token a selection replaces, read from the live text at matchStart. */
+const TOKEN_RE: Record<string, RegExp> = {
+  '@': /^@[\w+-]*/,
+  time: /^\d[\d:]*(?:[ap]m?)?/i,
+};
 const TAG_RE = /(?:^|\s)#([\w-]+)/g;
 
 /** Existing tags ranked by prefix match, then usage, skipping ones already in the text. */
@@ -138,6 +151,20 @@ export function useMetadataAutocomplete(
       // Check the current line only (from last newline to cursor)
       const lineStart = textBeforeCursor.lastIndexOf('\n') + 1;
       const lineText = textBeforeCursor.slice(lineStart);
+      const timeMatch = TIME_AFTER_DATE_RE.exec(lineText);
+      if (timeMatch && parseDate(timeMatch[1]!, new Date())) {
+        const partial = timeMatch[2]!;
+        const suggestions: Suggestion[] = timeSuggestions(partial).map((token) => ({ kind: 'time', token, leading: false }));
+        setState({
+          isOpen: suggestions.length > 0,
+          suggestions,
+          selectedIndex: 0,
+          prefix: 'time',
+          partial,
+          matchStart: lineStart + timeMatch.index + timeMatch[0].length - partial.length,
+        });
+        return;
+      }
       const match = PREFIX_RE.exec(lineText);
 
       if (!match) {
@@ -152,6 +179,12 @@ export function useMetadataAutocomplete(
       const partial = match[2]!;
       // matchStart is the absolute index in value where the prefix begins
       const matchStart = lineStart + match.index + (match[0].startsWith(' ') ? 1 : 0);
+
+      if (prefix === '@') {
+        const suggestions: Suggestion[] = dateSuggestions(partial, new Date()).map((d) => ({ kind: 'date', ...d }));
+        setState({ isOpen: suggestions.length > 0, suggestions, selectedIndex: 0, prefix, partial, matchStart });
+        return;
+      }
 
       if (prefix === '*') {
         const typed = partial.toLowerCase();
@@ -205,10 +238,12 @@ export function useMetadataAutocomplete(
   }, [state.isOpen]);
 
   /** Insert the selected task ID into the value. Returns the new value string. */
+  /** Apply a suggestion by list index, or a date picked from the calendar. */
   const select = useCallback(
-    (index: number): string | null => {
-      if (!state.isOpen || index < 0 || index >= state.suggestions.length) return null;
-      const suggestion = state.suggestions[index]!;
+    (choice: number | Suggestion): string | null => {
+      if (!state.isOpen) return null;
+      if (typeof choice === 'number' && (choice < 0 || choice >= state.suggestions.length)) return null;
+      const suggestion = typeof choice === 'number' ? state.suggestions[choice]! : choice;
 
       // Read the live DOM text so we never operate on a stale React `value`.
       const el = textareaRef.current;
@@ -218,8 +253,13 @@ export function useMetadataAutocomplete(
       // in the live text — don't trust state.partial which can be stale due
       // to React closure/batching races.
       const afterMatchStart = liveValue.slice(state.matchStart);
-      const prefixPartialMatch = /^(-[!^]|[!^~]|#|>|\*)[\w-]*/.exec(afterMatchStart);
-      const replaceLen = prefixPartialMatch ? prefixPartialMatch[0].length : state.prefix.length;
+      const prefixPartialMatch = (TOKEN_RE[state.prefix] ?? /^(-[!^]|[!^~]|#|>|\*)[\w-]*/).exec(afterMatchStart);
+      const replaceLen =
+        suggestion.kind === 'time' && suggestion.leading
+          ? 0
+          : prefixPartialMatch
+            ? prefixPartialMatch[0].length
+            : state.prefix.length;
 
       // No trailing space: contenteditable collapses it before the next keystroke.
       const insertion =
@@ -229,13 +269,29 @@ export function useMetadataAutocomplete(
             ? `>${listTargetKey(suggestion.name)}`
             : suggestion.kind === 'repeat'
               ? `*${suggestion.token}`
-              : state.prefix + suggestion.shortId;
+              : suggestion.kind === 'date'
+                ? `@${suggestion.date}`
+                : suggestion.kind === 'time'
+                  ? `${suggestion.leading ? ' ' : ''}${suggestion.token}`
+                  : state.prefix + suggestion.shortId;
       const newValue = liveValue.slice(0, state.matchStart) + insertion + liveValue.slice(state.matchStart + replaceLen);
       ++detectVersionRef.current; // Cancel in-flight detects so they can't re-open the dropdown
       justSelectedRef.current = true; // Suppress the next detect triggered by the new value
-      setState(CLOSED);
       // Set cursor position after insertion
       const cursorPos = state.matchStart + insertion.length;
+      // A picked date offers a time next; Enter/Tab takes one, any other key moves on.
+      setState(
+        suggestion.kind === 'date'
+          ? {
+              isOpen: true,
+              suggestions: timeSuggestions('').map((token) => ({ kind: 'time', token, leading: true })),
+              selectedIndex: 0,
+              prefix: 'time',
+              partial: '',
+              matchStart: cursorPos,
+            }
+          : CLOSED,
+      );
       setTimeout(() => {
         if (textareaRef.current) {
           setCaretOffset(textareaRef.current, cursorPos);
@@ -301,6 +357,11 @@ export function useMetadataAutocomplete(
     isOpen: state.isOpen,
     suggestions: state.suggestions,
     selectedIndex: state.selectedIndex,
+    /** The date being typed after `@`, for the calendar; null outside a date. */
+    calendarDate:
+      state.isOpen && state.prefix === '@'
+        ? (parseDate(state.partial, new Date()) ?? (state.suggestions[0]?.kind === 'date' ? state.suggestions[0].date : null))
+        : null,
     detect,
     select,
     onKeyDown,

@@ -60,7 +60,7 @@ export function HelpPanel({
             <span className="font-mono">p1, p2, p3</span>
             <span>Priority (high, medium, low)</span>
             <span className="font-mono">@date</span>
-            <span>Due date</span>
+            <span>Due date (type @ to pick one)</span>
             <span className="font-mono">@date 6:30pm</span>
             <span>Due date and time (9am, 18:30)</span>
             <span className="font-mono">*weekly</span>

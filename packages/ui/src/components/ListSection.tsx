@@ -551,6 +551,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
                   anchorRef={addInputRef}
                   suggestions={ac.suggestions}
                   selectedIndex={ac.selectedIndex}
+                  calendarDate={ac.calendarDate}
                   onSelect={(i) => {
                     const newVal = ac.select(i);
                     if (newVal !== null) {
