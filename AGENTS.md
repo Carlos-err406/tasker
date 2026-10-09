@@ -1,10 +1,9 @@
 # Tasker SwiftBar
 
-Canonical checkout: `/Users/carlos/Developer/tasker`; origin: `https://github.com/Carlos-err406/tasker.git`. The old app at `https://github.com/Carlos-err406/tasker-ref.git` is reference-only.
+Canonical checkout: `/Users/carlos/Developer/tasker`; origin: `https://github.com/Carlos-err406/tasker.git`.
 
 Implement the approved plan in `docs/plans/swiftbar-mvp.md`. Apply later scope decisions in `docs/scope-decisions.md`. Track execution evidence separately in `docs/implementation-status.md`.
 
-- This is a separate repository. Do not modify or connect to cli-tasker's live database.
 - MVP: macOS SwiftBar and local/Google Drive backups. Zero hosting budget. No Supabase, CalDAV or multi-device merge. The separately approved offline Android app follows `docs/plans/android-offline.md`.
 - Preserve the extracted parsers, rendering/editing behavior and stable task order.
 - Keep Node/SQLite dependencies out of the browser UI. Inject host operations through `packages/ui/src/host.ts`.
