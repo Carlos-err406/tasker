@@ -169,8 +169,11 @@ export async function startService(options: ServiceOptions) {
               !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload))/.test(
                 input.channel,
               )
-            )
+            ) {
               sync.engine.localChanged();
+              // Agent edits reach an open popover through the change revision.
+              if (req.headers["x-tasker-client"] === "agent") syncRevision++;
+            }
           } catch (error) {
             if (error instanceof HttpError) throw error;
             throw new HttpError(

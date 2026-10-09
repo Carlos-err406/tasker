@@ -37,6 +37,16 @@ health_check() {
   fail 'The new service did not become healthy.'
 }
 launchctl_tasker() { /bin/launchctl "$@"; }
+# Agents launch the MCP server through a stable path that survives updates.
+write_mcp_launcher() {
+  {
+    printf '#!/bin/bash\n'
+    printf 'export TASKER_SWIFTBAR_DATA_DIR=%q\n' "$4"
+    printf 'exec %q %q "$@"\n' "$2" "$3/apps/macos/dist-service/mcp/main.js"
+  } > "$1.new"
+  chmod 700 "$1.new"
+  mv -f "$1.new" "$1"
+}
 rollback() {
   say 'Activation failed; restoring the previous service and plugin.'
   launchctl_tasker bootout "gui/$(id -u)/${label:-org.tasker-swiftbar.service}" >/dev/null 2>&1 || true
@@ -200,6 +210,7 @@ main() {
   rm -f "$root/current.new"
   ln -s "$app" "$root/current.new"
   mv -fh "$root/current.new" "$root/current"
+  write_mcp_launcher "$root/tasker-mcp" "$node_dir/bin/node" "$app" "$data"
   if [[ "$no_open" == 0 ]]; then
     if [[ -z "$configured_plugin" ]]; then /usr/bin/defaults write com.ameba.SwiftBar PluginDirectory -string "$plugin_dir"; fi
     /usr/bin/open "$host_path"
@@ -207,5 +218,6 @@ main() {
   fi
   say "Installed Tasker $version. Click its menu-bar icon to get started."
   say 'Run the same installer again to update. Tasks, backups, and Google connection are preserved.'
+  say "To let AI agents use Tasker, register its MCP server: claude mcp add --scope user tasker -- $(printf %q "$root/tasker-mcp")"
 }
 if [[ "${BASH_SOURCE[0]:-}" == "$0" || -z "${BASH_SOURCE[0]:-}" ]]; then main "$@"; fi

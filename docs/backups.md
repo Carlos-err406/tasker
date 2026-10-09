@@ -1,6 +1,6 @@
 # Backup and recovery
 
-Local data is `~/Library/Application Support/tasker-swiftbar/tasker.db` (or `TASKER_SWIFTBAR_DATA_DIR/tasker.db`). Never point this service at cli-tasker's live database. Images are SQLite BLOBs referenced as `/attachments/<uuid>`, not separate media files. Remote media URLs remain remote and are not copied into backups.
+Local data is `~/Library/Application Support/tasker-swiftbar/tasker.db` (or `TASKER_SWIFTBAR_DATA_DIR/tasker.db`). Images are SQLite BLOBs referenced as `/attachments/<uuid>`, not separate media files. Remote media URLs remain remote and are not copied into backups.
 
 The service creates a due automatic backup at startup and checks each minute while running. A day means 24 hours since the last successful automatic snapshot. It does not wake the Mac. Seven automatic snapshots are kept; manual and safety snapshots remain. “Back up now” creates a manual snapshot immediately.
 

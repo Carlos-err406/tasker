@@ -67,6 +67,7 @@ export async function stageRelease(root, destination) {
     "packages/core/dist/index.js",
     "apps/macos/dist/index.html",
     "apps/macos/dist-service/service/main.js",
+    "apps/macos/dist-service/mcp/main.js",
     "apps/macos/dist-service/google/public-client.js",
   ])
     await readFile(join(destination, path));

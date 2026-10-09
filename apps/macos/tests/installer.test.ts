@@ -103,3 +103,31 @@ it("resolves the latest release and reaches its download on macOS Bash", async (
     await rm(dir, { recursive: true, force: true });
   }
 });
+it("writes an MCP launcher that runs the installed server against the user's data", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "tasker-installer-"));
+  try {
+    const node = join(dir, "fake node");
+    await writeFile(
+      node,
+      '#!/bin/bash\nprintf "%s\\n" "$TASKER_SWIFTBAR_DATA_DIR" "$@"\n',
+      { mode: 0o700 },
+    );
+    const launcher = join(dir, "tasker-mcp");
+    await shell(
+      'write_mcp_launcher "$1" "$2" "$3" "$4"',
+      launcher,
+      node,
+      join(dir, "app $(x)"),
+      join(dir, "Application Support/tasker"),
+    );
+    const { stdout } = await exec(launcher, ["--flag"]);
+    expect(stdout.split("\n")).toEqual([
+      join(dir, "Application Support/tasker"),
+      join(dir, "app $(x)/apps/macos/dist-service/mcp/main.js"),
+      "--flag",
+      "",
+    ]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
