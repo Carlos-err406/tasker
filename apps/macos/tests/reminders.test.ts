@@ -49,3 +49,31 @@ it("the service posts each due reminder once, respects the setting, and skips fi
   expect(posted.map((r) => r.taskId)).toEqual([expect.any(String), show]);
   expect(posted[1]).toMatchObject({ title: "Watch Frieren", time: "6:30pm", listName: "tasks" });
 });
+
+it("checks just after the start of each minute", async () => {
+  const { vi } = await import("vitest");
+  const { startReminders } = await import("../src/service/reminders.js");
+  const { createTestDb } = await import("@tasker/core");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  try {
+    vi.setSystemTime(new Date(2026, 9, 10, 9, 0, 30));
+    const db = createTestDb();
+    const checks: number[] = [];
+    const reminders = startReminders({
+      db: () => db,
+      notify: async () => {},
+      now: () => {
+        checks.push(Date.now() % 60_000);
+        return new Date();
+      },
+    });
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(checks).toEqual([30_000]); // only the check at startup
+    await vi.advanceTimersByTimeAsync(2_000); // past 9:01:00.250
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(checks).toEqual([30_000, 250, 250]);
+    reminders.close();
+  } finally {
+    vi.useRealTimers();
+  }
+});

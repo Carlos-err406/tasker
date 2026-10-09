@@ -28,15 +28,15 @@ export const swiftBarNotify: Notify = async (reminder) => {
 };
 
 /**
- * Checks once a minute for due reminders. A short interval keeps working across
- * sleep and clock changes, and late reminders are still delivered on wake.
+ * Checks for due reminders just after the start of every minute, since due times
+ * are whole minutes. Rescheduling each minute keeps working across sleep and clock
+ * changes, and late reminders are still delivered on wake.
  */
 export function startReminders(options: {
   db: () => TaskerDb;
   notify: Notify;
   paused?: () => boolean;
   now?: () => Date;
-  intervalMs?: number;
 }) {
   const now = options.now ?? (() => new Date());
   let running = false;
@@ -64,13 +64,23 @@ export function startReminders(options: {
       running = false;
     }
   };
-  const timer = setInterval(() => void check(), options.intervalMs ?? 60_000);
-  timer.unref();
+  let timer: ReturnType<typeof setTimeout>;
+  const schedule = () => {
+    timer = setTimeout(
+      () => {
+        void check();
+        schedule();
+      },
+      60_000 - (Date.now() % 60_000) + 250,
+    );
+    timer.unref();
+  };
+  schedule();
   void check();
   return {
     check,
     close() {
-      clearInterval(timer);
+      clearTimeout(timer);
     },
   };
 }
