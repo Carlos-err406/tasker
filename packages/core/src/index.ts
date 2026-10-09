@@ -22,6 +22,8 @@ export type { ParsedTask } from './parsers/index.js';
 
 // Queries
 export * from './queries/index.js';
+export { reminderFor, dueReminders, DEFAULT_REMINDER_TIME, MAX_LATENESS_MS } from './reminders.js';
+export type { Reminder } from './reminders.js';
 
 // Undo
 export { UndoManager, getCommandDescription } from './undo/index.js';

@@ -39,6 +39,7 @@ export async function connectHost() {
   };
   configureHost({
     operations,
+    notifications: true,
     onDbChanged: (callback) => {
       let active = true,
         revision: number | undefined,
