@@ -1815,3 +1815,22 @@ test("saving through the editor keeps blank lines as they are", async ({
   await expect(editor).not.toBeVisible();
   expect(await description()).toBe(text.replace("apothecary diaries", "apothecary diaries\n\ntyped"));
 });
+
+test("picking an autocomplete suggestion keeps blank lines as they are", async ({
+  page,
+}) => {
+  await add(page, "tokyo revengers\n- [x] 1 https://t.me/c/1/2\n\n@today #anime");
+  await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await expect(editor).toBeFocused();
+  await editor.press("Meta+ArrowDown");
+  await editor.pressSequentially(" *we");
+  const options = page.getByTestId("metadata-autocomplete-dropdown").getByRole("button");
+  await expect(options).toHaveText(["*weeklyevery week"]);
+  await options.first().click();
+  await editor.press("Meta+Enter");
+  await expect(editor).not.toBeVisible();
+  const [task] = (await rpc(page, "tasks:getAll")) as { description: string }[];
+  expect(task!.description).toMatch(/^tokyo revengers\n- \[x\] 1 https:\/\/t\.me\/c\/1\/2\n\n@\d{4}-\d{2}-\d{2} \*weekly #anime$/);
+});
