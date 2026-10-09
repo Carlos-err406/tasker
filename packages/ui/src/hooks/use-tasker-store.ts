@@ -8,6 +8,16 @@ import { ALL_LISTS } from "../lib/all-lists.js";
 import * as taskService from "../lib/services/tasks.js";
 import * as listService from "../lib/services/lists.js";
 import * as undoService from "../lib/services/undo.js";
+import * as settingsService from "../lib/services/settings.js";
+import type { Settings, SettingKey } from "@tasker/core/queries";
+
+/** Matches the core defaults; used until this device's settings load. */
+const DEFAULT_SETTINGS: Settings = {
+  showCompleted: true,
+  mediaPreviews: true,
+  notifications: true,
+  autoSort: false,
+};
 
 /** A single relationship entry for display: "(id) title" + status badge. */
 export interface RelEntry {
@@ -29,7 +39,8 @@ interface TaskerState {
   tasks: Task[];
   lists: string[];
   defaultList: string;
-  hideCompletedLists: Set<string>;
+  /** Per-device settings. */
+  settings: Settings;
   relDetails: Record<string, TaskRelDetails>;
   searchQuery: string;
   statusMessage: string;
@@ -45,13 +56,13 @@ type Action =
       lists: string[];
       defaultList: string;
       tasks: Task[];
-      hideCompleted: Set<string>;
+      settings: Settings;
       details: Record<string, TaskRelDetails>;
       selectedList: string;
       allOrder: string[];
     }
   | { type: "REORDER_ALL"; taskId: string; newIndex: number }
-  | { type: "SET_HIDE_COMPLETED"; name: string; hide: boolean }
+  | { type: "SET_SETTINGS"; settings: Settings }
   | { type: "SET_SEARCH"; query: string }
   | { type: "SET_STATUS_MESSAGE"; message: string }
   | { type: "SELECT_LIST"; list: string }
@@ -73,7 +84,7 @@ function reducer(state: TaskerState, action: Action): TaskerState {
         lists: action.lists,
         defaultList: action.defaultList,
         tasks: action.tasks,
-        hideCompletedLists: action.hideCompleted,
+        settings: action.settings,
         relDetails: action.details,
         selectedList: action.selectedList,
         allOrder: action.allOrder,
@@ -84,12 +95,8 @@ function reducer(state: TaskerState, action: Action): TaskerState {
       ids.splice(action.newIndex, 0, action.taskId);
       return { ...state, allOrder: ids };
     }
-    case "SET_HIDE_COMPLETED": {
-      const next = new Set(state.hideCompletedLists);
-      if (action.hide) next.add(action.name);
-      else next.delete(action.name);
-      return { ...state, hideCompletedLists: next };
-    }
+    case "SET_SETTINGS":
+      return { ...state, settings: action.settings };
     case "SET_SEARCH":
       return { ...state, searchQuery: action.query };
     case "SET_STATUS_MESSAGE":
@@ -141,7 +148,7 @@ const initialState: TaskerState = {
   tasks: [],
   lists: [],
   defaultList: "tasks",
-  hideCompletedLists: new Set(),
+  settings: DEFAULT_SETTINGS,
   relDetails: {},
   searchQuery: "",
   statusMessage: "",
@@ -150,13 +157,18 @@ const initialState: TaskerState = {
   loading: true,
 };
 
-const HIDE_COMPLETED_ALL_KEY = "tasker:hideCompletedAll";
-function readHideCompletedAll() {
+/** Earlier versions kept the previews toggle in browser storage; carry it over once. */
+async function loadSettings(): Promise<Settings> {
+  const settings = await settingsService.getSettings();
   try {
-    return localStorage.getItem(HIDE_COMPLETED_ALL_KEY) === "true";
+    if (localStorage.getItem("tasker:showMediaPreviews") === "false") {
+      localStorage.removeItem("tasker:showMediaPreviews");
+      return await settingsService.setSetting("mediaPreviews", false);
+    }
   } catch {
-    return false;
+    /* Browser storage unavailable: nothing to carry over. */
   }
+  return settings;
 }
 
 export function useTaskerStore() {
@@ -209,14 +221,7 @@ export function useTaskerStore() {
           listService.getDefaultList(),
           taskService.getAllListsOrder(),
         ]);
-        // Load hide-completed states
-        const hideCompletedMap = new Map<string, boolean>();
-        await Promise.all(
-          lists.map(async (name) => {
-            const hide = await listService.isListHideCompleted(name);
-            hideCompletedMap.set(name, hide);
-          }),
-        );
+        const settings = await loadSettings();
 
         const tasks = searchQuery
           ? await taskService.searchTasks(searchQuery)
@@ -283,12 +288,7 @@ export function useTaskerStore() {
           tasks,
           details,
           selectedList,
-          hideCompleted: new Set([
-            ...[...hideCompletedMap]
-              .filter(([, hide]) => hide)
-              .map(([name]) => name),
-            ...(readHideCompletedAll() ? [ALL_LISTS] : []),
-          ]),
+          settings,
         });
       } catch (err) {
         if (version !== refreshVersion.current) return;
@@ -542,21 +542,19 @@ export function useTaskerStore() {
     [refresh, showStatus],
   );
 
-  const toggleHideCompleted = useCallback(
-    async (name: string) => {
-      const hide = !state.hideCompletedLists.has(name);
-      dispatch({ type: "SET_HIDE_COMPLETED", name, hide });
-      if (name !== ALL_LISTS) {
-        await listService.setListHideCompleted(name, hide);
-        return;
-      }
+  const setSetting = useCallback(
+    async (key: SettingKey, value: boolean) => {
+      dispatch({ type: "SET_SETTINGS", settings: { ...state.settings, [key]: value } });
       try {
-        localStorage.setItem(HIDE_COMPLETED_ALL_KEY, String(hide));
-      } catch {
-        /* The setting still applies for this session. */
+        dispatch({ type: "SET_SETTINGS", settings: await settingsService.setSetting(key, value) });
+        // Turning auto sort on reorders every list.
+        if (key === "autoSort" && value) await refresh();
+      } catch (err) {
+        showStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+        await refresh();
       }
     },
-    [state.hideCompletedLists],
+    [state.settings, refresh, showStatus],
   );
 
   // Undo/redo
@@ -665,16 +663,8 @@ export function useTaskerStore() {
         const target =
           selectedListRef.current === ALL_LISTS ? ALL_LISTS : task.listName;
         const done = task.status === TS.Done || task.status === TS.WontDo;
-        if (done && target === ALL_LISTS) {
-          dispatch({ type: "SET_HIDE_COMPLETED", name: ALL_LISTS, hide: false });
-          try {
-            localStorage.setItem(HIDE_COMPLETED_ALL_KEY, "false");
-          } catch {
-            /* Storage may be unavailable. */
-          }
-        } else if (done) {
-          await listService.setListHideCompleted(task.listName, false);
-        }
+        // A completed target is only visible while completed tasks are shown.
+        if (done) await settingsService.setSetting("showCompleted", true);
         navigationTarget.current = task.id;
         selectList(target);
         setSearch("");
@@ -700,7 +690,7 @@ export function useTaskerStore() {
     el.classList.remove("task-highlight");
     void el.offsetWidth;
     el.classList.add("task-highlight");
-  }, [state.tasks, state.selectedList, state.hideCompletedLists]);
+  }, [state.tasks, state.selectedList, state.settings.showCompleted]);
 
   // Group tasks by list; the All view interleaves every list in its saved order.
   const allTasks = useMemo(() => {
@@ -744,7 +734,7 @@ export function useTaskerStore() {
     deleteList: deleteListAction,
     renameList: renameListAction,
     reorderList: reorderListAction,
-    toggleHideCompleted,
+    setSetting,
     undo: undoAction,
     redo: redoAction,
     setSearch,

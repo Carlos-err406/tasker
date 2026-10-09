@@ -166,7 +166,7 @@ export async function startService(options: ServiceOptions) {
             const input = JSON.parse((await body(req)).toString());
             result = await registry.invoke(input.channel, input.args);
             if (
-              !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload))/.test(
+              !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload)|settings:)/.test(
                 input.channel,
               )
             ) {

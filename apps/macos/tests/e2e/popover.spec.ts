@@ -39,6 +39,10 @@ async function add(page: import("@playwright/test").Page, text: string) {
   await input.press("Meta+Enter");
   await expect(input).not.toBeVisible();
 }
+async function openBackups(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: /Backups & sync/ }).click();
+}
 async function chooseList(page: import("@playwright/test").Page, name: string) {
   await page.getByRole("button", { name: "Choose list", exact: true }).click();
   await page.getByRole("menuitemradio", { name, exact: true }).click();
@@ -225,12 +229,12 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
     .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBe(1);
   const source = await image.getAttribute("src");
-  await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await openBackups(page);
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
   await expect(page.getByText(/^Last backup today/)).toBeVisible();
   await chooseList(page, "tasks");
   await add(page, "Later task");
-  await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await openBackups(page);
   await page.getByRole("button", { name: "Restore…", exact: true }).click();
   await expect(page.locator(".backup-row")).toHaveCount(1);
   await page.getByRole("button", { name: "Restore", exact: true }).click();
@@ -245,7 +249,7 @@ test("pastes an image, restores its bytes, and recovers the safety snapshot", as
   await expect
     .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBe(1);
-  await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await openBackups(page);
   await page.getByRole("button", { name: "Restore…", exact: true }).click();
   await expect(page.locator(".backup-row")).toHaveCount(2);
   await page
@@ -442,7 +446,7 @@ test("keeps compact tools and footer visible while tasks scroll", async ({
     420,
   );
   await expect(
-    page.getByRole("button", { name: "Backups", exact: true }),
+    page.getByRole("button", { name: "Settings", exact: true }),
   ).toBeInViewport();
   await expect(
     page.getByRole("button", { name: "Undo", exact: true }),
@@ -470,13 +474,15 @@ test("top picker manages lists and app controls manage tasks without a list head
   await page.keyboard.press("Escape");
   await add(page, "From app toolbar");
   await page.locator('[data-testid^="task-checkbox-"]').click();
-  await page
-    .getByRole("button", { name: "Hide completed tasks", exact: true })
-    .click();
+  const showCompleted = page.getByRole("switch", { name: "Show completed tasks" });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await showCompleted.click();
+  await expect(showCompleted).not.toBeChecked();
+  await page.getByRole("button", { name: "Back to tasks", exact: true }).click();
   await expect(page.locator('[data-testid^="task-name-"]')).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Show completed tasks", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await showCompleted.click();
+  await page.getByRole("button", { name: "Back to tasks", exact: true }).click();
   await expect(page.locator('[data-testid^="task-name-"]')).toHaveText([
     "From app toolbar",
   ]);
@@ -508,11 +514,11 @@ test("panel headers match and toolbar icons have equal spacing", async ({
   const boxes = await Promise.all(
     [
       "Add task",
-      "Hide completed tasks",
-      "Hide previews",
+      "Undo",
+      "Redo",
       "System sort",
       "Trash",
-      "Backups",
+      "Settings",
       "Help",
     ].map((name) =>
       page.getByRole("button", { name, exact: true }).boundingBox(),
@@ -531,12 +537,17 @@ test("panel headers match and toolbar icons have equal spacing", async ({
   await expect(
     page.getByRole("textbox", { name: "Search tasks" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Backups", exact: true }).click();
+  await openBackups(page);
   await expect(
     page.getByRole("heading", { name: "Backups & Sync", exact: true }),
   ).toBeVisible();
   expect(await page.getByTestId("panel-header").boundingBox()).toEqual(trash);
   await page.screenshot({ path: "test-results/backups-header.png" });
+  await page
+    .getByRole("button", { name: "Back to settings", exact: true })
+    .click();
+  await expect(page.getByTestId("settings-panel")).toBeVisible();
+  expect(await page.getByTestId("panel-header").boundingBox()).toEqual(trash);
   await page
     .getByRole("button", { name: "Back to tasks", exact: true })
     .click();
@@ -646,7 +657,6 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
   });
   const tooltip = page.locator('[role="tooltip"]:not([data-state="closed"])');
   const shortcuts = [
-    { name: "Hide previews", keys: ["⌘", "P"] },
     { name: "System sort", keys: ["⌘", "J"] },
     { name: "Undo", keys: ["⌘", "Z"] },
     { name: "Redo", keys: ["⌘", "⇧", "Z"] },
@@ -700,7 +710,7 @@ test("action tooltips show keycaps and undo shortcuts work outside editors", asy
   await expect(names).toHaveText("Undo shortcut task");
 });
 
-test("Command-P toggles media previews and persists the preference", async ({
+test("Command-P and Settings toggle media previews, and the setting persists", async ({
   page,
 }) => {
   await page.route("https://example.test/diagram.png", (route) =>
@@ -716,28 +726,25 @@ test("Command-P toggles media previews and persists the preference", async ({
   await expect(page.getByTestId("markdown-image-preview-hide")).toBeVisible();
   await page.keyboard.press("Meta+p");
   await expect(
-    page.getByRole("button", { name: "Show previews", exact: true }),
-  ).toBeVisible();
-  await expect(
     page.getByTestId("markdown-image-preview-collapsed"),
   ).toBeVisible();
+  // The setting lives in the database, so it survives a reload (the popover's
+  // address changes whenever the service restarts).
   await page.reload();
   await expect(
     page.getByTestId("markdown-image-preview-collapsed"),
   ).toBeVisible();
-  await page.keyboard.press("Meta+p");
-  await expect(
-    page.getByRole("button", { name: "Hide previews", exact: true }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const previews = page.getByRole("switch", { name: "Media previews" });
+  await expect(previews).not.toBeChecked();
+  await previews.click();
+  await expect(previews).toBeChecked();
+  await page.getByRole("button", { name: "Back to tasks", exact: true }).click();
   await expect(page.getByTestId("markdown-image-preview-hide")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Hide previews", exact: true })
-    .click();
+  await page.keyboard.press("Meta+p");
   await expect(
     page.getByTestId("markdown-image-preview-collapsed"),
   ).toBeVisible();
-  await page.keyboard.press("Meta+p");
-  await expect(page.getByTestId("markdown-image-preview-hide")).toBeVisible();
 });
 
 test("copying a task ID preserves mounted media while status appears and clears", async ({
@@ -1496,7 +1503,7 @@ test("desktop toolbar keeps picker top left and app controls top right across pa
   }
   for (const [label, tooltip] of [
     ["Trash", "View trash"],
-    ["Backups", "Backups & sync"],
+    ["Settings", "Settings"],
     ["Help", "View help"],
   ]) {
     const button = page.getByRole("button", { name: label, exact: true });
@@ -1738,4 +1745,40 @@ test("suggests repeat rules after *", async ({ page }) => {
   await expect(input).not.toBeVisible();
   const row = page.locator('[data-testid^="task-item-"]').filter({ hasText: "Water plants" });
   await expect(row.locator('[data-testid^="task-repeat-"]')).toHaveAttribute("aria-label", "Repeats every week");
+});
+
+test("Settings keeps device options together, and auto sort orders lists and turns off dragging", async ({
+  page,
+}) => {
+  for (const name of ["Low\np3", "High\np1", "Plain"]) await add(page, name);
+  const names = page.locator('[data-testid^="task-name-"]');
+  await expect(names).toHaveText(["Plain", "High", "Low"]);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const panel = page.getByTestId("settings-panel");
+  await expect(panel).toContainText("These settings apply to this device only.");
+  // Notifications appear once this host can deliver them.
+  await expect(page.getByRole("switch", { name: "Notifications" })).toHaveCount(0);
+  await page.getByRole("button", { name: "About auto sort", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Dragging to reorder tasks is turned off");
+  await page.keyboard.press("Escape");
+  const autoSort = page.getByRole("switch", { name: "Auto sort" });
+  await expect(autoSort).not.toBeChecked();
+  await autoSort.click();
+  await expect(autoSort).toBeChecked();
+  await page.screenshot({ path: "test-results/settings-panel.png" });
+  await page.getByRole("button", { name: "Back to tasks", exact: true }).click();
+
+  // Turning it on sorts right away, and new tasks land in system order.
+  await expect(names).toHaveText(["High", "Plain", "Low"]);
+  await add(page, "Medium\np2");
+  await expect(names).toHaveText(["High", "Medium", "Plain", "Low"]);
+
+  const rows = page.locator("[data-task-id]");
+  await dragVertically(page, rows.nth(3), rows.nth(0));
+  await expect(names).toHaveText(["High", "Medium", "Plain", "Low"]);
+  await page.reload();
+  await expect(names).toHaveText(["High", "Medium", "Plain", "Low"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(autoSort).toBeChecked();
 });

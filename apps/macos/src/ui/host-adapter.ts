@@ -2,6 +2,7 @@ import { configureHost, type Operations } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
 import { undoInvokerFactory } from "@tasker/ui/transport/undo/preload";
+import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 export async function connectHost() {
   const token = location.hash.slice(1);
   if (token) {
@@ -27,6 +28,7 @@ export async function connectHost() {
     ...tasksInvokerFactory(transport),
     ...listsInvokerFactory(transport),
     ...undoInvokerFactory(transport),
+    ...settingsInvokerFactory(transport),
   };
   const visibility = (visible: boolean, callback: () => void) => {
     const listener = () => {

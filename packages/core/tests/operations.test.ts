@@ -152,3 +152,43 @@ describe("portable task operations", () => {
     expect(task.description).toBe(`child\n^${parent}`);
   });
 });
+
+describe("per-device settings", () => {
+  it("default, persist, and reject unknown keys", async () => {
+    const db = createTestDb();
+    const registry = createRegistry(db, new UndoManager(db));
+    expect((await registry.invoke("settings:get", []))[1]).toEqual({
+      showCompleted: true,
+      mediaPreviews: true,
+      notifications: true,
+      autoSort: false,
+    });
+    expect((await registry.invoke("settings:set", ["mediaPreviews", false]))[1].mediaPreviews).toBe(false);
+    expect((await registry.invoke("settings:get", []))[1].mediaPreviews).toBe(false);
+    await expect(registry.invoke("settings:set", ["theme", true])).rejects.toThrow("Invalid arguments");
+    await expect(registry.invoke("settings:set", ["autoSort", "yes"])).rejects.toThrow("Invalid arguments");
+    // Settings never enter undo history.
+    expect((await registry.invoke("undo:canUndo", []))[1]).toBe(false);
+  });
+
+  it("auto sort keeps every list in system order after each change", async () => {
+    const db = createTestDb();
+    const registry = createRegistry(db, new UndoManager(db));
+    const add = async (text: string) => (await registry.invoke("tasks:add", [text, "tasks"]))[1].task.id;
+    const order = async () =>
+      (await registry.invoke("tasks:getAll", ["tasks"]))[1].map((t: { description: string }) => t.description);
+    const low = await add("Low\np3");
+    await add("High\np1");
+    expect(await order()).toEqual(["High\np1", "Low\np3"]);
+    await registry.invoke("tasks:reorder", [low, 0]);
+    expect(await order()).toEqual(["Low\np3", "High\np1"]);
+
+    await registry.invoke("settings:set", ["autoSort", true]);
+    expect(await order()).toEqual(["High\np1", "Low\np3"]);
+    await add("Medium\np2");
+    expect(await order()).toEqual(["High\np1", "Medium\np2", "Low\np3"]);
+    // A manual reorder can't stick while auto sort is on.
+    await registry.invoke("tasks:reorder", [low, 0]);
+    expect(await order()).toEqual(["High\np1", "Medium\np2", "Low\np3"]);
+  });
+});

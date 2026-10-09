@@ -77,6 +77,8 @@ interface ListSectionProps {
   allLists?: { addToList: string };
   hideCompleted: boolean;
   onToggleHideCompleted: () => void;
+  /** Auto sort keeps system order, so tasks can't be dragged. */
+  dragDisabled?: boolean;
 }
 
 export interface ListSectionHandle {
@@ -112,6 +114,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
       allLists,
       hideCompleted,
       onToggleHideCompleted,
+      dragDisabled = false,
     },
     ref,
   ) {
@@ -579,6 +582,7 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
           <SortableContext
             items={taskIds}
             strategy={verticalListSortingStrategy}
+            disabled={dragDisabled}
           >
             {visibleTasks.map((task) => (
               <SortableTaskItem

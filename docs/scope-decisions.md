@@ -71,3 +71,10 @@ The user approved [the plan](plans/2026-10-09-feat-recurring-tasks-and-notificat
 - Due dates take an optional 12-hour time (`@sat 6:30pm`), and 24-hour input is also accepted.
 - Both Mac and Android notify at the due time, or at 9:00 for date-only tasks. Reminders up to 12 hours late are still delivered.
 - Repeating tasks ship first as 1.1.0, then Mac notifications, then Android notifications.
+
+## Settings page (2026-10-09)
+
+- A **Settings** page replaces several toolbar controls on both platforms. It holds per-device switches for **Show completed tasks** (now one setting per device instead of per list), **Media previews**, **Auto sort** and **Notifications** (shown once the device can deliver them), plus the entry to **Backups & sync**. Back from Backups returns to Settings.
+- **Auto sort** re-applies the system sort to every list after each change, wherever the change comes from (app, undo, MCP). An info popover explains that dragging to reorder is off while it's enabled.
+- Settings live in the device-local `config` table, not browser storage, because the Mac popover's local address changes when the service restarts.
+- Mac header: Add, Undo, Redo, System sort, Trash, Settings, Help. The footer keeps status messages only. Android's App options keeps Undo/Redo, System sort, View trash and View help, and gains Settings.

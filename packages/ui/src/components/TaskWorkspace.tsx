@@ -47,8 +47,11 @@ export function TaskWorkspace({
           onSelectList={store.selectList}
           onReorderList={store.reorderList}
           onEditingChange={store.setIsEditing}
-          hideCompleted={store.hideCompletedLists.has(name)}
-          onToggleHideCompleted={() => void store.toggleHideCompleted(name)}
+          hideCompleted={!store.settings.showCompleted}
+          onToggleHideCompleted={() =>
+            void store.setSetting("showCompleted", !store.settings.showCompleted)
+          }
+          dragDisabled={store.settings.autoSort}
           onAddTask={store.addTask}
           onToggleStatus={store.toggleStatus}
           onSetStatus={store.setStatusTo}

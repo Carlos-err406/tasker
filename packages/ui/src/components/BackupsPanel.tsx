@@ -173,6 +173,7 @@ export function BackupsPanel({
       <PanelHeader
         title="Backups & Sync"
         icon={Archive}
+        backLabel="Back to settings"
         onClose={() => {
           if (!busy) onClose();
         }}

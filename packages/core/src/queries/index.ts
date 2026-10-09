@@ -86,3 +86,5 @@ export { getAllListsOrder, reorderAllListsTask, applySystemSortAllLists } from '
 
 // >list metadata (create in / move to a list)
 export { resolveListTarget, takeListTarget } from './list-target.js';
+export { getSettings, setSetting, isSettingKey, DEFAULT_SETTINGS } from './settings-queries.js';
+export type { Settings, SettingKey } from './settings-queries.js';

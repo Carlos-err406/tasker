@@ -5,12 +5,8 @@ import { About } from "./About.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Plus,
-  Eye,
-  EyeOff,
-  Images,
-  ImageOff,
+  Settings,
   Trash2,
-  Archive,
   Undo2,
   Redo2,
   Search,
@@ -35,7 +31,10 @@ import {
   HelpPanel,
   Kbd,
   KbdGroup,
+  SettingsPanel,
 } from "@tasker/ui";
+import { getHost } from "@tasker/ui/host";
+import type { SettingKey } from "@tasker/core/queries";
 import { connectHost } from "./host-adapter.js";
 import "@tasker/ui/styles.css";
 import "./popover.css";
@@ -93,7 +92,7 @@ function App() {
     );
   }, [store.isEditing]);
   const [panel, setPanel] = useState<
-    "tasks" | "backups" | "trash" | "help" | "about"
+    "tasks" | "settings" | "backups" | "trash" | "help" | "about"
   >("tasks");
   const [listAction, setListAction] = useState<"create" | "rename" | null>(
     null,
@@ -119,16 +118,19 @@ function App() {
       document.querySelector<HTMLButtonElement>(".top-list-picker")?.focus();
     previousListAction.current = listAction;
   }, [listAction]);
-  const [showMedia, setShowMedia] = useState(
-    () => localStorage.getItem("tasker:showMediaPreviews") !== "false",
-  );
+  const showMedia = store.settings.mediaPreviews;
   const [mediaReset, setMediaReset] = useState(0);
-  const togglePreviews = useCallback(() => {
-    const next = !showMedia;
-    setShowMedia(next);
-    setMediaReset((v) => v + 1);
-    localStorage.setItem("tasker:showMediaPreviews", String(next));
-  }, [showMedia]);
+  const changeSetting = useCallback(
+    (key: SettingKey, value: boolean) => {
+      if (key === "mediaPreviews") setMediaReset((v) => v + 1);
+      void store.setSetting(key, value);
+    },
+    [store.setSetting],
+  );
+  const togglePreviews = useCallback(
+    () => changeSetting("mediaPreviews", !showMedia),
+    [changeSetting, showMedia],
+  );
   const search = store.searchQuery;
   const setSearch = store.setSearch;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -209,6 +211,9 @@ function App() {
         event.preventDefault();
         if (panel === "help") closeHelp();
         else setPanel("help");
+      } else if (event.key === "Escape" && panel === "settings") {
+        event.preventDefault();
+        setPanel("tasks");
       } else if (event.key === "Escape" && panel === "about") {
         event.preventDefault();
         setPanel("help");
@@ -274,30 +279,18 @@ function App() {
               <Plus />
             </IconButton>
             <IconButton
-              label={
-                store.hideCompletedLists.has(store.selectedList)
-                  ? "Show completed tasks"
-                  : "Hide completed tasks"
-              }
-              aria-pressed={store.hideCompletedLists.has(store.selectedList)}
-              disabled={store.loading || store.isEditing || !!listAction}
-              onClick={() => {
-                setPanel("tasks");
-                void store.toggleHideCompleted(store.selectedList);
-              }}
+              label="Undo"
+              aria-keyshortcuts="Meta+Z"
+              onClick={() => void store.undo()}
             >
-              {store.hideCompletedLists.has(store.selectedList) ? (
-                <EyeOff />
-              ) : (
-                <Eye />
-              )}
+              <Undo2 />
             </IconButton>
             <IconButton
-              label={showMedia ? "Hide previews" : "Show previews"}
-              aria-keyshortcuts="Meta+P"
-              onClick={togglePreviews}
+              label="Redo"
+              aria-keyshortcuts="Meta+Shift+Z"
+              onClick={() => void store.redo()}
             >
-              {showMedia ? <Images /> : <ImageOff />}
+              <Redo2 />
             </IconButton>
             <IconButton
               label="System sort"
@@ -315,12 +308,11 @@ function App() {
               <Trash2 />
             </IconButton>
             <IconButton
-              label="Backups"
-              tooltipLabel="Backups & sync"
-              aria-pressed={panel === "backups"}
-              onClick={() => setPanel("backups")}
+              label="Settings"
+              aria-pressed={panel === "settings" || panel === "backups"}
+              onClick={() => setPanel("settings")}
             >
-              <Archive />
+              <Settings />
             </IconButton>
             <IconButton
               ref={helpButtonRef}
@@ -339,9 +331,17 @@ function App() {
             <HelpPanel onClose={closeHelp} onAbout={() => setPanel("about")} />
           ) : panel === "about" ? (
             <About onClose={() => setPanel("help")} />
+          ) : panel === "settings" ? (
+            <SettingsPanel
+              settings={store.settings}
+              onChange={changeSetting}
+              onOpenBackups={() => setPanel("backups")}
+              onClose={() => setPanel("tasks")}
+              notifications={!!getHost().notifications}
+            />
           ) : panel === "backups" ? (
             <Backups
-              onClose={() => setPanel("tasks")}
+              onClose={() => setPanel("settings")}
               onRestored={() => void store.refresh()}
             />
           ) : panel === "trash" ? (
@@ -485,20 +485,6 @@ function App() {
           <span role="status" className="status">
             {store.statusMessage || `${store.pendingCount} pending`}
           </span>
-          <IconButton
-            label="Undo"
-            aria-keyshortcuts="Meta+Z"
-            onClick={() => void store.undo()}
-          >
-            <Undo2 />
-          </IconButton>
-          <IconButton
-            label="Redo"
-            aria-keyshortcuts="Meta+Shift+Z"
-            onClick={() => void store.redo()}
-          >
-            <Redo2 />
-          </IconButton>
         </footer>
       </main>
     </TooltipProvider>
