@@ -46,7 +46,7 @@ export function HelpPanel({
               <li>Swipe either way or tap ⋯ for task actions.</li>
               <li>Tap an image to enlarge it.</li>
               <li>Tap the list name to switch or manage lists.</li>
-              <li>Use the bottom ⋯ for app options.</li>
+              <li>Use the top ⋯ for app options and the magnifier to search.</li>
               <li>Pull down at the top of the list to sync.</li>
             </ul>
           </section>
