@@ -67,6 +67,12 @@ function App() {
   }, [store.isEditing]);
   const search = store.searchQuery;
   const setSearch = store.setSearch;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchShown = searchOpen || !!search;
+  const closeSearch = () => {
+    setSearch("");
+    setSearchOpen(false);
+  };
   const [panel, setPanel] = useState<
     "tasks" | "trash" | "help" | "settings" | "backups" | "about"
   >("tasks");
@@ -122,40 +128,135 @@ function App() {
         if (!listBusy) setListAction(null);
         return true;
       }
+      if (searchShown) {
+        closeSearch();
+        return true;
+      }
       return false;
     };
     return () => {
       delete window.taskerBack;
     };
-  }, [panel, listAction, listBusy, backupBusy]);
+  }, [panel, listAction, listBusy, backupBusy, searchShown]);
   return (
     <TooltipProvider>
       <main className="mobile-shell" aria-label="Tasker">
         {panel === "tasks" ? (
           <>
-            <div className="mobile-search">
-              <Search aria-hidden="true" />
-              <Input
-                aria-label="Search tasks"
-                placeholder={`Search ${listLabel(store.selectedList)}…`}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                }}
-              />
-              {search && (
+            <header className="mobile-top-bar">
+              <div className="mobile-title">
+                <ListPicker
+                  className="mobile-list-picker"
+                  side="bottom"
+                  lists={store.lists}
+                  selected={store.selectedList}
+                  defaultList={store.defaultList}
+                  disabled={controlsDisabled}
+                  onSelect={(name) => {
+                    store.selectList(name);
+                    setPanel("tasks");
+                  }}
+                  onCreate={() => {
+                    setPanel("tasks");
+                    setListName("");
+                    setListAction("create");
+                  }}
+                  onRename={() => {
+                    setPanel("tasks");
+                    setListName(store.selectedList);
+                    setListAction("rename");
+                  }}
+                  onDelete={() => {
+                    setPanel("tasks");
+                    void store.deleteList(store.selectedList);
+                  }}
+                />
+                <div className="mobile-status">
+                  <span role="status">
+                    {store.statusMessage || `${store.pendingCount} pending`}
+                  </span>
+                  <SyncIndicator />
+                </div>
+              </div>
+              <nav className="mobile-app-controls" aria-label="App controls">
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Clear search"
-                  onClick={() => {
-                    setSearch("");
+                  aria-label="Search"
+                  aria-pressed={searchShown}
+                  onClick={() => (searchShown ? closeSearch() : setSearchOpen(true))}
+                >
+                  <Search />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="App options"
+                      disabled={controlsDisabled}
+                    >
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    side="bottom"
+                    collisionPadding={8}
+                  >
+                    <DropdownMenuItem onSelect={() => void store.undo()}>
+                      <Undo2 />
+                      Undo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void store.redo()}>
+                      <Redo2 />
+                      Redo
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setPanel("tasks");
+                        void store.applySystemSort();
+                      }}
+                    >
+                      <ArrowUpDown /> System sort
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setPanel("trash")}>
+                      <Trash2 /> View trash
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPanel("settings")}>
+                      <Settings /> Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPanel("help")}>
+                      <CircleHelp /> View help
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </nav>
+            </header>
+            {searchShown && (
+              <div className="mobile-search">
+                <Search aria-hidden="true" />
+                <Input
+                  autoFocus={!search}
+                  aria-label="Search tasks"
+                  placeholder={`Search ${listLabel(store.selectedList)}…`}
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
                   }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Close search"
+                  onClick={closeSearch}
                 >
                   <X />
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
             {listAction && (
               <form
                 className="mobile-create-list"
@@ -217,7 +318,7 @@ function App() {
             )}
             <div
               ref={workspace}
-              className="mobile-workspace"
+              className="mobile-workspace mobile-tasks"
               aria-busy={store.loading}
             >
               <PullToRefreshIndicator {...pull} />
@@ -277,101 +378,18 @@ function App() {
           </div>
         )}
         {panel === "tasks" && (
-          <>
-            <div className="mobile-status">
-              <span role="status">
-                {store.statusMessage || `${store.pendingCount} pending`}
-              </span>
-              <SyncIndicator />
-            </div>
-            <nav className="mobile-bottom-bar" aria-label="Task tools">
-              <ListPicker
-                className="mobile-list-picker"
-                side="top"
-                lists={store.lists}
-                selected={store.selectedList}
-                defaultList={store.defaultList}
-                disabled={controlsDisabled}
-                onSelect={(name) => {
-                  store.selectList(name);
-                  setPanel("tasks");
-                }}
-                onCreate={() => {
-                  setPanel("tasks");
-                  setListName("");
-                  setListAction("create");
-                }}
-                onRename={() => {
-                  setPanel("tasks");
-                  setListName(store.selectedList);
-                  setListAction("rename");
-                }}
-                onDelete={() => {
-                  setPanel("tasks");
-                  void store.deleteList(store.selectedList);
-                }}
-              />
-              <nav className="mobile-app-controls" aria-label="App controls">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Add task"
-                  disabled={controlsDisabled}
-                  onClick={() => {
-                    setPanel("tasks");
-                    setAddRequested(true);
-                  }}
-                >
-                  <Plus />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="App options"
-                      disabled={controlsDisabled}
-                    >
-                      <Ellipsis />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    side="top"
-                    collisionPadding={8}
-                  >
-                    <DropdownMenuItem onSelect={() => void store.undo()}>
-                      <Undo2 />
-                      Undo
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => void store.redo()}>
-                      <Redo2 />
-                      Redo
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setPanel("tasks");
-                        void store.applySystemSort();
-                      }}
-                    >
-                      <ArrowUpDown /> System sort
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setPanel("trash")}>
-                      <Trash2 /> View trash
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setPanel("settings")}>
-                      <Settings /> Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setPanel("help")}>
-                      <CircleHelp /> View help
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </nav>
-            </nav>
-          </>
+          <Button
+            className="mobile-fab"
+            size="icon"
+            aria-label="Add task"
+            disabled={controlsDisabled}
+            onClick={() => {
+              setPanel("tasks");
+              setAddRequested(true);
+            }}
+          >
+            <Plus />
+          </Button>
         )}
         <Dialog
           open={!!image}

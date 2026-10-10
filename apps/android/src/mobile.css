@@ -15,27 +15,33 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .mobile-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
 }
-.mobile-bottom-bar {
+.mobile-top-bar {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding: 8px 12px;
-  gap: 12px;
-  border-top: 1px solid var(--border);
-  background: var(--muted);
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
 }
-.mobile-list-picker {
+.mobile-title {
+  display: flex;
   flex: 1;
   min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.mobile-list-picker {
+  max-width: 100%;
   justify-content: flex-start;
   gap: 6px;
   padding: 0 4px;
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
 }
 .mobile-list-picker > span {
@@ -44,8 +50,8 @@ body {
   white-space: nowrap;
 }
 .mobile-list-picker > svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   color: var(--muted-foreground);
 }
@@ -63,6 +69,7 @@ body {
 }
 .mobile-search {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   margin: 8px 16px;
   padding-left: 12px;
@@ -91,6 +98,26 @@ body {
   overflow: auto;
   overscroll-behavior-y: contain;
   padding-bottom: 20px;
+}
+/* Room to scroll the last task clear of the add button. */
+.mobile-tasks {
+  padding-bottom: 96px;
+}
+.mobile-shell .mobile-fab {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--foreground);
+  color: var(--background);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+}
+.mobile-fab > svg {
+  width: 24px;
+  height: 24px;
 }
 .mobile-shell
   button:not([data-task-tag]):not([data-task-list]):not(
@@ -152,15 +179,15 @@ body {
 .mobile-status {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-  padding: 4px 16px;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: -6px;
+  padding: 0 4px;
   font-size: 12px;
   color: var(--muted-foreground);
   white-space: nowrap;
 }
 .mobile-status > [role="status"] {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -170,6 +197,10 @@ body {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+.mobile-sync::before {
+  content: "·";
+  margin-right: 2px;
 }
 .mobile-sync > svg {
   width: 14px;
@@ -183,7 +214,7 @@ body {
   min-height: 44px;
 }
 @media (max-height: 550px) {
-  .mobile-bottom-bar {
+  .mobile-top-bar {
     padding-top: 0;
     padding-bottom: 0;
   }
