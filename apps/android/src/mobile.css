@@ -150,13 +150,33 @@ body {
   font-size: 15px;
 }
 .mobile-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
   padding: 4px 16px;
   font-size: 12px;
   color: var(--muted-foreground);
   white-space: nowrap;
+}
+.mobile-status > [role="status"] {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.mobile-sync {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.mobile-sync > svg {
+  width: 14px;
+  height: 14px;
+}
+.mobile-sync[data-state="failed"] {
+  color: var(--destructive);
 }
 [role="menuitem"],
 [role="menuitemradio"] {

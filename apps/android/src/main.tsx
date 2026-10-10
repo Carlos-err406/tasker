@@ -43,6 +43,7 @@ import {
 } from "@tasker/ui";
 import { manageSync } from "./sync";
 import { About } from "./About";
+import { SyncIndicator } from "./SyncIndicator";
 import { manageBackups } from "./backups";
 import { connectAndroidHost } from "./host";
 import { getHost } from "@tasker/ui/host";
@@ -277,8 +278,11 @@ function App() {
         )}
         {panel === "tasks" && (
           <>
-            <div className="mobile-status" role="status">
-              {store.statusMessage || `${store.pendingCount} pending`}
+            <div className="mobile-status">
+              <span role="status">
+                {store.statusMessage || `${store.pendingCount} pending`}
+              </span>
+              <SyncIndicator />
             </div>
             <nav className="mobile-bottom-bar" aria-label="Task tools">
               <ListPicker
