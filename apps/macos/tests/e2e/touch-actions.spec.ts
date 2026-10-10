@@ -241,6 +241,42 @@ test("metadata suggestions open beside the caret inside the visible editor", asy
     .toBe(true);
 });
 
+test("the date picker fits above a phone keyboard without scrolling", async ({
+  page,
+}) => {
+  // A phone with the keyboard up leaves about this much of the screen.
+  await page.setViewportSize({ width: 412, height: 476 });
+  await taskFixture(page);
+  await openTaskActions(page);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const editor = page.getByTestId("task-edit-input");
+  await expect(editor).toBeFocused();
+  await editor.press("Meta+ArrowUp");
+  await editor.press("Meta+ArrowRight");
+  await editor.press("Enter");
+  await editor.pressSequentially("@");
+  const dropdown = page.getByTestId("metadata-autocomplete-dropdown");
+  const calendar = page.getByTestId("date-picker-calendar");
+  await expect(calendar).toBeVisible();
+  // The tallest month has six weeks.
+  const weeks = calendar.locator(":scope > .grid-cols-7:has(button)");
+  for (let i = 0; i < 12 && (await weeks.count()) < 6; i++)
+    await page.getByRole("button", { name: "Next month", exact: true }).click();
+  await expect(weeks).toHaveCount(6);
+
+  const fits = await dropdown.evaluate(
+    (el) => el.scrollHeight <= el.clientHeight,
+  );
+  expect(fits).toBe(true);
+  const box = (await dropdown.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(476);
+  for (const pick of ["Today", "Tomorrow", "Monday", "Next week"])
+    await expect(
+      dropdown.getByRole("button", { name: new RegExp(`^${pick}`) }),
+    ).toBeInViewport({ ratio: 1 });
+  await expect(calendar).toBeInViewport({ ratio: 1 });
+});
+
 test("drawer contains the image, video, link and code context actions", async ({
   page,
 }) => {
