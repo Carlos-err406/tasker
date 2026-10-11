@@ -42,7 +42,7 @@ export function HelpPanel({
           <section>
             <h3 className="font-medium text-sm mb-1.5">Touch Controls</h3>
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-              <li>Tap + to add; tap a checkbox to complete.</li>
+              <li>Tap + to add a task, or hold it to add a task or list; tap a checkbox to complete.</li>
               <li>Swipe either way or tap ⋯ for task actions.</li>
               <li>Tap an image to enlarge it.</li>
               <li>Tap the list name to switch or manage lists.</li>
