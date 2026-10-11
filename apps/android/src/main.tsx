@@ -13,6 +13,8 @@ import {
   Check,
   X,
   CircleHelp,
+  ListPlus,
+  SquarePen,
 } from "lucide-react";
 import {
   useTaskerStore,
@@ -83,6 +85,23 @@ function App() {
   const [backupBusy, setBackupBusy] = useState(false);
   const taskEditor = useRef<ListSectionHandle>(null);
   const [addRequested, setAddRequested] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  // Runs once the create menu has closed, so its focus restore to the + button
+  // cannot pull focus (and the keyboard) away from the new editor.
+  const pendingCreate = useRef<(() => void) | undefined>(undefined);
+  const longPressTimer = useRef<number | undefined>(undefined);
+  const longPressed = useRef(false);
+  const cancelLongPress = () => window.clearTimeout(longPressTimer.current);
+  const openCreateMenu = () => {
+    cancelLongPress();
+    longPressed.current = true;
+    setCreateMenuOpen(true);
+  };
+  const startCreateList = () => {
+    setPanel("tasks");
+    setListName("");
+    setListAction("create");
+  };
   const showMedia = store.settings.mediaPreviews;
   const [mediaReset, setMediaReset] = useState(0);
   const changeSetting = (key: SettingKey, value: boolean) => {
@@ -124,6 +143,10 @@ function App() {
         );
         return true;
       }
+      if (createMenuOpen) {
+        setCreateMenuOpen(false);
+        return true;
+      }
       if (listAction) {
         if (!listBusy) setListAction(null);
         return true;
@@ -137,7 +160,7 @@ function App() {
     return () => {
       delete window.taskerBack;
     };
-  }, [panel, listAction, listBusy, backupBusy, searchShown]);
+  }, [panel, listAction, listBusy, backupBusy, searchShown, createMenuOpen]);
   return (
     <TooltipProvider>
       <main className="mobile-shell" aria-label="Tasker">
@@ -156,11 +179,7 @@ function App() {
                     store.selectList(name);
                     setPanel("tasks");
                   }}
-                  onCreate={() => {
-                    setPanel("tasks");
-                    setListName("");
-                    setListAction("create");
-                  }}
+                  onCreate={startCreateList}
                   onRename={() => {
                     setPanel("tasks");
                     setListName(store.selectedList);
@@ -383,7 +402,25 @@ function App() {
             size="icon"
             aria-label="Add task"
             disabled={controlsDisabled}
+            onPointerDown={(e) => {
+              longPressed.current = false;
+              cancelLongPress();
+              if (e.pointerType === "mouse") return;
+              longPressTimer.current = window.setTimeout(openCreateMenu, 500);
+            }}
+            onPointerUp={cancelLongPress}
+            onPointerLeave={cancelLongPress}
+            onPointerCancel={cancelLongPress}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openCreateMenu();
+            }}
             onClick={() => {
+              // The release that ends a long press must not also add a task.
+              if (longPressed.current) {
+                longPressed.current = false;
+                return;
+              }
               setPanel("tasks");
               setAddRequested(true);
             }}
@@ -391,6 +428,45 @@ function App() {
             <Plus />
           </Button>
         )}
+        <Dialog open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+          <DialogContent
+            className="mobile-create-menu"
+            overlayClassName="mobile-create-menu-overlay"
+            showCloseButton={false}
+            aria-describedby={undefined}
+            onCloseAutoFocus={(event) => {
+              const create = pendingCreate.current;
+              pendingCreate.current = undefined;
+              if (create) {
+                event.preventDefault();
+                create();
+              }
+            }}
+          >
+            <DialogTitle className="sr-only">Create</DialogTitle>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                pendingCreate.current = () => {
+                  setPanel("tasks");
+                  setAddRequested(true);
+                };
+                setCreateMenuOpen(false);
+              }}
+            >
+              <SquarePen /> Create task
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                pendingCreate.current = startCreateList;
+                setCreateMenuOpen(false);
+              }}
+            >
+              <ListPlus /> Create list
+            </Button>
+          </DialogContent>
+        </Dialog>
         <Dialog
           open={!!image}
           onOpenChange={(open) => {
