@@ -23,6 +23,10 @@ describe('date suggestions', () => {
     expect(dateSuggestions('+3d', NOW)).toEqual([{ label: 'Mon, Oct 12', date: '2026-10-12', detail: '@+3d' }]);
     expect(dateSuggestions('jan15', NOW)).toEqual([{ label: 'Fri, Jan 15, 2027', date: '2027-01-15', detail: '@jan15' }]);
     expect(dateSuggestions('xyz', NOW)).toEqual([]);
+    // Tomorrow matches its weekday too, without listing the same day twice.
+    expect(dateSuggestions('mo', new Date(2026, 9, 11)).map((s) => [s.label, s.date])).toEqual([['Monday', '2026-10-12']]);
+    expect(dateSuggestions('sa', NOW).map((s) => [s.label, s.date])).toEqual([['Saturday', '2026-10-10']]);
+    expect(dateSuggestions('t', new Date(2026, 9, 12)).map((s) => s.label)).toEqual(['Today', 'Tomorrow', 'Thursday']);
   });
 });
 
