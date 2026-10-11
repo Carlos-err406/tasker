@@ -246,6 +246,8 @@ test("the date picker fits above a phone keyboard without scrolling", async ({
 }) => {
   // A phone with the keyboard up leaves about this much of the screen.
   await page.setViewportSize({ width: 412, height: 476 });
+  // A Wednesday, so all four quick picks show (on a Sunday, Monday is Tomorrow).
+  await page.clock.setFixedTime(new Date(2026, 9, 14, 12));
   await taskFixture(page);
   await openTaskActions(page);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
