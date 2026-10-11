@@ -1840,7 +1840,9 @@ test("@ opens the date picker: quick picks, a calendar, then an optional time", 
 }) => {
   const iso = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const today = new Date();
+  // A Wednesday, so Monday is its own quick pick rather than Tomorrow.
+  const today = new Date(2026, 9, 14, 12);
+  await page.clock.setFixedTime(today);
   const monday = new Date(today);
   do monday.setDate(monday.getDate() + 1);
   while (monday.getDay() !== 1);

@@ -47,7 +47,15 @@ export function dateSuggestions(partial: string, now: Date): DateSuggestion[] {
     return picks.filter(
       (p, i) => p.label === 'Today' || p.label === 'Tomorrow' || p.label === 'Monday' || i === picks.length - 1,
     );
-  const matches = picks.filter((p) => p.label.toLowerCase().startsWith(typed));
+  // Tomorrow also answers to its weekday ("@mo" on a Sunday finds Monday).
+  const tomorrow = WEEKDAYS[addDays(today, 1).getDay()]!;
+  const matches = picks.flatMap((p, i) =>
+    p.label.toLowerCase().startsWith(typed)
+      ? [p]
+      : i === 1 && tomorrow.toLowerCase().startsWith(typed)
+        ? [{ ...p, label: tomorrow }]
+        : [],
+  );
   const parsed = parseDate(typed, new Date(today));
   if (parsed && !matches.some((p) => p.date === parsed))
     matches.unshift({ label: describeDate(parsed, today), date: parsed, detail: `@${partial}` });
