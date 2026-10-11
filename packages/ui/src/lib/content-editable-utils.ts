@@ -124,6 +124,10 @@ function findDomPosition(el: HTMLElement, targetOffset: number): [Node, number] 
 
     if (node.nodeName === 'BR') {
       if (isPlaceholderBreak(node, el)) return null;
+      // Target is the end of a line with no text node (e.g. a leading empty line)
+      if (pos === targetOffset) {
+        return [node.parentNode!, Array.prototype.indexOf.call(node.parentNode!.childNodes, node)];
+      }
       // BR pushes current line → adds \n
       pos += 1;
       hasContent = true;
@@ -204,8 +208,14 @@ export function setPlainText(el: HTMLElement, text: string): void {
     return;
   }
   const lines = text.split('\n');
-  if (lines[0]) el.appendChild(document.createTextNode(lines[0]!));
-  for (let i = 1; i < lines.length; i++) {
+  // getPlainText skips a leading empty <div>, so leading empty lines are <br>s.
+  let first = 0;
+  while (first < lines.length - 1 && !lines[first]) {
+    el.appendChild(document.createElement('br'));
+    first++;
+  }
+  if (lines[first]) el.appendChild(document.createTextNode(lines[first]!));
+  for (let i = first + 1; i < lines.length; i++) {
     const div = document.createElement('div');
     const line = lines[i]!;
     div.appendChild(line ? document.createTextNode(line) : document.createElement('br'));

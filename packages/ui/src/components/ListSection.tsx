@@ -180,11 +180,11 @@ export const ListSection = forwardRef<ListSectionHandle, ListSectionProps>(
       setTimeout(() => {
         const el = addInputRef.current;
         if (el) {
-          // Only set textContent for pre-filled values (e.g. subtask parent link).
-          // For empty inputs the div is already empty — setting textContent here
-          // would wipe any text already typed by a fast E2E helper or user.
+          // Only set the text for pre-filled values (e.g. subtask parent link).
+          // For empty inputs the div is already empty — setting it here would
+          // wipe any text already typed by a fast E2E helper or user.
           if (initialValue !== undefined) {
-            el.textContent = initialValue;
+            setPlainText(el, initialValue);
             setCaretOffset(el, 0);
           }
           el.focus();

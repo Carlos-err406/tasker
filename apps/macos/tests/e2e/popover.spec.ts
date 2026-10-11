@@ -146,6 +146,26 @@ test("edits multiline content and preserves keyboard formatting in WebKit", asyn
     "Paragraph",
   );
 });
+test("creates a subtask with the parent link on a second line", async ({
+  page,
+}) => {
+  await add(page, "Parent");
+  const parent = page.locator('[data-testid^="task-item-"]');
+  const id = (await parent.getAttribute("data-testid"))!.replace("task-item-", "");
+  await parent.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Create subtask", exact: true }).click();
+  const input = page.getByTestId("add-task-input-tasks");
+  await expect(input).toBeFocused();
+  expect(await input.evaluate((el: HTMLElement) => el.innerText)).toBe(`\n^${id}`);
+  await page.keyboard.type("Child");
+  expect(await input.evaluate((el: HTMLElement) => el.innerText)).toBe(`Child\n^${id}`);
+  await input.press("Meta+Enter");
+  await expect(input).not.toBeVisible();
+  const tasks = (await rpc(page, "tasks:getAll")) as {
+    description: string;
+  }[];
+  expect(tasks.map((t) => t.description)).toContain(`Child\n^${id}`);
+});
 test("keeps harmless underline but strips executable task HTML", async ({
   page,
 }) => {
