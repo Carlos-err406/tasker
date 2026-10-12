@@ -19,6 +19,7 @@ export const instructions = `Tasker is the user's personal task manager. Task ID
 A task's text is free markdown. Metadata goes on its own last line:
 p1/p2/p3 priority (high/medium/low) · @date due (today, tomorrow, mon..sun, jan15, +3d, 2026-02-15), optionally followed by a time (@sat 6:30pm, @nov1 9am) · *interval repeat (*daily, *weekly, *monthly, *yearly, *3d, *2w, *2m; needs a due date) · #tag · ^abc parent task · !abc blocks task · -^abc has subtask · -!abc blocked by task · ~abc related task · >list-name create in / move to that list (removed on save).
 
+When you start working on one of the user's tasks, mark it in_progress with set_task_status. When you finish, ask the user before marking it done.
 Completing a repeating task (done or won't do) moves it to its next due date and back to pending instead; remove the *interval token to stop it.
 Images in a task appear as ![name](/attachments/<id>); get_task returns them as images.
 Search filters: tag:name status:pending|wip|done priority:high|medium|low due:today|overdue|week|month list:name has:subtasks|parent|due|tags id:abc; prefix a value with ! to negate; other words match the text.
