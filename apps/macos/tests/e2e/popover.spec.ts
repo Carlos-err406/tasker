@@ -812,6 +812,42 @@ test("copying a task ID preserves mounted media while status appears and clears"
     expect(await node.evaluate((img) => img.isConnected)).toBe(true);
 });
 
+test("an open Copy ID tooltip does not swallow a click on the ID above it", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      value: async (text: string) => {
+        Reflect.set(window, "copiedText", text);
+      },
+    });
+  });
+  await add(page, "Lower");
+  await add(page, "Upper");
+  const ids = page.locator("[data-task-id-copy]");
+  await expect(ids).toHaveCount(2);
+  const upper = (await ids.nth(0).textContent())!;
+  const lowerBox = (await ids.nth(1).boundingBox())!;
+  const upperBox = (await ids.nth(0).boundingBox())!;
+  await page.mouse.move(
+    lowerBox.x + lowerBox.width / 2,
+    lowerBox.y + lowerBox.height / 2,
+  );
+  await expect(page.getByRole("tooltip", { name: "Copy ID" })).toBeVisible();
+  // The ID's lower edge sits where the lower ID's tooltip is drawn.
+  await page.mouse.move(
+    upperBox.x + upperBox.width / 2,
+    upperBox.y + upperBox.height - 1,
+    { steps: 8 },
+  );
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.locator(".status")).toContainText(`Copied: ${upper}`);
+  expect(await page.evaluate(() => Reflect.get(window, "copiedText"))).toBe(
+    upper,
+  );
+});
+
 test("opens pasted images from both click and context menu without exposing a database path", async ({
   page,
   service,

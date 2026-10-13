@@ -443,7 +443,9 @@ export const TaskItem = memo(function TaskItem({
                     {shortId}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Copy ID</TooltipContent>
+                <TooltipContent className="task-id-tooltip pointer-events-none">
+                  Copy ID
+                </TooltipContent>
               </Tooltip>
             </div>
 
