@@ -170,3 +170,8 @@ html, body {
 .task-highlight {
   animation: task-highlight 1.5s ease-out;
 }
+
+/* The Copy ID hint overlaps the ID above it; let clicks reach that ID. */
+[data-radix-popper-content-wrapper]:has(.task-id-tooltip) {
+  pointer-events: none;
+}
