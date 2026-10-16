@@ -74,7 +74,7 @@ function Fixture() {
 function TaskFixture() {
   const [lastAction, setLastAction] = useState("");
   const [task, setTask] = useState<Task>({
-    id: "abc-task",
+    id: "tsk_abc00",
     description:
       "Drawer task\n\n![sample](https://example.invalid/image.png)\n\n[Website](https://example.invalid)\n\n[Video](https://example.invalid/clip.mp4)\n\n```\nconst example = 1;\n```" +
       (location.search.includes("two-images")

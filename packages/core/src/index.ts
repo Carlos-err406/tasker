@@ -16,6 +16,10 @@ export { CREATE_SCHEMA_SQL } from './db.js';
 // Mobile should import from @tasker/core/db-node or avoid these entirely.
 export { createDb, createTestDb, getDefaultDbPath, getDbPath, getRawDb, withRetry } from './db-node.js';
 
+// Task IDs and migrations
+export { TASK_ID_PREFIX, TASK_ID_PATTERN, isTaskId } from './task-id.js';
+export { migrateTaskIds } from './migrations.js';
+
 // Parsers
 export { parseDate, parseTaskDescription, getDisplayDescription, syncMetadataToDescription } from './parsers/index.js';
 export type { ParsedTask } from './parsers/index.js';

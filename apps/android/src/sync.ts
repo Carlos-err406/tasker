@@ -6,6 +6,7 @@ import {
   type SyncHttpResponse,
 } from "@tasker/core/sync";
 import type { TaskerDb } from "@tasker/core/db";
+import { migrateTaskIds } from "@tasker/core/migrations";
 import { callNative, type AndroidBridge } from "./database";
 import { manageBackups } from "./backups";
 declare global {
@@ -174,6 +175,8 @@ export function beforeBackupRestore() {
 }
 export function afterBackupRestore() {
   if (!instance) return;
+  // Backups from before 1.4.0 restore tasks with their old IDs.
+  migrateTaskIds(hostDb);
   instance = createSync(hostDb, hostBridge);
   instance.engine.start();
   window.dispatchEvent(new Event("tasker:sync-reset"));

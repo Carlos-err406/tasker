@@ -99,7 +99,7 @@ export function TrashPanel({
           trashedTasks.map((task) => (
             <div
               key={task.id}
-              data-testid={`trash-item-${task.id.slice(0, 3)}`}
+              data-testid={`trash-item-${task.id}`}
               className="flex items-start gap-2 px-3 py-2 hover:bg-accent/50 transition-colors group"
             >
               <div className="flex-1 min-w-0">
@@ -108,7 +108,7 @@ export function TrashPanel({
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 mt-0.5">
                   <span>{task.listName}</span>
-                  <span>{task.id.slice(0, 3)}</span>
+                  <span>{task.id}</span>
                 </div>
               </div>
               <button

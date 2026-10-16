@@ -73,7 +73,7 @@ function fake() {
   return { files, http, drive };
 }
 const checkpoint = (replica: string, sequence: number): Checkpoint => ({
-  format: 1,
+  format: 2,
   replica,
   sequence,
   records: [],

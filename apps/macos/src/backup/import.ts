@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createDb, getRawDb } from "@tasker/core";
+import { createDb, getRawDb, migrateTaskIds } from "@tasker/core";
 import { BackupManager } from "./manager.js";
 /** Convert an explicitly selected standalone snapshot; never open the original for writes. */
 export function importLegacySnapshot(input: string, output: string) {
@@ -110,6 +110,7 @@ export function importLegacySnapshot(input: string, output: string) {
       }
     })();
     raw.pragma("foreign_keys = ON");
+    migrateTaskIds(target);
     for (const table of names.filter((n) => !supported.includes(n)))
       warnings.push(
         `Not imported: ${table}${table === "config" ? " (only default_list is retained)" : ""}`,

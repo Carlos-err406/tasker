@@ -67,19 +67,22 @@ export function HelpPanel({
             <span>Repeat: *daily, *monthly, *yearly, *3d, *2w</span>
             <span className="font-mono">#tag</span>
             <span>Tag</span>
-            <span className="font-mono">^abc</span>
+            <span className="font-mono">^tsk_a1b2c</span>
             <span>Set parent task</span>
-            <span className="font-mono">!abc</span>
+            <span className="font-mono">!tsk_a1b2c</span>
             <span>Blocks task</span>
-            <span className="font-mono">-^abc</span>
+            <span className="font-mono">-^tsk_a1b2c</span>
             <span>Has subtask</span>
-            <span className="font-mono">-!abc</span>
+            <span className="font-mono">-!tsk_a1b2c</span>
             <span>Blocked by task</span>
-            <span className="font-mono">~abc</span>
+            <span className="font-mono">~tsk_a1b2c</span>
             <span>Related task</span>
             <span className="font-mono">&gt;list-name</span>
             <span>Create in / move to list (removed on save)</span>
           </div>
+          <p className="text-muted-foreground mt-2">
+            Type ^, !, -^, -! or ~ and pick a task to insert its ID.
+          </p>
         </section>
 
         <section>
@@ -121,8 +124,8 @@ export function HelpPanel({
             <span>Filter by list</span>
             <span className="font-mono">has:subtasks</span>
             <span>subtasks, parent, due, tags</span>
-            <span className="font-mono">id:abc</span>
-            <span>Filter by task ID prefix</span>
+            <span className="font-mono">id:a1b</span>
+            <span>Filter by task ID prefix (tsk_ optional)</span>
             <span className="font-mono">status:!done</span>
             <span>Negate any filter with !</span>
           </div>

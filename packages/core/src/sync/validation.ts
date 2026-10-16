@@ -1,9 +1,12 @@
 import { canonical, mergeRecords } from "./merge.js";
 import {
+  CHECKPOINT_FORMAT,
   MAX_CHECKPOINT_BYTES,
   MAX_SYNC_IMAGE_BYTES,
   type Checkpoint,
+  type SyncRecord,
 } from "./types.js";
+import { isLegacyTaskId, isTaskId, migrateLegacyTaskId } from "../task-id.js";
 const object = (v: unknown): v is Record<string, any> =>
   v !== null && typeof v === "object" && !Array.isArray(v);
 const text = (v: unknown, max = 1000): v is string =>
@@ -27,7 +30,7 @@ export function validateCheckpoint(value: unknown): Checkpoint {
       keys(value, ["format", "replica", "sequence", "records", "images"]),
   );
   requireValid(
-    value.format === 1 &&
+    (value.format === 1 || value.format === CHECKPOINT_FORMAT) &&
       text(value.replica, 200) &&
       int(value.sequence) &&
       value.sequence >= 1,
@@ -89,7 +92,9 @@ export function validateCheckpoint(value: unknown): Checkpoint {
       );
       requireValid(
         typeof v.preferredId === "string" &&
-          /^[a-z0-9]{3}$/.test(v.preferredId) &&
+          (value.format === 1
+            ? isLegacyTaskId(v.preferredId)
+            : isTaskId(v.preferredId)) &&
           typeof v.description === "string" &&
           v.description.length <= 100000 &&
           time(v.createdAt) &&
@@ -160,5 +165,26 @@ export function validateCheckpoint(value: unknown): Checkpoint {
         requireValid(imageIds.has(match[1]));
     }
   const checkpoint = value as unknown as Checkpoint;
-  return { ...checkpoint, records: mergeRecords([], checkpoint.records) };
+  const records =
+    value.format === 1
+      ? checkpoint.records.map(migrateLegacyRecord)
+      : checkpoint.records;
+  return {
+    ...checkpoint,
+    format: CHECKPOINT_FORMAT,
+    records: mergeRecords([], records),
+  };
+}
+/** Give a format 1 task record the ID every 1.4.0 device migrates that task to. */
+export function migrateLegacyRecord(record: SyncRecord): SyncRecord {
+  if (record.kind !== "task" || !record.value) return record;
+  const { preferredId, createdAt } = record.value;
+  if (!isLegacyTaskId(preferredId)) return record;
+  return {
+    ...record,
+    value: {
+      ...record.value,
+      preferredId: migrateLegacyTaskId(preferredId, createdAt),
+    },
+  };
 }

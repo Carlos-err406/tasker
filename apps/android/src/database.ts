@@ -1,6 +1,7 @@
 import { BaseSQLiteDatabase, SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { BetterSQLiteSession } from "drizzle-orm/better-sqlite3/session";
 import { CREATE_SCHEMA_SQL, type TaskerDb } from "@tasker/core/db";
+import { migrateTaskIds } from "@tasker/core/migrations";
 
 export interface AndroidBridge {
   execute(request: string): string;
@@ -84,10 +85,12 @@ export function createAndroidDatabase(bridge: AndroidBridge): TaskerDb {
   const dialect = new SQLiteSyncDialect();
   // The native adapter implements only the client methods the portable session uses.
   const session = new BetterSQLiteSession(client as never, dialect, undefined);
-  return new BaseSQLiteDatabase(
+  const db = new BaseSQLiteDatabase(
     "sync",
     dialect,
     session,
     undefined,
   ) as TaskerDb;
+  migrateTaskIds(db);
+  return db;
 }

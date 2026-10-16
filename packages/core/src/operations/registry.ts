@@ -7,6 +7,7 @@ import { undoRegister } from "./handlers/undo.js";
 import { settingsRegister, autoSort } from "./handlers/settings.js";
 import { isSettingKey } from "../queries/settings-queries.js";
 import type { SyncStore } from "../sync/store.js";
+import { isTaskId } from "../task-id.js";
 type Handler = (event: unknown, ...args: any[]) => unknown;
 export type IPCRegisterFunction = (
   registry: { handle(channel: string, handler: Handler): void },
@@ -17,7 +18,7 @@ type Check = (value: unknown) => boolean;
 const text: Check = (v) =>
   typeof v === "string" && v.trim().length > 0 && v.length <= 100000;
 const name: Check = (v) => text(v) && (v as string).length <= 200;
-const id: Check = (v) => typeof v === "string" && /^[a-z0-9]{3}$/.test(v);
+const id: Check = isTaskId;
 const bool: Check = (v) => typeof v === "boolean";
 const index: Check = (v) => Number.isSafeInteger(v) && (v as number) >= 0;
 const status: Check = (v) => [0, 1, 2, 3].includes(v as number);

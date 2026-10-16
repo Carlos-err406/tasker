@@ -595,7 +595,7 @@ test("opens the original help reference, scrolls it, and returns by keyboard", a
       panel.getByRole("heading", { name: section, exact: true }),
     ).toHaveCount(1);
   }
-  await expect(panel).toContainText("-!abc");
+  await expect(panel).toContainText("-!tsk_a1b2c");
   await expect(panel).toContainText("status:!done");
   await expect(panel).toContainText("Paste image from clipboard");
   await expect(panel).not.toContainText("Command palette");

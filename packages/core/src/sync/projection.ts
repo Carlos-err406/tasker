@@ -1,5 +1,6 @@
 import { syncMetadataToDescription } from "../parsers/task-description-parser.js";
 import type { Priority } from "../types/priority.js";
+import { isTaskId, taskIdAt, TASK_ID_SPACE } from "../task-id.js";
 import { compareRevision, compareText, mergeRecords } from "./merge.js";
 import {
   DEFAULT_LIST_ID,
@@ -91,12 +92,13 @@ export function projectRecords(
       usedNames.add(name);
     }
   const tasks = live("task");
-  if (tasks.length > 36 ** 3) throw new Error("No task IDs available for sync");
+  if (tasks.length > TASK_ID_SPACE)
+    throw new Error("No task IDs available for sync");
   const ids = new Map<string, string>(),
     usedIds = new Set<string>();
   for (const r of tasks) {
     const local = localIds.get(r.id);
-    if (local && /^[a-z0-9]{3}$/.test(local) && !usedIds.has(local)) {
+    if (local && isTaskId(local) && !usedIds.has(local)) {
       ids.set(r.id, local);
       usedIds.add(local);
     }
@@ -108,12 +110,10 @@ export function projectRecords(
     }
   for (const r of tasks)
     if (!ids.has(r.id)) {
-      let n = hash(r.id) % 36 ** 3,
+      let n = hash(r.id),
         id: string;
-      do {
-        id = n.toString(36).padStart(3, "0");
-        n = (n + 1) % 36 ** 3;
-      } while (usedIds.has(id));
+      do id = taskIdAt(n++);
+      while (usedIds.has(id));
       ids.set(r.id, id);
       usedIds.add(id);
     }

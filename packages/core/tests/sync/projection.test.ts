@@ -15,7 +15,7 @@ const task = (
   id,
   revision: { time, counter: 0, actor: "a" },
   value: {
-    preferredId: "abc",
+    preferredId: "tsk_abc00",
     description: "Task",
     createdAt: "2026-09-28T00:00:00Z",
     status: 0,
@@ -41,20 +41,20 @@ describe("sync projection", () => {
     const rows = [
       task("a"),
       task("b", {
-        description: "Prose ^abc and https://example.com/abc\n^abc",
+        description: "Prose ^tsk_abc00 and https://example.com/abc\n^tsk_abc00",
         parentId: "a",
       }),
-      task("c", { preferredId: "def" }),
+      task("c", { preferredId: "tsk_def00" }),
     ];
     const result = projectRecords(rows);
     expect(new Set(result.tasks.map((t) => t.id)).size).toBe(3);
     expect(result.tasks.find((t) => t.syncId === "b")?.description).toBe(
-      "Prose ^abc and https://example.com/abc\n^abc",
+      "Prose ^tsk_abc00 and https://example.com/abc\n^tsk_abc00",
     );
     expect(result.tasks.find((t) => t.syncId === "a")?.description).toContain(
       "-^" + result.tasks.find((t) => t.syncId === "b")!.id,
     );
-    expect(result.tasks.find((t) => t.syncId === "c")?.id).toBe("def");
+    expect(result.tasks.find((t) => t.syncId === "c")?.id).toBe("tsk_def00");
     expect(projectRecords([...rows].reverse())).toEqual(result);
   });
   it("deterministically suppresses cycles, missing endpoints, and cross-list parents", () => {
@@ -72,7 +72,7 @@ describe("sync projection", () => {
   });
   it("preserves tasks from deleted lists in the default list and drops stale inverse markers", () => {
     const result = projectRecords([
-      task("a", { listId: "gone", description: "Keep me\n-^old !old" }),
+      task("a", { listId: "gone", description: "Keep me\n-^tsk_old00 !tsk_old00" }),
     ]);
     expect(result.tasks[0]?.listName).toBe("tasks");
     expect(result.tasks[0]?.description).toBe("Keep me");
