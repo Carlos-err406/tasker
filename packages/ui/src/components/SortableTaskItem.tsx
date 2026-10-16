@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskStatus } from "@tasker/core/types";
 import type { TaskRelDetails } from "../hooks/use-tasker-store.js";
+import type { NavigateOptions } from "../lib/task-navigation.js";
 import { TaskItem } from "./TaskItem.js";
 
 interface SortableTaskItemProps {
@@ -15,7 +16,7 @@ interface SortableTaskItemProps {
   onDelete: (taskId: string, cascade?: boolean) => void;
   onMove: (taskId: string, targetList: string) => void;
   onShowStatus: (message: string) => void;
-  onNavigateToTask: (taskId: string) => void;
+  onNavigateToTask: (taskId: string, options?: NavigateOptions) => void;
   onCreateSubtask: (taskId: string) => void;
   onTagClick?: (tag: string) => void;
   onEditingChange?: (taskId: string, editing: boolean) => void;

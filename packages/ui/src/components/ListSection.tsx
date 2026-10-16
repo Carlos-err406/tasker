@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Task, TaskStatus } from "@tasker/core/types";
 import type { TaskRelDetails } from "../hooks/use-tasker-store.js";
+import type { NavigateOptions } from "../lib/task-navigation.js";
 import { useMetadataAutocomplete } from "../hooks/use-metadata-autocomplete.js";
 import { AutocompleteDropdown } from "./AutocompleteDropdown.js";
 import {
@@ -68,7 +69,7 @@ interface ListSectionProps {
   onRenameList: (oldName: string, newName: string) => void;
   onDeleteList: (name: string) => void;
   onShowStatus: (message: string) => void;
-  onNavigateToTask: (taskId: string) => void;
+  onNavigateToTask: (taskId: string, options?: NavigateOptions) => void;
   onTagClick?: (tag: string) => void;
   showMediaPreviews?: boolean;
   mediaPreviewResetSignal?: number;

@@ -1948,3 +1948,28 @@ test("@ opens the date picker: quick picks, a calendar, then an optional time", 
   await expect(input).not.toBeVisible();
   expect(await description("Dentist")).toBe(`Dentist\n@${iso(next)} 4:30pm`);
 });
+
+test("relationship lines name the linked task and open its menu", async ({
+  page,
+}) => {
+  await add(page, "pay the bills");
+  const parentId = (await page
+    .locator("[data-task-id-copy]")
+    .first()
+    .textContent())!;
+  expect(parentId).toMatch(/^tsk_[a-z0-9]{5}$/);
+  await add(page, `phone\n^${parentId}`);
+  const line = page.locator(`[data-task-link="${parentId}"]`);
+  await expect(line).toHaveText("Subtask of pay the bills");
+
+  await line.click({ button: "right" });
+  await expect(page.getByRole("menu")).toHaveCount(1);
+  for (const action of ["Go to task", "Edit", "Copy ID", "Set Status", "Delete..."])
+    await expect(
+      page.getByRole("menuitem", { name: action, exact: true }),
+    ).toBeVisible();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.locator("[contenteditable=true]").first();
+  await expect(editor).toBeFocused();
+  await expect(editor).toContainText("pay the bills");
+});
