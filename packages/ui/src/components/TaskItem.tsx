@@ -15,7 +15,6 @@ import {
 import type { Task, TaskStatus } from "@tasker/core/types";
 import { TaskStatus as TS, Priority } from "@tasker/core/types";
 import type { RelEntry, TaskRelDetails } from "../hooks/use-tasker-store.js";
-import { TASK_ID_PREFIX } from "@tasker/core/task-id";
 import { buildTaskActions } from "./task-actions.js";
 import { RelationshipLine, type RelationshipKind } from "./RelationshipLine.js";
 import { EDIT_TASK_EVENT, type NavigateOptions } from "../lib/task-navigation.js";
@@ -522,10 +521,7 @@ export const TaskItem = memo(function TaskItem({
                             className="inline-flex items-center gap-0.5 rounded-full border border-border px-1.5 py-0 font-mono text-[10px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
                           >
                             <Hash className="h-2.5 w-2.5 flex-shrink-0" />
-                            <span>
-                              <span className="opacity-50">{shortId.slice(0, TASK_ID_PREFIX.length)}</span>
-                              {shortId.slice(TASK_ID_PREFIX.length)}
-                            </span>
+                            {shortId}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent className="task-id-tooltip pointer-events-none">
