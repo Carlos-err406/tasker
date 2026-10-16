@@ -418,7 +418,7 @@ export const TaskItem = memo(function TaskItem({
               ) : (
                 <div
                   key="display"
-                  className={cn((done || wontDo) && "opacity-60")}
+                  className={cn("wrap-anywhere", (done || wontDo) && "opacity-60")}
                 >
                   <div className="flex items-start gap-1.5">
                     {task.priority !== null && task.priority !== undefined && (

@@ -1674,6 +1674,23 @@ test("wide pasted text wraps in the editor and code blocks keep thin scrollbars"
   ).toBeLessThanOrEqual(2);
 });
 
+test("long unbroken words wrap inside the task instead of widening the list", async ({
+  page,
+}) => {
+  const word = "Mi_nombre_es_Stilton_Geronimo_Stilton_" + "x".repeat(120);
+  await add(
+    page,
+    `${word}\n/Users/carlos/Downloads/${word}.epub\n\n> ${word}\n\n\`${word}\`\n\n- ${word}\n\n|h|\n|-|\n|${word}|`,
+  );
+  const item = page.locator('[data-testid^="task-item-"]').first();
+  await expect(item).toContainText("Downloads");
+  for (const el of [item, page.getByTestId("task-workspace")]) {
+    expect(
+      await el.evaluate((node) => node.scrollWidth - node.clientWidth),
+    ).toBeLessThanOrEqual(0);
+  }
+});
+
 test("All lists shows every list's tasks with a list label only there", async ({
   page,
 }) => {
