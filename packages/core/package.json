@@ -48,6 +48,14 @@
       "types": "./dist/operations/registry.d.ts",
       "default": "./dist/operations/registry.js"
     },
+    "./migrations": {
+      "types": "./dist/migrations.d.ts",
+      "default": "./dist/migrations.js"
+    },
+    "./task-id": {
+      "types": "./dist/task-id.d.ts",
+      "default": "./dist/task-id.js"
+    },
     "./sync": {
       "types": "./dist/sync/index.d.ts",
       "default": "./dist/sync/index.js"

@@ -109,8 +109,15 @@ describe("Tasker MCP server", () => {
     expect((await call("restore_task", { id })).isError).toBe(false);
     expect((await call("get_task", { id })).data.status).toBe("done");
 
-    const missing = await call("set_task_status", { id: "zzz", status: "done" });
-    expect(missing).toMatchObject({ isError: true, data: "No task with ID zzz." });
+    const missing = await call("set_task_status", { id: "tsk_zzz00", status: "done" });
+    expect(missing).toMatchObject({ isError: true, data: "No task with ID tsk_zzz00." });
+    // A short word an agent might mistake for an ID is rejected before reaching the service.
+    const word = await call("set_task_status", { id: "lol", status: "done" }).catch((error: Error) => ({
+      isError: true,
+      data: error.message,
+    }));
+    expect(word.isError).toBe(true);
+    expect(String(word.data)).toContain("Not a task ID");
   });
 
   it("creates, renames and deletes lists like the app allows", async () => {

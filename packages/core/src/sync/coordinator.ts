@@ -1,7 +1,7 @@
 import { canonical, compareText } from "./merge.js";
 import { SyncStore } from "./store.js";
 import { validateCheckpoint } from "./validation.js";
-import type { Checkpoint, SyncImage } from "./types.js";
+import { CHECKPOINT_FORMAT, type Checkpoint, type SyncImage } from "./types.js";
 export interface CheckpointFile {
   id: string;
   replica: string;
@@ -203,7 +203,7 @@ export class SyncCoordinator {
           if (!Number.isSafeInteger(sequence))
             throw new Error("Sync sequence overflow");
           const checkpoint = validateCheckpoint({
-            format: 1,
+            format: CHECKPOINT_FORMAT,
             replica: this.settings.replica,
             sequence,
             records,

@@ -1,18 +1,9 @@
-import type { TaskId, Task } from '../types/task.js';
+import type { Task } from '../types/task.js';
 import { TaskStatus } from '../types/task-status.js';
 import { parse as parseDescription } from '../parsers/task-description-parser.js';
+import { generateId } from '../task-id.js';
 
-const ID_CHARS = '0123456789abcdefghijklmnopqrstuvwxyz';
-const ID_LENGTH = 3;
-
-/** Generate a random 3-character task ID */
-export function generateId(): TaskId {
-  let id = '';
-  for (let i = 0; i < ID_LENGTH; i++) {
-    id += ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)];
-  }
-  return id;
-}
+export { generateId };
 
 /** Create a new Task object from a description and list name */
 export function createTask(description: string, listName: string, now?: Date): Task {

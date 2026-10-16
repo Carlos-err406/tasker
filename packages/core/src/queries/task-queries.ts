@@ -16,6 +16,7 @@ import { tasks } from '../schema/tasks.js';
 import { taskDependencies } from '../schema/task-dependencies.js';
 import { taskRelations } from '../schema/task-relations.js';
 import { lists } from '../schema/lists.js';
+import { TASK_ID_PREFIX } from '../task-id.js';
 import {
   createTask, withStatus, statusLabel,
   sortTasksForDisplay, serializeTags, deserializeTags,
@@ -233,7 +234,10 @@ export function searchTasks(db: TaskerDb, query: string): Task[] {
 
   // ID prefix filter
   if (filters.idPrefix) {
-    conditions.push(sql`${tasks.id} LIKE ${filters.idPrefix + '%'}` as any);
+    // `id:k3x` and `id:tsk_k3x` both match tsk_k3x9q
+    const typed = filters.idPrefix.toLowerCase();
+    const prefix = typed.startsWith(TASK_ID_PREFIX) ? typed : TASK_ID_PREFIX + typed;
+    conditions.push(sql`substr(${tasks.id}, 1, ${prefix.length}) = ${prefix}` as any);
   }
 
   const rows = db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.sortOrder)).all();

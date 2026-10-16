@@ -4,7 +4,7 @@
  * text becomes the description query for LIKE matching.
  *
  * Negation: prefix the value with `!` (e.g. `status:!done`, `tag:!ui`).
- * ID filter: `id:abc` matches task IDs by prefix.
+ * ID filter: `id:k3x` (or `id:tsk_k3x`) matches task IDs by prefix.
  */
 
 import { TaskStatus } from '../types/task-status.js';

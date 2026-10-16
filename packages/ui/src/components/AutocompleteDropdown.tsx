@@ -223,7 +223,7 @@ export function AutocompleteDropdown({ suggestions, selectedIndex, onSelect, anc
               </>
             ) : (
               <>
-                <span className="font-mono text-xs text-muted-foreground w-7 flex-shrink-0">{s.shortId}</span>
+                <span className="font-mono text-xs text-muted-foreground w-[9ch] flex-shrink-0">{s.shortId}</span>
                 <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', STATUS_DOT[s.task.status] ?? STATUS_DOT[0])} />
                 <span className="truncate flex-1">{s.title}</span>
                 <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{s.task.listName}</span>

@@ -4,7 +4,8 @@
  * Keeps original text intact (does not strip markers).
  * Supports: p1/p2/p3 (priority), @date (due date) with an optional time right after it
  * (@sat 6:30pm), *interval (repeat), #tag (tags),
- * ^abc (parent), !abc (blocks), -^abc (has subtask), -!abc (blocked by), ~abc (related),
+ * ^tsk_abcde (parent), !tsk_abcde (blocks), -^tsk_abcde (has subtask), -!tsk_abcde (blocked by),
+ * ~tsk_abcde (related),
  * >list-name (create in / move to that list; one-shot, stripped when saved)
  */
 
@@ -12,6 +13,7 @@ import type { Priority } from '../types/priority.js';
 import { Priority as P } from '../types/priority.js';
 import { parseDate } from './date-parser.js';
 import { TIME_PATTERN, REPEAT_PATTERN, parseTime, parseRepeat, formatTime, type Repeat } from './recurrence.js';
+import { TASK_ID_PATTERN } from '../task-id.js';
 
 // Match p1, p2, p3 for priority (must be standalone token)
 const PRIORITY_RE = /(?:^|\s)p([123])(?=\s|$)/i;
@@ -23,16 +25,18 @@ const DUE_TIME_RE = new RegExp(`^\\s+(${TIME_PATTERN})(?=\\s|$)`, 'i');
 const REPEAT_RE = new RegExp(`(?:^|\\s)\\*(${REPEAT_PATTERN})(?=\\s|$)`, 'gi');
 // Match #word for tags (supports hyphens like #cli-only)
 const TAG_RE = /#([\w-]+)/g;
-// Match ^abc for parent reference (subtask of)
-const PARENT_REF_RE = /(?:^|\s)\^(\w{3})(?=\s|$)/;
-// Match !abc for blocking reference (blocks task)
-const BLOCKS_REF_RE = /(?:^|\s)!(\w{3})(?=\s|$)/g;
-// Match -^abc for inverse parent reference (has subtask)
-const INV_PARENT_RE = /(?:^|\s)-\^(\w{3})(?=\s|$)/g;
-// Match -!abc for inverse blocker reference (blocked by)
-const INV_BLOCKER_RE = /(?:^|\s)-!(\w{3})(?=\s|$)/g;
-// Match ~abc for related reference (related to task)
-const RELATED_REF_RE = /(?:^|\s)~(\w{3})(?=\s|$)/g;
+// Match ^tsk_abcde for parent reference (subtask of)
+const PARENT_REF_RE = new RegExp(`(?:^|\\s)\\^(${TASK_ID_PATTERN})(?=\\s|$)`);
+// Match !tsk_abcde for blocking reference (blocks task)
+const BLOCKS_REF_RE = new RegExp(`(?:^|\\s)!(${TASK_ID_PATTERN})(?=\\s|$)`, 'g');
+// Match -^tsk_abcde for inverse parent reference (has subtask)
+const INV_PARENT_RE = new RegExp(`(?:^|\\s)-\\^(${TASK_ID_PATTERN})(?=\\s|$)`, 'g');
+// Match -!tsk_abcde for inverse blocker reference (blocked by)
+const INV_BLOCKER_RE = new RegExp(`(?:^|\\s)-!(${TASK_ID_PATTERN})(?=\\s|$)`, 'g');
+// Match ~tsk_abcde for related reference (related to task)
+const RELATED_REF_RE = new RegExp(`(?:^|\\s)~(${TASK_ID_PATTERN})(?=\\s|$)`, 'g');
+// Match any task reference (^, !, -^, -!, ~), capturing the marker and ID
+const TASK_REF_RE = new RegExp(`(?:^|\\s)(-\\^|-!|\\^|!|~)(${TASK_ID_PATTERN})(?=\\s|$)`, 'g');
 // Match >list-name for a target list (spaces in list names are written as - or _)
 const LIST_TARGET_RE = /(?:^|\s)>(\S+)(?=\s|$)/g;
 
@@ -76,16 +80,15 @@ function stripMetadata(line: string): string {
   s = s.replace(new RegExp(`@\\S+(?:\\s+${TIME_PATTERN}(?=\\s|$))?`, 'gi'), ' ');
   s = s.replace(new RegExp(`(?:^|\\s)\\*${REPEAT_PATTERN}(?=\\s|$)`, 'gi'), ' ');
   s = s.replace(/#[\w-]+/g, ' ');
-  s = s.replace(/(?:^|\s)-\^(\w{3})(?=\s|$)/g, ' ');
-  s = s.replace(/(?:^|\s)-!(\w{3})(?=\s|$)/g, ' ');
-  s = s.replace(/(?:^|\s)\^(\w{3})(?=\s|$)/g, ' ');
-  s = s.replace(/(?:^|\s)!(\w{3})(?=\s|$)/g, ' ');
-  s = s.replace(/(?:^|\s)~(\w{3})(?=\s|$)/g, ' ');
+  s = s.replace(TASK_REF_RE, ' ');
   s = s.replace(/(?:^|\s)>\S+(?=\s|$)/g, ' ');
   return s;
 }
 
-function trailingMetadataRange(lines: string[]): { start: number; end: number; text: string } | null {
+function trailingMetadataRange(
+  lines: string[],
+  strip: (line: string) => string = stripMetadata,
+): { start: number; end: number; text: string } | null {
   let end = lines.length - 1;
   while (end >= 0 && lines[end]!.trim() === '') end--;
   if (end < 0) return null;
@@ -93,7 +96,7 @@ function trailingMetadataRange(lines: string[]): { start: number; end: number; t
   let start = end;
   while (start >= 0) {
     const line = lines[start]!;
-    if (line.trim() === '' || stripMetadata(line).trim() !== '') break;
+    if (line.trim() === '' || strip(line).trim() !== '') break;
     start--;
   }
 
@@ -240,6 +243,31 @@ export function stripListTarget(description: string): string {
     const cleaned = line.replace(/(?:^|\s)>\S+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
     if (cleaned) kept.push(cleaned);
   }
+  lines.splice(range.start, range.end - range.start + 1, ...kept);
+  return lines.join('\n').trimEnd();
+}
+
+// Match a pre-1.4.0 task reference (3-character ID), as the old parser read them
+const LEGACY_TASK_REF_RE = /(^|\s)(-\^|-!|\^|!|~)(\w{3})(?=\s|$)/g;
+
+/**
+ * Rewrite pre-1.4.0 task references in the trailing metadata lines to new IDs.
+ * References `newId` can't resolve point at no task, so they are dropped, along with
+ * any metadata line they leave empty. Text outside the metadata lines is untouched.
+ */
+export function migrateLegacyTaskRefs(description: string, newId: (legacyId: string) => string | undefined): string {
+  const lines = description.split('\n');
+  const range = trailingMetadataRange(lines, (line) => stripMetadata(line.replace(LEGACY_TASK_REF_RE, ' ')));
+  if (!range) return description;
+  const metadata = lines.slice(range.start, range.end + 1);
+  const migrated = metadata.map((line) =>
+    line.replace(LEGACY_TASK_REF_RE, (_, lead: string, marker: string, id: string) => {
+      const next = newId(id);
+      return next ? lead + marker + next : lead;
+    }),
+  );
+  if (migrated.every((line, i) => line === metadata[i])) return description;
+  const kept = migrated.map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
   lines.splice(range.start, range.end - range.start + 1, ...kept);
   return lines.join('\n').trimEnd();
 }

@@ -48,8 +48,10 @@ export interface SyncImage {
   sha256: string;
   createdAt: string;
 }
+/** Format 2 (1.4.0) changed task IDs to `tsk_abcde`; format 1 checkpoints are upgraded on read. */
+export const CHECKPOINT_FORMAT = 2;
 export interface Checkpoint {
-  format: 1;
+  format: typeof CHECKPOINT_FORMAT;
   replica: string;
   sequence: number;
   records: SyncRecord[];

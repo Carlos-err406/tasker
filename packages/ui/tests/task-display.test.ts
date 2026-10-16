@@ -49,9 +49,9 @@ describe('task-display', () => {
   });
 
   describe('getShortId', () => {
-    it('returns first 3 characters', () => {
-      const task = makeTask({ id: 'abc123' });
-      expect(getShortId(task)).toBe('abc');
+    it('returns the full prefixed ID', () => {
+      const task = makeTask({ id: 'tsk_abc12' });
+      expect(getShortId(task)).toBe('tsk_abc12');
     });
   });
 

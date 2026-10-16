@@ -6,11 +6,11 @@ import { resolve } from "node:path";
 
 async function taskFixture(page: import("@playwright/test").Page) {
   await page.goto(page.url() + "?task");
-  await expect(page.getByTestId("task-item-abc")).toBeVisible();
+  await expect(page.getByTestId("task-item-tsk_abc00")).toBeVisible();
 }
 async function openTaskActions(page: import("@playwright/test").Page) {
   await page
-    .getByRole("button", { name: "Task actions abc", exact: true })
+    .getByRole("button", { name: "Task actions tsk_abc00", exact: true })
     .click();
   await expect(
     page.getByRole("dialog", { name: "Task actions", exact: true }),
@@ -307,8 +307,8 @@ test("long holds on task text, checkbox, and media no longer open menus or chang
 }) => {
   await taskFixture(page);
   for (const target of [
-    page.getByTestId("task-name-abc"),
-    page.getByTestId("task-checkbox-abc"),
+    page.getByTestId("task-name-tsk_abc00"),
+    page.getByTestId("task-checkbox-tsk_abc00"),
     page.getByTestId("markdown-image-preview-collapsed"),
   ]) {
     for (const nativeContextMenu of [false, true]) {

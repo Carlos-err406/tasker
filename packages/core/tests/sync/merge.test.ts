@@ -68,7 +68,7 @@ describe("sync convergence", () => {
   });
   it("rejects malformed and future checkpoint formats before merge", () => {
     const checkpoint = {
-      format: 1,
+      format: 2,
       replica: "a",
       sequence: 1,
       records: [record("one", 1)],
@@ -76,7 +76,7 @@ describe("sync convergence", () => {
     };
     expect(validateCheckpoint(checkpoint)).toEqual(checkpoint);
     for (const invalid of [
-      { ...checkpoint, format: 2 },
+      { ...checkpoint, format: 3 },
       { ...checkpoint, sequence: -1 },
       { ...checkpoint, records: [record("one", Infinity)] },
       { ...checkpoint, records: [{ ...record("one", 1), kind: "config" }] },

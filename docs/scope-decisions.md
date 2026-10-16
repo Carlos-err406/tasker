@@ -82,3 +82,10 @@ The user approved [the plan](plans/2026-10-09-feat-recurring-tasks-and-notificat
 ## Due date picker (2026-10-09)
 
 The user asked for a date picker in the metadata autocomplete (Tasker task `u68`), replacing the MVP decision that none was needed. Typing `@` shows Today, Tomorrow, the coming Monday and Next week (typing filters every weekday and previews any date the parser understands), with a month calendar below. Picking a date inserts the exact date (`@2026-10-12`), then offers an optional time (9am, 12pm, 3pm, 6pm, 9pm; typing `6:3` suggests 6:30am/pm). Escape or any other key skips the time.
+
+## Prefixed task IDs (2026-10-16)
+
+The user asked for task IDs with a prefix and more characters (Tasker task `9kf`), so a short word an agent receives (like `lol`) can't be mistaken for an ID. They chose a full migration everywhere and the `tsk_` prefix:
+- New IDs are `tsk_` plus 5 base-36 characters (`tsk_k3x9q`). The app shows them, references are typed with them (`^tsk_k3x9q`), and `id:` search accepts them with or without `tsk_`. The MCP server rejects anything else as "Not a task ID".
+- Existing IDs migrate on open (and after restoring an older backup) to `tsk_` + the old 3 characters + 2 derived from the creation time (`9kf` → `tsk_9kf..`). The mapping is deterministic, so each device migrates on its own and gets the same IDs. Descriptions, relationships, sync aliases and records, the All lists order and delivered reminders follow. Undo history is cleared.
+- Sync identities don't change, so migrating publishes no edits. Checkpoints move to format 2; format 1 checkpoints from devices still on 1.3.0 are read and upgraded. A 1.3.0 device can't read format 2, so it stops syncing ("Invalid or unsupported sync data") until it's updated.

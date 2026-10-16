@@ -3,6 +3,7 @@ import type { Task } from '@tasker/core/types';
 import * as taskService from '../lib/services/tasks.js';
 import * as listService from '../lib/services/lists.js';
 import { listTargetKey } from '@tasker/core/parsers';
+import { TASK_ID_PREFIX } from '@tasker/core/task-id';
 import { getDisplayTitle, getShortId } from '../lib/task-display.js';
 import { getPlainText, setCaretOffset, getTextBeforeCursor } from '../lib/content-editable-utils.js';
 import { parseDate } from '@tasker/core/parsers';
@@ -97,7 +98,9 @@ function suggestTasks(tasks: Task[], partial: string, excludeTaskId?: string): S
     if (excludeTaskId && t.id === excludeTaskId) continue;
     const sid = getShortId(t);
     const title = getDisplayTitle(t);
-    if (!partial || sid.toLowerCase().startsWith(lowerPartial) || title.toLowerCase().includes(lowerPartial)) {
+    // Match `^k3x` as well as `^tsk_k3x`
+    const idMatch = sid.startsWith(lowerPartial) || sid.slice(TASK_ID_PREFIX.length).startsWith(lowerPartial);
+    if (!partial || idMatch || title.toLowerCase().includes(lowerPartial)) {
       filtered.push({ kind: 'task', task: t, shortId: sid, title });
     }
     if (filtered.length >= 50) break;

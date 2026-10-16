@@ -93,32 +93,32 @@ describe('parse', () => {
     expect(result.lastLineIsMetadataOnly).toBe(false);
   });
 
-  // --- Parent reference ^abc ---
+  // --- Parent reference ^tsk_abc00 ---
 
   it('extracts parent ID', () => {
-    const result = parse('task\n^abc', NOW);
-    expect(result.parentId).toBe('abc');
+    const result = parse('task\n^tsk_abc00', NOW);
+    expect(result.parentId).toBe('tsk_abc00');
     expect(result.lastLineIsMetadataOnly).toBe(true);
   });
 
   it('does not parse parent from non-metadata line', () => {
-    const result = parse('task with ^abc in text');
+    const result = parse('task with ^tsk_abc00 in text');
     expect(result.parentId).toBeNull();
     expect(result.lastLineIsMetadataOnly).toBe(false);
   });
 
-  // --- Blocks reference !abc ---
+  // --- Blocks reference !tsk_abc00 ---
 
   it('extracts single blocks ID', () => {
-    const result = parse('task\n!h67', NOW);
-    expect(result.blocksIds).toEqual(['h67']);
+    const result = parse('task\n!tsk_h6700', NOW);
+    expect(result.blocksIds).toEqual(['tsk_h6700']);
   });
 
   it('extracts multiple blocks IDs', () => {
-    const result = parse('task\n!h67 !j89', NOW);
+    const result = parse('task\n!tsk_h6700 !tsk_j8900', NOW);
     expect(result.blocksIds).toHaveLength(2);
-    expect(result.blocksIds).toContain('h67');
-    expect(result.blocksIds).toContain('j89');
+    expect(result.blocksIds).toContain('tsk_h6700');
+    expect(result.blocksIds).toContain('tsk_j8900');
   });
 
   it('does not parse blocks from non-metadata line', () => {
@@ -127,72 +127,72 @@ describe('parse', () => {
     expect(result.lastLineIsMetadataOnly).toBe(false);
   });
 
-  // --- Inverse parent -^abc ---
+  // --- Inverse parent -^tsk_abc00 ---
 
   it('extracts inverse parent (has subtask) IDs', () => {
-    const result = parse('task\n-^abc', NOW);
-    expect(result.hasSubtaskIds).toEqual(['abc']);
+    const result = parse('task\n-^tsk_abc00', NOW);
+    expect(result.hasSubtaskIds).toEqual(['tsk_abc00']);
     expect(result.lastLineIsMetadataOnly).toBe(true);
   });
 
   it('extracts multiple inverse parent IDs', () => {
-    const result = parse('task\n-^abc -^def', NOW);
+    const result = parse('task\n-^tsk_abc00 -^tsk_def00', NOW);
     expect(result.hasSubtaskIds).toHaveLength(2);
-    expect(result.hasSubtaskIds).toContain('abc');
-    expect(result.hasSubtaskIds).toContain('def');
+    expect(result.hasSubtaskIds).toContain('tsk_abc00');
+    expect(result.hasSubtaskIds).toContain('tsk_def00');
   });
 
-  it('does not confuse ^abc and -^abc', () => {
-    const result = parse('task\n^abc -^def', NOW);
-    expect(result.parentId).toBe('abc');
-    expect(result.hasSubtaskIds).toEqual(['def']);
+  it('does not confuse ^tsk_abc00 and -^tsk_abc00', () => {
+    const result = parse('task\n^tsk_abc00 -^tsk_def00', NOW);
+    expect(result.parentId).toBe('tsk_abc00');
+    expect(result.hasSubtaskIds).toEqual(['tsk_def00']);
   });
 
-  // --- Inverse blocker -!abc ---
+  // --- Inverse blocker -!tsk_abc00 ---
 
   it('extracts inverse blocker (blocked by) IDs', () => {
-    const result = parse('task\n-!abc', NOW);
-    expect(result.blockedByIds).toEqual(['abc']);
+    const result = parse('task\n-!tsk_abc00', NOW);
+    expect(result.blockedByIds).toEqual(['tsk_abc00']);
     expect(result.lastLineIsMetadataOnly).toBe(true);
   });
 
   it('extracts multiple inverse blocker IDs', () => {
-    const result = parse('task\n-!abc -!def', NOW);
+    const result = parse('task\n-!tsk_abc00 -!tsk_def00', NOW);
     expect(result.blockedByIds).toHaveLength(2);
-    expect(result.blockedByIds).toContain('abc');
-    expect(result.blockedByIds).toContain('def');
+    expect(result.blockedByIds).toContain('tsk_abc00');
+    expect(result.blockedByIds).toContain('tsk_def00');
   });
 
-  it('does not confuse !abc and -!abc', () => {
-    const result = parse('task\n!abc -!def', NOW);
-    expect(result.blocksIds).toEqual(['abc']);
-    expect(result.blockedByIds).toEqual(['def']);
+  it('does not confuse !tsk_abc00 and -!tsk_abc00', () => {
+    const result = parse('task\n!tsk_abc00 -!tsk_def00', NOW);
+    expect(result.blocksIds).toEqual(['tsk_abc00']);
+    expect(result.blockedByIds).toEqual(['tsk_def00']);
   });
 
-  // --- Related ~abc ---
+  // --- Related ~tsk_abc00 ---
 
   it('extracts related IDs', () => {
-    const result = parse('task\n~abc', NOW);
-    expect(result.relatedIds).toEqual(['abc']);
+    const result = parse('task\n~tsk_abc00', NOW);
+    expect(result.relatedIds).toEqual(['tsk_abc00']);
     expect(result.lastLineIsMetadataOnly).toBe(true);
   });
 
   it('extracts multiple related IDs', () => {
-    const result = parse('task\n~abc ~def', NOW);
+    const result = parse('task\n~tsk_abc00 ~tsk_def00', NOW);
     expect(result.relatedIds).toHaveLength(2);
-    expect(result.relatedIds).toContain('abc');
-    expect(result.relatedIds).toContain('def');
+    expect(result.relatedIds).toContain('tsk_abc00');
+    expect(result.relatedIds).toContain('tsk_def00');
   });
 
   // --- Combined dependencies + metadata ---
 
   it('extracts all marker types together', () => {
-    const result = parse('build API\n^abc !ghi -^def -!jkl ~xyz p1 @today #tag', NOW);
-    expect(result.parentId).toBe('abc');
-    expect(result.blocksIds).toEqual(['ghi']);
-    expect(result.hasSubtaskIds).toEqual(['def']);
-    expect(result.blockedByIds).toEqual(['jkl']);
-    expect(result.relatedIds).toEqual(['xyz']);
+    const result = parse('build API\n^tsk_abc00 !tsk_ghi00 -^tsk_def00 -!tsk_jkl00 ~tsk_xyz00 p1 @today #tag', NOW);
+    expect(result.parentId).toBe('tsk_abc00');
+    expect(result.blocksIds).toEqual(['tsk_ghi00']);
+    expect(result.hasSubtaskIds).toEqual(['tsk_def00']);
+    expect(result.blockedByIds).toEqual(['tsk_jkl00']);
+    expect(result.relatedIds).toEqual(['tsk_xyz00']);
     expect(result.priority).toBe(Priority.High);
     expect(result.dueDate).toBe('2026-02-08');
     expect(result.tags).toContain('tag');
@@ -200,16 +200,16 @@ describe('parse', () => {
   });
 
   it('extracts mixed related and other metadata', () => {
-    const result = parse('build API\n~abc !h67 p1 #tag', NOW);
-    expect(result.relatedIds).toEqual(['abc']);
-    expect(result.blocksIds).toEqual(['h67']);
+    const result = parse('build API\n~tsk_abc00 !tsk_h6700 p1 #tag', NOW);
+    expect(result.relatedIds).toEqual(['tsk_abc00']);
+    expect(result.blocksIds).toEqual(['tsk_h6700']);
     expect(result.priority).toBe(Priority.High);
     expect(result.tags).toContain('tag');
   });
 
   it('extracts metadata split across multiple trailing lines', () => {
-    const result = parse('build API\n\nnotes\n\n~abc\n#tag', NOW);
-    expect(result.relatedIds).toEqual(['abc']);
+    const result = parse('build API\n\nnotes\n\n~tsk_abc00\n#tag', NOW);
+    expect(result.relatedIds).toEqual(['tsk_abc00']);
     expect(result.tags).toEqual(['tag']);
     expect(result.lastLineIsMetadataOnly).toBe(true);
   });
@@ -229,23 +229,23 @@ describe('getDisplayDescription', () => {
   });
 
   it('hides dependency tokens', () => {
-    expect(getDisplayDescription('My task\n^abc !h67 p1')).toBe('My task');
+    expect(getDisplayDescription('My task\n^tsk_abc00 !tsk_h6700 p1')).toBe('My task');
   });
 
   it('hides inverse markers', () => {
-    expect(getDisplayDescription('My task\n-^abc -!def p1')).toBe('My task');
+    expect(getDisplayDescription('My task\n-^tsk_abc00 -!tsk_def00 p1')).toBe('My task');
   });
 
   it('hides related tokens', () => {
-    expect(getDisplayDescription('My task\n~abc ~def')).toBe('My task');
+    expect(getDisplayDescription('My task\n~tsk_abc00 ~tsk_def00')).toBe('My task');
   });
 
   it('hides trailing metadata split across multiple lines', () => {
-    expect(getDisplayDescription('My task\n\nhttps://example.com\n\n~abc\n#movie')).toBe('My task\n\nhttps://example.com');
+    expect(getDisplayDescription('My task\n\nhttps://example.com\n\n~tsk_abc00\n#movie')).toBe('My task\n\nhttps://example.com');
   });
 
   it('hides all marker types', () => {
-    expect(getDisplayDescription('My task\n^abc !ghi -^def -!jkl ~xyz p1 #tag')).toBe('My task');
+    expect(getDisplayDescription('My task\n^tsk_abc00 !tsk_ghi00 -^tsk_def00 -!tsk_jkl00 ~tsk_xyz00 p1 #tag')).toBe('My task');
   });
 });
 
@@ -264,66 +264,66 @@ describe('syncMetadataToDescription', () => {
 
   it('includes parent and blocks', () => {
     expect(
-      syncMetadataToDescription('task', Priority.High, null, null, 'abc', ['h67']),
-    ).toBe('task\n^abc !h67 p1');
+      syncMetadataToDescription('task', Priority.High, null, null, 'tsk_abc00', ['tsk_h6700']),
+    ).toBe('task\n^tsk_abc00 !tsk_h6700 p1');
   });
 
   it('updates existing dependency tokens', () => {
     expect(
-      syncMetadataToDescription('task\n^abc p1', null, null, null, 'def'),
-    ).toBe('task\n^def');
+      syncMetadataToDescription('task\n^tsk_abc00 p1', null, null, null, 'tsk_def00'),
+    ).toBe('task\n^tsk_def00');
   });
 
   it('includes inverse markers', () => {
     expect(
-      syncMetadataToDescription('task', null, null, null, null, null, ['abc'], ['def']),
-    ).toBe('task\n-^abc -!def');
+      syncMetadataToDescription('task', null, null, null, null, null, ['tsk_abc00'], ['tsk_def00']),
+    ).toBe('task\n-^tsk_abc00 -!tsk_def00');
   });
 
   it('preserves full marker order', () => {
     const result = syncMetadataToDescription(
       'task', Priority.High, '2026-02-08', ['tag'],
-      'abc', ['ghi'], ['def'], ['jkl'], ['xyz'],
+      'tsk_abc00', ['tsk_ghi00'], ['tsk_def00'], ['tsk_jkl00'], ['tsk_xyz00'],
     );
-    expect(result).toBe('task\n^abc !ghi -^def -!jkl ~xyz p1 @2026-02-08 #tag');
+    expect(result).toBe('task\n^tsk_abc00 !tsk_ghi00 -^tsk_def00 -!tsk_jkl00 ~tsk_xyz00 p1 @2026-02-08 #tag');
   });
 
   it('preserves inverse markers on update', () => {
     const result = syncMetadataToDescription(
-      'task\n-^abc -!def p1', Priority.Medium, null, null,
-      null, null, ['abc'], ['def'],
+      'task\n-^tsk_abc00 -!tsk_def00 p1', Priority.Medium, null, null,
+      null, null, ['tsk_abc00'], ['tsk_def00'],
     );
-    expect(result).toBe('task\n-^abc -!def p2');
+    expect(result).toBe('task\n-^tsk_abc00 -!tsk_def00 p2');
   });
 
   it('includes related IDs', () => {
     expect(
-      syncMetadataToDescription('task', null, null, null, null, null, null, null, ['abc', 'def']),
-    ).toBe('task\n~abc ~def');
+      syncMetadataToDescription('task', null, null, null, null, null, null, null, ['tsk_abc00', 'tsk_def00']),
+    ).toBe('task\n~tsk_abc00 ~tsk_def00');
   });
 
   it('updates metadata split across multiple trailing lines', () => {
     expect(
-      syncMetadataToDescription('task\n~abc\n#movie', null, null, ['movie'], null, null, null, null, ['abc', 'def']),
-    ).toBe('task\n~abc ~def #movie');
+      syncMetadataToDescription('task\n~tsk_abc00\n#movie', null, null, ['movie'], null, null, null, null, ['tsk_abc00', 'tsk_def00']),
+    ).toBe('task\n~tsk_abc00 ~tsk_def00 #movie');
   });
 
   it('produces correct order for related + other metadata', () => {
     expect(
-      syncMetadataToDescription('task', Priority.High, null, ['tag'], 'abc', ['h67'], null, null, ['xyz']),
-    ).toBe('task\n^abc !h67 ~xyz p1 #tag');
+      syncMetadataToDescription('task', Priority.High, null, ['tag'], 'tsk_abc00', ['tsk_h6700'], null, null, ['tsk_xyz00']),
+    ).toBe('task\n^tsk_abc00 !tsk_h6700 ~tsk_xyz00 p1 #tag');
   });
 
   it('deduplicates relationship IDs', () => {
     expect(
-      syncMetadataToDescription('nice', null, null, ['tag'], null, null, null, ['01i', '01i']),
-    ).toBe('nice\n-!01i #tag');
+      syncMetadataToDescription('nice', null, null, ['tag'], null, null, null, ['tsk_01i00', 'tsk_01i00']),
+    ).toBe('nice\n-!tsk_01i00 #tag');
   });
 
   it('deduplicates blocks and related IDs', () => {
     expect(
-      syncMetadataToDescription('task', null, null, null, null, ['abc', 'abc'], ['def', 'def'], null, ['xyz', 'xyz']),
-    ).toBe('task\n!abc -^def ~xyz');
+      syncMetadataToDescription('task', null, null, null, null, ['tsk_abc00', 'tsk_abc00'], ['tsk_def00', 'tsk_def00'], null, ['tsk_xyz00', 'tsk_xyz00']),
+    ).toBe('task\n!tsk_abc00 -^tsk_def00 ~tsk_xyz00');
   });
 
   it('deduplicates tags', () => {
@@ -333,7 +333,7 @@ describe('syncMetadataToDescription', () => {
   });
 
   it('round-trips through parse and sync', () => {
-    const original = 'build API\n^abc !ghi -^def -!jkl ~xyz p1 @2026-02-07 #tag';
+    const original = 'build API\n^tsk_abc00 !tsk_ghi00 -^tsk_def00 -!tsk_jkl00 ~tsk_xyz00 p1 @2026-02-07 #tag';
     const parsed = parse(original, NOW);
     const synced = syncMetadataToDescription(
       'build API', parsed.priority, parsed.dueDate, parsed.tags,

@@ -8,6 +8,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema/index.js';
 import type { TaskerDb } from './db.js';
 import { CREATE_SCHEMA_SQL } from './db.js';
+import { migrateTaskIds } from './migrations.js';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
@@ -68,7 +69,9 @@ export function createDb(path?: string): TaskerDb {
   try { sqlite.exec(`ALTER TABLE tasks ADD COLUMN updated_at TEXT`); } catch { /* column already exists */ }
   try { sqlite.exec(`ALTER TABLE lists ADD COLUMN updated_at TEXT`); } catch { /* column already exists */ }
 
-  return drizzle(sqlite, { schema }) as unknown as TaskerDb;
+  const db = drizzle(sqlite, { schema }) as unknown as TaskerDb;
+  migrateTaskIds(db);
+  return db;
 }
 
 /**

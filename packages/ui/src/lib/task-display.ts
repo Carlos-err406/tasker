@@ -23,8 +23,9 @@ export function getDescriptionPreview(task: Task): string | null {
   return preview || null;
 }
 
+/** The ID as shown and typed in references, e.g. `tsk_k3x9q`. */
 export function getShortId(task: Task): string {
-  return task.id.slice(0, 3);
+  return task.id;
 }
 
 export function isPending(task: Task): boolean {

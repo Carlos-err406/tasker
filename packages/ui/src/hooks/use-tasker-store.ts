@@ -335,7 +335,7 @@ export function useTaskerStore() {
     async (description: string, listName: string) => {
       try {
         const result = await taskService.addTask(description, listName);
-        showStatus(`Added: ${result.task.id.slice(0, 3)}`);
+        showStatus(`Added: ${result.task.id}`);
         await refresh();
         return true;
       } catch (err) {

@@ -48,9 +48,9 @@ beforeEach(() => {
 });
 
 describe('addTask', () => {
-  it('creates a task with a 3-char ID', () => {
+  it('creates a task with a prefixed ID', () => {
     const { task } = addTask(db, 'My first task', 'tasks');
-    expect(task.id).toHaveLength(3);
+    expect(task.id).toMatch(/^tsk_[a-z0-9]{5}$/);
     expect(task.description).toBe('My first task');
     expect(task.status).toBe(TaskStatus.Pending);
     expect(task.listName).toBe('tasks');
@@ -69,7 +69,7 @@ describe('addTask', () => {
   });
 
   it('validates parent reference', () => {
-    const { warnings } = addTask(db, 'child\n^zzz', 'tasks');
+    const { warnings } = addTask(db, 'child\n^tsk_zzz00', 'tasks');
     expect(warnings.some(w => w.includes('not found'))).toBe(true);
   });
 });
