@@ -1,4 +1,4 @@
-import { TaskMenuItems, type TaskMenuAction } from "./task-menu-actions.js";
+import { TaskMenuItems } from "./task-menu-actions.js";
 import { TouchTaskActions } from "./TouchTaskActions.js";
 import { TouchEditorScreen } from "./TouchEditorScreen.js";
 import { TouchEditorActions } from "./TouchEditorActions.js";
@@ -14,7 +14,10 @@ import {
 } from "react";
 import type { Task, TaskStatus } from "@tasker/core/types";
 import { TaskStatus as TS, Priority } from "@tasker/core/types";
-import type { TaskRelDetails } from "../hooks/use-tasker-store.js";
+import type { RelEntry, TaskRelDetails } from "../hooks/use-tasker-store.js";
+import { buildTaskActions } from "./task-actions.js";
+import { RelationshipLine, type RelationshipKind } from "./RelationshipLine.js";
+import { EDIT_TASK_EVENT, type NavigateOptions } from "../lib/task-navigation.js";
 import { cn } from "../lib/utils.js";
 import { useMetadataAutocomplete } from "../hooks/use-metadata-autocomplete.js";
 import { useMarkdownShortcuts } from "../hooks/use-markdown-shortcuts.js";
@@ -23,25 +26,15 @@ import {
   Check,
   Minus,
   X,
-  CornerLeftUp,
-  CornerRightDown,
-  Ban,
-  Link2,
   Calendar,
   Repeat,
   Tag,
   List as ListIcon,
-  Pencil,
-  Trash2,
-  FolderInput,
-  Circle,
-  CircleDot,
-  CircleCheck,
-  CircleSlash,
   ChevronsUp,
   ChevronUp,
   ChevronDown,
   Copy,
+  Hash,
 } from "lucide-react";
 import { TaskContextMenu, TaskContextMenuContent } from "./TaskContextMenu.js";
 import { MarkdownContent } from "./MarkdownContent.js";
@@ -65,8 +58,6 @@ import {
   formatDueDate,
   getSchedule,
   getTagColor,
-  getLinkedStatusLabel,
-  getLinkedStatusColor,
 } from "../lib/task-display.js";
 
 interface TaskItemProps {
@@ -79,7 +70,7 @@ interface TaskItemProps {
   onDelete: (taskId: string, cascade?: boolean) => void;
   onMove: (taskId: string, targetList: string) => void;
   onShowStatus: (message: string) => void;
-  onNavigateToTask: (taskId: string) => void;
+  onNavigateToTask: (taskId: string, options?: NavigateOptions) => void;
   onCreateSubtask: (taskId: string) => void;
   onTagClick?: (tag: string) => void;
   onEditingChange?: (taskId: string, editing: boolean) => void;
@@ -290,6 +281,18 @@ export const TaskItem = memo(function TaskItem({
     onShowStatus("Copied task text");
   };
 
+  // A menu on another task's relationship line asked to edit this task.
+  useEffect(() => {
+    const open = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== task.id || editing) return;
+      initialEditText.current = task.description;
+      setEditValue(task.description);
+      setEditing(true);
+    };
+    window.addEventListener(EDIT_TASK_EVENT, open);
+    return () => window.removeEventListener(EDIT_TASK_EVENT, open);
+  }, [task.id, task.description, editing]);
+
   const finishMenuClose = () => {
     if (!editAfterMenuClose.current) return;
     editAfterMenuClose.current = false;
@@ -297,93 +300,15 @@ export const TaskItem = memo(function TaskItem({
     setEditValue(task.description);
     setEditing(true);
   };
-  const actions: TaskMenuAction[] = [
-    {
-      label: "Edit",
-      icon: <Pencil />,
-      onSelect: startEdit,
-      deferUntilClosed: true,
-    },
-    { label: "Copy ID", icon: <Copy />, onSelect: copyId },
-    { label: "Copy text", icon: <Copy />, onSelect: copyText },
-    {
-      label: "Create subtask",
-      icon: <CornerRightDown />,
-      onSelect: () => onCreateSubtask(task.id),
-      deferUntilClosed: true,
-    },
-    {
-      label: "Move to...",
-      icon: <FolderInput />,
-      disabled: !lists.some((name) => name !== task.listName),
-      children: lists
-        .filter((name) => name !== task.listName)
-        .map((name) => ({
-          label: name,
-          onSelect: () => onMove(task.id, name),
-          deferUntilClosed: true,
-        })),
-    },
-    {
-      label: "Set Status",
-      icon: <CircleDot />,
-      children: [
-        {
-          label: "Pending",
-          status: TS.Pending,
-          icon: <Circle className="text-muted-foreground" />,
-        },
-        {
-          label: "In Progress",
-          status: TS.InProgress,
-          icon: <CircleDot className="text-amber-400" />,
-        },
-        {
-          label: "Done",
-          status: TS.Done,
-          icon: <CircleCheck className="text-green-400" />,
-        },
-        {
-          label: "Won't Do",
-          status: TS.WontDo,
-          icon: <CircleSlash className="text-zinc-400" />,
-        },
-      ].map(({ label, status, icon }) => ({
-        label,
-        icon,
-        selected: task.status === status,
-        onSelect: () => onSetStatus(task.id, status),
-        deferUntilClosed: true,
-      })),
-    },
-    relDetails?.subtasks.length
-      ? {
-          label: "Delete...",
-          icon: <Trash2 />,
-          destructive: true,
-          children: [
-            {
-              label: "This task only",
-              destructive: true,
-              onSelect: () => onDelete(task.id, false),
-              deferUntilClosed: true,
-            },
-            {
-              label: "Task and subtasks",
-              destructive: true,
-              onSelect: () => onDelete(task.id, true),
-              deferUntilClosed: true,
-            },
-          ],
-        }
-      : {
-          label: "Delete",
-          icon: <Trash2 />,
-          destructive: true,
-          onSelect: () => onDelete(task.id),
-          deferUntilClosed: true,
-        },
-  ];
+  const actions = buildTaskActions(task, lists, !!relDetails?.subtasks.length, {
+    onEdit: startEdit,
+    onCopyId: copyId,
+    onCopyText: copyText,
+    onCreateSubtask,
+    onMove,
+    onSetStatus,
+    onDelete,
+  });
 
   return (
     <TouchTaskActions
@@ -406,7 +331,7 @@ export const TaskItem = memo(function TaskItem({
               "group flex items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50",
             )}
           >
-            {/* Checkbox + ID column */}
+            {/* Checkbox column */}
             <div
               className={cn(
                 "flex flex-col items-center mt-0.5",
@@ -433,20 +358,6 @@ export const TaskItem = memo(function TaskItem({
                 {wontDo && <X className="h-3 w-3" />}
                 {inProg && <Minus className="h-3 w-3" />}
               </button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    data-task-id-copy
-                    onClick={copyId}
-                    className="mt-0.5 font-mono text-[9px] text-muted-foreground/50 hover:text-muted-foreground"
-                  >
-                    {shortId}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="task-id-tooltip pointer-events-none">
-                  Copy ID
-                </TooltipContent>
-              </Tooltip>
             </div>
 
             {/* Content column */}
@@ -549,115 +460,27 @@ export const TaskItem = memo(function TaskItem({
                   )}
 
                   {/* Relationship lines */}
-                  {relDetails?.parent && (
-                    <button
-                      onClick={() => onNavigateToTask(relDetails.parent!.id)}
-                      className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
-                    >
-                      <CornerLeftUp className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                      <span className="flex-1 min-w-0">
-                        Subtask of ({relDetails.parent.id}){" "}
-                        {relDetails.parent.title}
-                      </span>
-                      {getLinkedStatusLabel(relDetails.parent.status) && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0",
-                            getLinkedStatusColor(relDetails.parent.status),
-                          )}
-                        >
-                          {getLinkedStatusLabel(relDetails.parent.status)}
-                        </span>
-                      )}
-                    </button>
-                  )}
-                  {relDetails?.subtasks.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => onNavigateToTask(s.id)}
-                      className="flex w-full items-start gap-1 font-mono text-[10px] text-muted-foreground mt-0.5 hover:text-foreground transition-colors text-left"
-                    >
-                      <CornerRightDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                      <span className="flex-1 min-w-0">
-                        Subtask ({s.id}) {s.title}
-                      </span>
-                      {getLinkedStatusLabel(s.status) && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0",
-                            getLinkedStatusColor(s.status),
-                          )}
-                        >
-                          {getLinkedStatusLabel(s.status)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  {relDetails?.blocks.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => onNavigateToTask(b.id)}
-                      className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                    >
-                      <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                      <span className="flex-1 min-w-0">
-                        Blocks ({b.id}) {b.title}
-                      </span>
-                      {getLinkedStatusLabel(b.status) && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0",
-                            getLinkedStatusColor(b.status),
-                          )}
-                        >
-                          {getLinkedStatusLabel(b.status)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  {relDetails?.blockedBy.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => onNavigateToTask(b.id)}
-                      className="flex w-full items-start gap-1 font-mono text-[10px] text-amber-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                    >
-                      <Ban className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                      <span className="flex-1 min-w-0">
-                        Blocked by ({b.id}) {b.title}
-                      </span>
-                      {getLinkedStatusLabel(b.status) && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0",
-                            getLinkedStatusColor(b.status),
-                          )}
-                        >
-                          {getLinkedStatusLabel(b.status)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  {relDetails?.related.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => onNavigateToTask(r.id)}
-                      className="flex w-full items-start gap-1 font-mono text-[10px] text-teal-400/80 mt-0.5 hover:text-foreground transition-colors text-left"
-                    >
-                      <Link2 className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                      <span className="flex-1 min-w-0">
-                        Related to ({r.id}) {r.title}
-                      </span>
-                      {getLinkedStatusLabel(r.status) && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0",
-                            getLinkedStatusColor(r.status),
-                          )}
-                        >
-                          {getLinkedStatusLabel(r.status)}
-                        </span>
-                      )}
-                    </button>
+                  {(
+                    [
+                      ...(relDetails?.parent ? [["parent", relDetails.parent] as const] : []),
+                      ...(relDetails?.subtasks ?? []).map((e) => ["subtask", e] as const),
+                      ...(relDetails?.blocks ?? []).map((e) => ["blocks", e] as const),
+                      ...(relDetails?.blockedBy ?? []).map((e) => ["blockedBy", e] as const),
+                      ...(relDetails?.related ?? []).map((e) => ["related", e] as const),
+                    ] satisfies (readonly [RelationshipKind, RelEntry])[]
+                  ).map(([kind, entry]) => (
+                    <RelationshipLine
+                      key={`${kind}:${entry.id}`}
+                      kind={kind}
+                      entry={entry}
+                      lists={lists}
+                      onNavigateToTask={onNavigateToTask}
+                      onShowStatus={onShowStatus}
+                      onCreateSubtask={onCreateSubtask}
+                      onMove={onMove}
+                      onSetStatus={onSetStatus}
+                      onDelete={onDelete}
+                    />
                   ))}
 
                   {/* Due date */}
@@ -684,9 +507,27 @@ export const TaskItem = memo(function TaskItem({
                     </div>
                   )}
 
-                  {/* List (All view) and tags */}
-                  {(showListName || (task.tags && task.tags.length > 0)) && (
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {/* ID, list (All view) and tags */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-task-id-copy
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void copyId();
+                            }}
+                            className="inline-flex items-center gap-0.5 rounded-full border border-border px-1.5 py-0 font-mono text-[10px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                          >
+                            <Hash className="h-2.5 w-2.5 flex-shrink-0" />
+                            {shortId}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="task-id-tooltip pointer-events-none">
+                          Copy ID
+                        </TooltipContent>
+                      </Tooltip>
                       {showListName && (
                         <button
                           type="button"
@@ -720,8 +561,7 @@ export const TaskItem = memo(function TaskItem({
                           {tag}
                         </button>
                       ))}
-                    </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>

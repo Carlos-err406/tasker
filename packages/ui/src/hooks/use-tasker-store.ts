@@ -5,6 +5,7 @@ import { TaskStatus as TS } from "@tasker/core/types";
 import { parseTaskDescription } from "@tasker/core/parsers";
 import { arrayMove } from "@dnd-kit/sortable";
 import { ALL_LISTS } from "../lib/all-lists.js";
+import { EDIT_TASK_EVENT, type NavigateOptions } from "../lib/task-navigation.js";
 import * as taskService from "../lib/services/tasks.js";
 import * as listService from "../lib/services/lists.js";
 import * as undoService from "../lib/services/undo.js";
@@ -189,6 +190,7 @@ export function useTaskerStore() {
   const refreshVersion = useRef(0);
   const searchQueryRef = useRef(state.searchQuery);
   const navigationTarget = useRef<string | null>(null);
+  const navigationEdits = useRef(false);
   const selectList = useCallback((list: string) => {
     selectedListRef.current = list;
     dispatch({ type: "SELECT_LIST", list });
@@ -648,7 +650,7 @@ export function useTaskerStore() {
 
   // A relationship can point outside the selected list or current search.
   const navigateToTask = useCallback(
-    async (taskId: string) => {
+    async (taskId: string, options?: NavigateOptions) => {
       if (isEditing) {
         showStatus("Save or cancel your edit first");
         return;
@@ -666,6 +668,7 @@ export function useTaskerStore() {
         // A completed target is only visible while completed tasks are shown.
         if (done) await settingsService.setSetting("showCompleted", true);
         navigationTarget.current = task.id;
+        navigationEdits.current = !!options?.edit;
         selectList(target);
         setSearch("");
         await refresh({ searchQuery: "" });
@@ -690,6 +693,10 @@ export function useTaskerStore() {
     el.classList.remove("task-highlight");
     void el.offsetWidth;
     el.classList.add("task-highlight");
+    if (navigationEdits.current) {
+      navigationEdits.current = false;
+      window.dispatchEvent(new CustomEvent(EDIT_TASK_EVENT, { detail: taskId }));
+    }
   }, [state.tasks, state.selectedList, state.settings.showCompleted]);
 
   // Group tasks by list; the All view interleaves every list in its saved order.
