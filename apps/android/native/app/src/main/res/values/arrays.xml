@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's tag palette (TAG_COLORS), red through rose. -->
+<resources>
+    <array name="widget_tag_text">
+        <item>#FFB91C1C</item>
+        <item>#FFC2410C</item>
+        <item>#FFB45309</item>
+        <item>#FFA16207</item>
+        <item>#FF4D7C0F</item>
+        <item>#FF15803D</item>
+        <item>#FF047857</item>
+        <item>#FF0F766E</item>
+        <item>#FF0E7490</item>
+        <item>#FF0369A1</item>
+        <item>#FF1D4ED8</item>
+        <item>#FF4338CA</item>
+        <item>#FF6D28D9</item>
+        <item>#FF7E22CE</item>
+        <item>#FFA21CAF</item>
+        <item>#FFBE185D</item>
+        <item>#FFBE123C</item>
+    </array>
+    <array name="widget_tag_background">
+        <item>#33EF4444</item>
+        <item>#33F97316</item>
+        <item>#33F59E0B</item>
+        <item>#33EAB308</item>
+        <item>#3384CC16</item>
+        <item>#3322C55E</item>
+        <item>#3310B981</item>
+        <item>#3314B8A6</item>
+        <item>#3306B6D4</item>
+        <item>#330EA5E9</item>
+        <item>#333B82F6</item>
+        <item>#336366F1</item>
+        <item>#338B5CF6</item>
+        <item>#33A855F7</item>
+        <item>#33D946EF</item>
+        <item>#33EC4899</item>
+        <item>#33F43F5E</item>
+    </array>
+</resources>

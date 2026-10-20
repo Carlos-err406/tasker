@@ -3,12 +3,18 @@ package org.tasker.android;
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.TypedArray;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.BackgroundColorSpan;
+import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Rows for {@link TaskListWidget}. */
@@ -51,21 +57,75 @@ public final class TaskListWidgetService extends RemoteViewsService {
                     : priority == 2 ? R.drawable.ic_widget_priority_medium
                     : R.drawable.ic_widget_priority_low);
 
+            String notes = task.isNull("notes") ? "" : task.optString("notes");
+            views.setTextViewText(R.id.widget_item_notes, notes);
+            views.setViewVisibility(R.id.widget_item_notes, notes.isEmpty() ? View.GONE : View.VISIBLE);
+            CharSequence meta = meta(task);
+            views.setTextViewText(R.id.widget_item_meta, meta);
+            views.setViewVisibility(R.id.widget_item_meta, meta.length() == 0 ? View.GONE : View.VISIBLE);
+            views.setOnClickFillInIntent(R.id.widget_item, new Intent().putExtra("task", task.optString("id")));
+            return views;
+        }
+
+        /** Due date, repeat, links and tags on one line, colored like the app. */
+        private CharSequence meta(JSONObject task) {
+            SpannableStringBuilder meta = new SpannableStringBuilder();
             String due = task.isNull("due") ? null : task.optString("due");
-            String time = task.isNull("time") ? null : task.optString("time");
-            views.setViewVisibility(R.id.widget_item_due, due == null ? View.GONE : View.VISIBLE);
             if (due != null) {
+                String time = task.isNull("time") ? null : task.optString("time");
                 String label;
                 try { label = TaskListWidget.dueLabel(due, time, today); }
                 catch (RuntimeException badDate) { label = due; }
-                views.setTextViewText(R.id.widget_item_due, label);
-                // Rows are recycled, so always set the color.
                 int compare = due.compareTo(today.toString());
-                views.setTextColor(R.id.widget_item_due, context.getColor(
-                    compare < 0 ? R.color.widget_overdue : compare == 0 ? R.color.widget_today : R.color.widget_muted));
+                append(meta, label, compare < 0 ? R.color.widget_overdue : compare == 0 ? R.color.widget_today : 0);
+                if (task.optBoolean("repeats")) meta.append(" ↻");
             }
-            views.setOnClickFillInIntent(R.id.widget_item, new Intent().putExtra("task", task.optString("id")));
-            return views;
+            links(meta, task, "blockedBy", "⊘ Blocked by ", R.color.widget_in_progress);
+            links(meta, task, "blocks", "⊘ Blocks ", R.color.widget_in_progress);
+            String parent = task.isNull("parent") ? null : task.optString("parent");
+            if (parent != null) { separate(meta); meta.append("↑ ").append(parent); }
+            int subtasks = task.optInt("subtasks");
+            if (subtasks > 0) { separate(meta); meta.append("↳ ").append(String.valueOf(subtasks)).append(subtasks == 1 ? " subtask" : " subtasks"); }
+            links(meta, task, "related", "↔ ", 0);
+            JSONArray tags = task.optJSONArray("tags");
+            if (tags != null && tags.length() > 0) {
+                separate(meta);
+                // TypedArray is only AutoCloseable from API 31; minSdk is 30.
+                TypedArray text = context.getResources().obtainTypedArray(R.array.widget_tag_text);
+                TypedArray background = context.getResources().obtainTypedArray(R.array.widget_tag_background);
+                for (int i = 0; i < tags.length(); i++) {
+                    JSONObject tag = tags.optJSONObject(i);
+                    if (tag == null) continue;
+                    if (i > 0) meta.append(" ");
+                    int color = Math.floorMod(tag.optInt("color"), text.length());
+                    int start = meta.length();
+                    meta.append("\u2009#").append(tag.optString("name")).append("\u2009");
+                    meta.setSpan(new ForegroundColorSpan(text.getColor(color, 0)), start, meta.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    meta.setSpan(new BackgroundColorSpan(background.getColor(color, 0)), start, meta.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                text.recycle();
+                background.recycle();
+            }
+            return meta;
+        }
+
+        private void links(SpannableStringBuilder meta, JSONObject task, String key, String prefix, int color) {
+            JSONArray titles = task.optJSONArray(key);
+            if (titles == null || titles.length() == 0) return;
+            List<String> names = new ArrayList<>();
+            for (int i = 0; i < titles.length(); i++) names.add(titles.optString(i));
+            separate(meta);
+            append(meta, prefix + String.join(", ", names), color);
+        }
+
+        private void append(SpannableStringBuilder text, String part, int color) {
+            int start = text.length();
+            text.append(part);
+            if (color != 0) text.setSpan(new ForegroundColorSpan(context.getColor(color)), start, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        private static void separate(SpannableStringBuilder text) {
+            if (text.length() > 0) text.append("  ·  ");
         }
 
         @Override public RemoteViews getLoadingView() { return null; }

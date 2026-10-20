@@ -1,4 +1,5 @@
 import { connectAndroidSync, androidSync } from "./sync";
+import { widgetNotes } from "./widget";
 import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
@@ -6,12 +7,14 @@ import { undoInvokerFactory } from "@tasker/ui/transport/undo/preload";
 import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 import { UndoManager } from "@tasker/core/undo";
 import { createRegistry } from "@tasker/core/operations";
-import {
-  formatTime,
-  getDisplayDescription,
-  parseTaskDescription,
-} from "@tasker/core/parsers";
+import { formatTime, parseTaskDescription } from "@tasker/core/parsers";
 import type { Task } from "@tasker/core/types";
+import {
+  getDescriptionPreview,
+  getDisplayTitle,
+  getTagColor,
+  TAG_COLORS,
+} from "@tasker/ui";
 import {
   callNative,
   createAndroidDatabase,
@@ -53,22 +56,35 @@ export function connectAndroidHost() {
       .then(([lists, tasks, allOrder]) => {
         const open = tasks.filter((t) => t.status === 0 || t.status === 1);
         const known = new Set(allOrder);
+        const titles = new Map(tasks.map((t) => [t.id, getDisplayTitle(t)]));
         bridge.widgetSnapshot?.(
           JSON.stringify({
             lists,
             // Each list's own order; All lists puts unsaved (new) tasks first, like the app.
             tasks: open.map((t) => {
-              const dueTime = t.dueDate
-                ? parseTaskDescription(t.description).dueTime
-                : null;
+              const parsed = parseTaskDescription(t.description);
+              const named = (ids: string[] | null) =>
+                (ids ?? []).flatMap((id) => titles.get(id) ?? []);
               return {
                 id: t.id,
                 list: t.listName,
-                title: getDisplayDescription(t.description).split("\n")[0],
+                title: getDisplayTitle(t),
+                notes: widgetNotes(getDescriptionPreview(t)),
                 status: t.status,
                 priority: t.priority,
                 due: t.dueDate,
-                time: dueTime ? formatTime(dueTime) : null,
+                time: t.dueDate && parsed.dueTime ? formatTime(parsed.dueTime) : null,
+                repeats: !!(t.dueDate && parsed.repeat),
+                parent: (t.parentId && titles.get(t.parentId)) || null,
+                subtasks: parsed.hasSubtaskIds?.length ?? 0,
+                blockedBy: named(parsed.blockedByIds),
+                blocks: named(parsed.blocksIds),
+                related: named(parsed.relatedIds),
+                // Index into the app's tag palette, so each tag keeps its color.
+                tags: (t.tags ?? []).map((name) => ({
+                  name,
+                  color: TAG_COLORS.indexOf(getTagColor(name)),
+                })),
               };
             }),
             allOrder: [
