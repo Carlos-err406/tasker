@@ -14,6 +14,13 @@ export interface AndroidBridge {
   takeShortcut?(): string | null;
   showKeyboard?(): void;
   widgetSnapshot?(json: string): void;
+  /** Replaces the due-time reminder schedule (JSON array of upcoming reminders). */
+  reminders?(json: string): void;
+  /** Asks for the notification permission, or opens Android's settings if it was denied. */
+  requestNotifications?(): void;
+  /** Hidden reminder-action page only: the action to run, then report back when done. */
+  takeNotificationAction?(): string | null;
+  finished?(): void;
 }
 export function callNative<T>(
   bridge: AndroidBridge,

@@ -58,7 +58,7 @@ pnpm build
 node apps/android/scripts/gradle.mjs assembleDebug assembleDebugAndroidTest lintDebug
 adb install -r apps/android/native/app/build/outputs/apk/debug/app-debug.apk
 adb install -r apps/android/native/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-adb shell am instrument -w -e class org.tasker.android.BackupStoreTest,org.tasker.android.DriveBackupsTest,org.tasker.android.SyncDatabaseTest org.tasker.android.debug.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class org.tasker.android.BackupStoreTest,org.tasker.android.DriveBackupsTest,org.tasker.android.SyncDatabaseTest,org.tasker.android.RemindersTest org.tasker.android.debug.test/android.test.InstrumentationTestRunner
 ```
 
 ## Mac sync

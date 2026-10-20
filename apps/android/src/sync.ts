@@ -145,10 +145,12 @@ function createSync(db: TaskerDb, bridge: AndroidBridge) {
   );
   return { store, engine, settings: () => settings, save };
 }
-export function connectAndroidSync(db: TaskerDb, bridge: AndroidBridge) {
+/** `start: false` only records changes for the next sync (a hidden page acting on a reminder). */
+export function connectAndroidSync(db: TaskerDb, bridge: AndroidBridge, start = true) {
   hostDb = db;
   hostBridge = bridge;
   instance = createSync(db, bridge);
+  if (!start) return instance;
   document.addEventListener("visibilitychange", () =>
     instance?.engine.foreground(document.visibilityState === "visible"),
   );

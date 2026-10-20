@@ -1,5 +1,6 @@
 import { connectAndroidSync, androidSync } from "./sync";
 import { widgetImages, widgetNotes } from "./widget";
+import { upcomingReminders } from "./reminders";
 import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
@@ -7,13 +8,14 @@ import { undoInvokerFactory } from "@tasker/ui/transport/undo/preload";
 import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 import { UndoManager } from "@tasker/core/undo";
 import { createRegistry } from "@tasker/core/operations";
-import { formatTime, parseTaskDescription } from "@tasker/core/parsers";
+import { addDays, formatDate, formatTime, parseTaskDescription } from "@tasker/core/parsers";
 import type { Task } from "@tasker/core/types";
 import {
   getDescriptionPreview,
   getDisplayTitle,
   getTagColor,
   TAG_COLORS,
+  withMetadata,
 } from "@tasker/ui";
 import {
   callNative,
@@ -27,28 +29,33 @@ declare global {
     taskerBack?: () => boolean;
     taskerShortcut?: () => void;
     taskerWidgetSnapshot?: () => void;
+    taskerNotificationAction?: (json: string) => Promise<void>;
   }
 }
-export function connectAndroidHost() {
+/**
+ * `hidden`: a page without UI that native code starts to run a reminder button's
+ * action while Tasker is closed. It records the change for the next sync instead of syncing.
+ */
+export function connectAndroidHost({ hidden = false } = {}) {
   const bridge = window.TaskerNative;
   if (!bridge) throw new Error("Open this app from Tasker on Android.");
   const db = createAndroidDatabase(bridge);
-  connectAndroidSync(db, bridge);
+  connectAndroidSync(db, bridge, !hidden);
   let registry = createRegistry(db, new UndoManager(db), androidSync().store);
   window.addEventListener("tasker:sync-reset", () => {
     registry = createRegistry(db, new UndoManager(db), androidSync().store);
   });
   // The home-screen widget draws this snapshot. Native asks for it whenever the app
   // leaves the foreground; a sync that lands afterwards refreshes it too.
-  window.taskerWidgetSnapshot = () => {
-    const get = async <T>(channel: string) => {
-      const [error, value] = (await registry.invoke(channel, [])) as
-        | [null, T]
-        | [{ message: string }, null];
-      if (error) throw new Error(error.message);
-      return value as T;
-    };
-    void Promise.all([
+  const get = async <T>(channel: string, args: unknown[] = []) => {
+    const [error, value] = (await registry.invoke(channel, args)) as
+      | [null, T]
+      | [{ message: string }, null];
+    if (error) throw new Error(error.message);
+    return value as T;
+  };
+  const writeWidgetSnapshot = () =>
+    Promise.all([
       get<string[]>("lists:getAll"),
       get<Task[]>("tasks:getAll"),
       get<string[]>("tasks:getAllListsOrder"),
@@ -94,21 +101,57 @@ export function connectAndroidHost() {
             ],
           }),
         );
-      })
-      .catch(() => {});
-  };
+      });
+  window.taskerWidgetSnapshot = () => void writeWidgetSnapshot().catch(() => {});
   window.addEventListener("tasker:db-changed", () => window.taskerWidgetSnapshot?.());
+  // Due-time reminders: native code keeps an alarm for the earliest one and
+  // delivers it even while Tasker is closed. Rescheduled after every change and sync.
+  const writeReminders = async () => {
+    if (!bridge.reminders) return;
+    const [settings, tasks] = await Promise.all([
+      get<{ notifications?: boolean }>("settings:get"),
+      get<Task[]>("tasks:getAll"),
+    ]);
+    bridge.reminders(
+      JSON.stringify(settings.notifications ? upcomingReminders(tasks, new Date()) : []),
+    );
+  };
+  let reminderTimer: number | undefined;
+  const scheduleReminders = () => {
+    window.clearTimeout(reminderTimer);
+    reminderTimer = window.setTimeout(() => void writeReminders().catch(() => {}), 300);
+  };
+  window.addEventListener("tasker:db-changed", scheduleReminders);
+  if (!hidden) scheduleReminders();
   const transport = {
     invoke: (channel: string, ...args: unknown[]) =>
       registry.invoke(channel, args).then((result) => {
         if (
+          !hidden &&
           !/^(tasks:(get|search)|lists:(get|is|setCollapsed|setHideCompleted)|undo:(can|reload))/.test(
             channel,
           )
         )
           androidSync().engine.localChanged();
+        if (!/^(tasks:(get|search)|lists:(get|is)|undo:(can|reload)|settings:get)/.test(channel))
+          scheduleReminders();
         return result;
       }),
+  };
+  // Reminder buttons that change the task. They run through the same operations as
+  // the UI, so a repeating task rolls forward, undo works and sync records the change.
+  window.taskerNotificationAction = async (json) => {
+    const { action, taskId } = JSON.parse(json) as { action: string; taskId: string };
+    if (action === "done") await transport.invoke("tasks:setStatus", taskId, 2);
+    if (action === "tomorrow") {
+      const task = await get<Task | null>("tasks:getById", [taskId]);
+      const tomorrow = formatDate(addDays(new Date(), 1));
+      if (task) await transport.invoke("tasks:rename", taskId, withMetadata(task, { dueDate: tomorrow }));
+    }
+    if (hidden) {
+      window.clearTimeout(reminderTimer);
+      await Promise.all([writeReminders(), writeWidgetSnapshot()]);
+    } else window.dispatchEvent(new Event("tasker:db-changed"));
   };
   const visibility = (visible: boolean, callback: () => void) => {
     const listener = () => {
@@ -119,6 +162,7 @@ export function connectAndroidHost() {
   };
   configureHost({
     touch: true,
+    notifications: !!bridge.reminders,
     operations: {
       ...tasksInvokerFactory(transport),
       ...listsInvokerFactory(transport),
