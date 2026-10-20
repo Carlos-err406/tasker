@@ -151,8 +151,17 @@ body {
 .mobile-shell
   button:not([data-task-tag]):not([data-task-list]):not(
     [data-testid^="task-checkbox-"]
-  ):not([data-task-id-copy]):not([role="switch"]) {
+  ):not([data-task-id-copy]):not([data-task-link]):not([role="switch"]) {
   min-height: 44px;
+}
+/* Relationship lines stay one text line tall; the tap area extends invisibly. */
+.mobile-shell [data-task-link] {
+  position: relative;
+}
+.mobile-shell [data-task-link]::before {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
 }
 .mobile-shell
   button:not([data-task-tag]):not([data-testid^="task-checkbox-"]):not(
