@@ -161,6 +161,37 @@ function App() {
       delete window.taskerBack;
     };
   }, [panel, listAction, listBusy, backupBusy, searchShown, createMenuOpen]);
+  // Launcher shortcuts (long-press the app icon). An open editor or list form keeps its draft.
+  useEffect(() => {
+    window.taskerShortcut = () => {
+      const shortcut = window.TaskerNative?.takeShortcut?.();
+      if (!shortcut || store.isEditing || listAction || backupBusy) return;
+      setPanel("tasks");
+      setCreateMenuOpen(false);
+      if (shortcut === "new-task") setAddRequested(true);
+      if (shortcut === "search") {
+        setSearchOpen(true);
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLInputElement>('input[aria-label="Search tasks"]')
+            ?.focus(),
+        );
+      }
+      // Raise the keyboard once the editor or search field has focus (it may still be loading).
+      const started = Date.now();
+      const raiseKeyboard = () => {
+        if (document.activeElement?.matches("input,[contenteditable=true]"))
+          window.TaskerNative?.showKeyboard?.();
+        else if (Date.now() - started < 3000)
+          requestAnimationFrame(raiseKeyboard);
+      };
+      requestAnimationFrame(raiseKeyboard);
+    };
+    window.taskerShortcut();
+    return () => {
+      delete window.taskerShortcut;
+    };
+  }, [store.isEditing, listAction, backupBusy]);
   return (
     <TooltipProvider>
       <main className="mobile-shell" aria-label="Tasker">

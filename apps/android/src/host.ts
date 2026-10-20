@@ -16,6 +16,7 @@ declare global {
   interface Window {
     TaskerNative?: AndroidBridge;
     taskerBack?: () => boolean;
+    taskerShortcut?: () => void;
   }
 }
 export function connectAndroidHost() {
