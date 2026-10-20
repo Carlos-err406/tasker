@@ -1,4 +1,5 @@
 import { withTransaction } from "../db.js";
+import { applyAutoSort } from "../queries/auto-sort.js";
 import { sql } from "drizzle-orm";
 import type { TaskerDb } from "../db.js";
 import { syncMetadataToDescription } from "../parsers/task-description-parser.js";
@@ -352,6 +353,9 @@ export class SyncStore {
         this.db.run(
           sql`INSERT INTO task_relations(task_id_1,task_id_2) VALUES(${e.from},${e.to})`,
         );
+      // Keep this device's Auto sort. It runs before the baseline is taken, so the
+      // sorted order stays local instead of overriding another device's manual order.
+      applyAutoSort(this.db);
       let clock: Revision = JSON.parse(this.getMeta("clock")!);
       for (const r of merged) {
         this.put(r);

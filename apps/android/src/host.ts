@@ -39,7 +39,7 @@ export function connectAndroidHost() {
     registry = createRegistry(db, new UndoManager(db), androidSync().store);
   });
   // The home-screen widget draws this snapshot. Native asks for it whenever the app
-  // leaves the foreground, the only time the widget can be seen and data can't change.
+  // leaves the foreground; a sync that lands afterwards refreshes it too.
   window.taskerWidgetSnapshot = () => {
     const get = async <T>(channel: string) => {
       const [error, value] = (await registry.invoke(channel, [])) as
@@ -97,6 +97,7 @@ export function connectAndroidHost() {
       })
       .catch(() => {});
   };
+  window.addEventListener("tasker:db-changed", () => window.taskerWidgetSnapshot?.());
   const transport = {
     invoke: (channel: string, ...args: unknown[]) =>
       registry.invoke(channel, args).then((result) => {

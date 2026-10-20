@@ -11,6 +11,37 @@ function device(replica: string, now = 10000000000000) {
     undo = new UndoManager(db);
   return { db, store, undo, registry: createRegistry(db, undo, store) };
 }
+describe("auto sort after sync", () => {
+  it("re-sorts merged changes on a device that keeps lists sorted, without publishing that order", async () => {
+    const a = device("a"),
+      b = device("b");
+    await a.registry.invoke("settings:set", ["autoSort", true]);
+    await b.registry.invoke("tasks:add", ["Urgent\np1", "tasks"]);
+    await b.registry.invoke("tasks:add", ["Someday\np3", "tasks"]);
+    const titles = (db: typeof a.db) =>
+      db
+        .all<{ description: string }>(
+          sql`SELECT description FROM tasks ORDER BY sort_order DESC`,
+        )
+        .map((t) => t.description.split("\n")[0]);
+    const allLists = async (d: typeof a) => {
+      const [, ids] = (await d.registry.invoke("tasks:getAllListsOrder", [])) as [null, string[]];
+      const [, tasks] = (await d.registry.invoke("tasks:getAll", [])) as [null, { id: string; description: string }[]];
+      return ids.map((id) => tasks.find((t) => t.id === id)!.description.split("\n")[0]);
+    };
+    expect(titles(b.db)).toEqual(["Someday", "Urgent"]);
+
+    a.store.apply(b.store.records());
+    expect(titles(a.db)).toEqual(["Urgent", "Someday"]);
+    expect(await allLists(a)).toEqual(["Urgent", "Someday"]);
+
+    // The sorted order stays on A; B keeps its own order.
+    a.store.capture();
+    b.store.apply(a.store.records());
+    expect(titles(b.db)).toEqual(["Someday", "Urgent"]);
+  });
+});
+
 describe("durable sync capture", () => {
   it("captures registry writes and propagates independent tasks and later edits", async () => {
     const a = device("a"),
