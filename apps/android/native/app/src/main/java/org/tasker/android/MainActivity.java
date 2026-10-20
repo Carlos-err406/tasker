@@ -157,7 +157,7 @@ public final class MainActivity extends Activity {
         }
         @JavascriptInterface public String execute(String request) { return database.execute(request); }
         @JavascriptInterface public String takeShortcut() { return pendingShortcut.getAndSet(null); }
-        @JavascriptInterface public void widgetSnapshot(String json) { TaskListWidget.saveSnapshot(MainActivity.this, json); }
+        @JavascriptInterface public void widgetSnapshot(String json) { TaskListWidget.saveSnapshot(MainActivity.this, json, database::image); }
         // Focus set without a tap (a shortcut on a cold start) doesn't raise the keyboard by itself.
         @JavascriptInterface public void showKeyboard() {
             runOnUiThread(() -> {

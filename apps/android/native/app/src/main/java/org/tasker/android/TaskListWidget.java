@@ -7,9 +7,14 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.util.AtomicFile;
 import android.widget.RemoteViews;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -18,9 +23,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -34,6 +42,10 @@ public final class TaskListWidget extends AppWidgetProvider {
     static final String ALL = "";
     private static final String DEFAULT_LIST = "tasks";
     private static final int MAX_ROWS = 100;
+    // Thumbnail pixels: about 64dp tall on a dense phone, and small enough that a row's
+    // RemoteViews stay well under the binder limit.
+    private static final int THUMB_HEIGHT = 180;
+    private static final int THUMB_MAX_WIDTH = 320;
 
     @Override public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) update(context, manager, id);
@@ -47,11 +59,12 @@ public final class TaskListWidget extends AppWidgetProvider {
         editor.apply();
     }
 
-    static void saveSnapshot(Context context, String json) {
+    static void saveSnapshot(Context context, String json, Function<String, TaskerDatabase.Image> images) {
         AtomicFile file = snapshotFile(context);
         FileOutputStream out = null;
+        JSONObject snapshot;
         try {
-            new JSONObject(json);
+            snapshot = new JSONObject(json);
             out = file.startWrite();
             out.write(json.getBytes(StandardCharsets.UTF_8));
             file.finishWrite(out);
@@ -59,7 +72,78 @@ public final class TaskListWidget extends AppWidgetProvider {
             if (out != null) file.failWrite(out);
             return;
         }
+        writeThumbnails(context, snapshot, images);
         updateAll(context);
+    }
+
+    static File thumbnail(Context context, String attachmentId) {
+        return new File(new File(context.getFilesDir(), "widget-thumbnails"), attachmentId);
+    }
+
+    /** Attachments never change, so each thumbnail is made once and kept while a task shows it. */
+    private static void writeThumbnails(Context context, JSONObject snapshot, Function<String, TaskerDatabase.Image> images) {
+        File directory = thumbnail(context, "x").getParentFile();
+        if (directory == null || (!directory.isDirectory() && !directory.mkdirs())) return;
+        Set<String> wanted = new HashSet<>();
+        JSONArray tasks = snapshot.optJSONArray("tasks");
+        for (int i = 0; tasks != null && i < tasks.length(); i++) {
+            JSONObject task = tasks.optJSONObject(i);
+            JSONArray ids = task == null ? null : task.optJSONArray("images");
+            for (int j = 0; ids != null && j < ids.length(); j++) {
+                String id = ids.optString(j);
+                if (!id.matches("[a-f0-9-]{36}") || !wanted.add(id) || thumbnail(context, id).exists()) continue;
+                TaskerDatabase.Image image = images.apply(id);
+                Bitmap thumb = image == null ? null : scaled(image.bytes());
+                if (thumb == null) continue;
+                AtomicFile target = new AtomicFile(thumbnail(context, id));
+                FileOutputStream out = null;
+                try {
+                    out = target.startWrite();
+                    thumb.compress(thumb.hasAlpha() ? Bitmap.CompressFormat.PNG : Bitmap.CompressFormat.JPEG, 85, out);
+                    target.finishWrite(out);
+                } catch (Exception error) {
+                    if (out != null) target.failWrite(out);
+                }
+            }
+        }
+        File[] existing = directory.listFiles();
+        for (int i = 0; existing != null && i < existing.length; i++)
+            if (!wanted.contains(existing[i].getName())) existing[i].delete();
+    }
+
+    private static Bitmap scaled(byte[] bytes) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+        int rotation = rotation(bytes);
+        int height = rotation % 180 == 0 ? bounds.outHeight : bounds.outWidth;
+        BitmapFactory.Options decode = new BitmapFactory.Options();
+        decode.inSampleSize = 1;
+        while (height / (decode.inSampleSize * 2) >= THUMB_HEIGHT) decode.inSampleSize *= 2;
+        Bitmap full = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, decode);
+        if (full == null) return null;
+        Matrix matrix = new Matrix();
+        matrix.postRotate(rotation);
+        Bitmap upright = rotation == 0 ? full : Bitmap.createBitmap(full, 0, 0, full.getWidth(), full.getHeight(), matrix, true);
+        float scale = Math.min(1f, THUMB_HEIGHT / (float) upright.getHeight());
+        int w = Math.max(1, Math.round(upright.getWidth() * scale));
+        int h = Math.max(1, Math.round(upright.getHeight() * scale));
+        Bitmap sized = Bitmap.createScaledBitmap(upright, w, h, true);
+        // Very wide images keep their middle.
+        return w <= THUMB_MAX_WIDTH ? sized : Bitmap.createBitmap(sized, (w - THUMB_MAX_WIDTH) / 2, 0, THUMB_MAX_WIDTH, h);
+    }
+
+    /** Camera photos are stored sideways with an EXIF flag; the app's WebView honours it, so the widget does too. */
+    private static int rotation(byte[] bytes) {
+        try {
+            switch (new ExifInterface(new ByteArrayInputStream(bytes)).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
+                case ExifInterface.ORIENTATION_ROTATE_90: return 90;
+                case ExifInterface.ORIENTATION_ROTATE_180: return 180;
+                case ExifInterface.ORIENTATION_ROTATE_270: return 270;
+                default: return 0;
+            }
+        } catch (Exception notAnImageWithExif) { return 0; }
     }
 
     static JSONObject snapshot(Context context) {

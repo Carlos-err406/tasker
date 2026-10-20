@@ -1,5 +1,5 @@
 import { connectAndroidSync, androidSync } from "./sync";
-import { widgetNotes } from "./widget";
+import { widgetImages, widgetNotes } from "./widget";
 import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
@@ -70,6 +70,7 @@ export function connectAndroidHost() {
                 list: t.listName,
                 title: getDisplayTitle(t),
                 notes: widgetNotes(getDescriptionPreview(t)),
+                images: widgetImages(t.description),
                 status: t.status,
                 priority: t.priority,
                 due: t.dueDate,

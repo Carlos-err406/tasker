@@ -4,6 +4,8 @@ import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.BackgroundColorSpan;
@@ -22,6 +24,8 @@ public final class TaskListWidgetService extends RemoteViewsService {
     @Override public RemoteViewsFactory onGetViewFactory(Intent intent) {
         return new Rows(getApplicationContext(), intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID));
     }
+
+    private static final int[] IMAGES = {R.id.widget_item_image_0, R.id.widget_item_image_1, R.id.widget_item_image_2};
 
     private static final class Rows implements RemoteViewsFactory {
         private final Context context;
@@ -60,6 +64,15 @@ public final class TaskListWidgetService extends RemoteViewsService {
             String notes = task.isNull("notes") ? "" : task.optString("notes");
             views.setTextViewText(R.id.widget_item_notes, notes);
             views.setViewVisibility(R.id.widget_item_notes, notes.isEmpty() ? View.GONE : View.VISIBLE);
+            JSONArray images = task.optJSONArray("images");
+            boolean anyImage = false;
+            for (int i = 0; i < IMAGES.length; i++) {
+                java.io.File file = images != null && i < images.length() ? TaskListWidget.thumbnail(context, images.optString(i)) : null;
+                Bitmap thumb = file != null && file.isFile() ? BitmapFactory.decodeFile(file.getPath()) : null;
+                views.setViewVisibility(IMAGES[i], thumb == null ? View.GONE : View.VISIBLE);
+                if (thumb != null) { views.setImageViewBitmap(IMAGES[i], thumb); anyImage = true; }
+            }
+            views.setViewVisibility(R.id.widget_item_images, anyImage ? View.VISIBLE : View.GONE);
             CharSequence meta = meta(task);
             views.setTextViewText(R.id.widget_item_meta, meta);
             views.setViewVisibility(R.id.widget_item_meta, meta.length() == 0 ? View.GONE : View.VISIBLE);
