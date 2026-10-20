@@ -10,6 +10,9 @@ export interface AndroidBridge {
   syncCancel?(): void;
   updates?(id: string, action: string): void;
   backups?(id: string, request: string): void;
+  /** The launcher shortcut that opened the app, once; null when there's none. */
+  takeShortcut?(): string | null;
+  showKeyboard?(): void;
 }
 export function callNative<T>(
   bridge: AndroidBridge,

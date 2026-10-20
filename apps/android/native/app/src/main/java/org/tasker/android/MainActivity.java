@@ -2,15 +2,21 @@ package org.tasker.android;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.Insets;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.*;
 import android.view.WindowInsets;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class MainActivity extends Activity {
     private static final String ORIGIN = "https://app.tasker.local";
@@ -21,12 +27,18 @@ public final class MainActivity extends Activity {
     private SyncHttp syncHttp;
     private AppUpdates updates;
     private ValueCallback<Uri[]> fileCallback;
+    // Long-press launcher shortcuts; the page takes the pending one when it's ready.
+    private static final String SHORTCUT_ACTION = "org.tasker.android.SHORTCUT";
+    private static final List<String> SHORTCUTS = List.of("new-task", "search");
+    private final AtomicReference<String> pendingShortcut = new AtomicReference<>();
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         database = new TaskerDatabase(this);
         backups = new BackupCoordinator(this, database);
         syncHttp = new SyncHttp(backups.google);
         updates = new AppUpdates(this);
+        publishShortcuts();
+        pendingShortcut.set(shortcutOf(getIntent()));
         getWindow().setDecorFitsSystemWindows(false);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -71,6 +83,31 @@ public final class MainActivity extends Activity {
         });
         web.loadUrl(ORIGIN + "/index.html");
     }
+    private void publishShortcuts() {
+        ShortcutManager manager = getSystemService(ShortcutManager.class);
+        if (manager == null) return;
+        manager.setDynamicShortcuts(List.of(
+            shortcut("new-task", "New task", R.drawable.ic_shortcut_add),
+            shortcut("search", "Search", R.drawable.ic_shortcut_search)));
+    }
+    private ShortcutInfo shortcut(String id, String label, int icon) {
+        // Published at runtime rather than in XML: XML shortcuts clear the task, which would reload the page and drop an open draft.
+        Intent intent = new Intent(this, MainActivity.class).setAction(SHORTCUT_ACTION).putExtra("shortcut", id);
+        return new ShortcutInfo.Builder(this, id).setShortLabel(label).setIcon(Icon.createWithResource(this, icon)).setIntent(intent).build();
+    }
+    private static String shortcutOf(Intent intent) {
+        if (intent == null || !SHORTCUT_ACTION.equals(intent.getAction())) return null;
+        String id = intent.getStringExtra("shortcut");
+        return SHORTCUTS.contains(id) ? id : null;
+    }
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String shortcut = shortcutOf(intent);
+        if (shortcut == null) return;
+        pendingShortcut.set(shortcut);
+        web.requestFocus();
+        web.evaluateJavascript("window.taskerShortcut?.()", null);
+    }
     private WebResourceResponse localResponse(String path) {
         try {
             if (path == null || path.contains("..") || path.contains("\\")) return missing();
@@ -107,6 +144,15 @@ public final class MainActivity extends Activity {
             }));
         }
         @JavascriptInterface public String execute(String request) { return database.execute(request); }
+        @JavascriptInterface public String takeShortcut() { return pendingShortcut.getAndSet(null); }
+        // Focus set without a tap (a shortcut on a cold start) doesn't raise the keyboard by itself.
+        @JavascriptInterface public void showKeyboard() {
+            runOnUiThread(() -> {
+                if (isDestroyed()) return;
+                web.requestFocus();
+                getSystemService(InputMethodManager.class).showSoftInput(web, 0);
+            });
+        }
         @JavascriptInterface public void openExternal(String url) { MainActivity.this.openExternal(url); }
         @JavascriptInterface public void syncCancel() { syncHttp.cancel(); }
         @JavascriptInterface public void sync(String id, String request) {
