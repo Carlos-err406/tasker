@@ -27,9 +27,9 @@ public final class MainActivity extends Activity {
     private SyncHttp syncHttp;
     private AppUpdates updates;
     private ValueCallback<Uri[]> fileCallback;
-    // Long-press launcher shortcuts; the page takes the pending one when it's ready.
+    // Long-press launcher shortcuts and widget taps; the page takes the pending one when it's ready.
     private static final String SHORTCUT_ACTION = "org.tasker.android.SHORTCUT";
-    private static final List<String> SHORTCUTS = List.of("new-task", "search");
+    private static final List<String> SHORTCUTS = List.of("new-task", "search", "open-task", "open-list");
     private final AtomicReference<String> pendingShortcut = new AtomicReference<>();
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -92,13 +92,25 @@ public final class MainActivity extends Activity {
     }
     private ShortcutInfo shortcut(String id, String label, int icon) {
         // Published at runtime rather than in XML: XML shortcuts clear the task, which would reload the page and drop an open draft.
-        Intent intent = new Intent(this, MainActivity.class).setAction(SHORTCUT_ACTION).putExtra("shortcut", id);
-        return new ShortcutInfo.Builder(this, id).setShortLabel(label).setIcon(Icon.createWithResource(this, icon)).setIntent(intent).build();
+        return new ShortcutInfo.Builder(this, id).setShortLabel(label).setIcon(Icon.createWithResource(this, icon)).setIntent(shortcutIntent(this, id, null, null)).build();
+    }
+    /** Opens the app to run a shortcut; `list` ("" for All lists) and `task` are optional. */
+    static Intent shortcutIntent(android.content.Context context, String action, String list, String task) {
+        Intent intent = new Intent(context, MainActivity.class).setAction(SHORTCUT_ACTION).putExtra("shortcut", action);
+        if (list != null) intent.putExtra("list", list);
+        if (task != null) intent.putExtra("task", task);
+        return intent;
     }
     private static String shortcutOf(Intent intent) {
         if (intent == null || !SHORTCUT_ACTION.equals(intent.getAction())) return null;
-        String id = intent.getStringExtra("shortcut");
-        return SHORTCUTS.contains(id) ? id : null;
+        String action = intent.getStringExtra("shortcut");
+        if (!SHORTCUTS.contains(action)) return null;
+        try {
+            org.json.JSONObject payload = new org.json.JSONObject().put("action", action);
+            if (intent.hasExtra("list")) payload.put("list", intent.getStringExtra("list"));
+            if (intent.hasExtra("task")) payload.put("task", intent.getStringExtra("task"));
+            return payload.toString();
+        } catch (org.json.JSONException error) { return null; }
     }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -145,6 +157,7 @@ public final class MainActivity extends Activity {
         }
         @JavascriptInterface public String execute(String request) { return database.execute(request); }
         @JavascriptInterface public String takeShortcut() { return pendingShortcut.getAndSet(null); }
+        @JavascriptInterface public void widgetSnapshot(String json) { TaskListWidget.saveSnapshot(MainActivity.this, json); }
         // Focus set without a tap (a shortcut on a cold start) doesn't raise the keyboard by itself.
         @JavascriptInterface public void showKeyboard() {
             runOnUiThread(() -> {
@@ -188,5 +201,9 @@ public final class MainActivity extends Activity {
         super.onDestroy();
     }
     @Override protected void onResume() { super.onResume(); if (backups != null) backups.foreground(true); }
-    @Override protected void onPause() { if (backups != null) backups.foreground(false); super.onPause(); }
+    @Override protected void onPause() {
+        if (backups != null) backups.foreground(false);
+        if (web != null) web.evaluateJavascript("window.taskerWidgetSnapshot?.()", null);
+        super.onPause();
+    }
 }

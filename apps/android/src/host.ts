@@ -7,6 +7,12 @@ import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 import { UndoManager } from "@tasker/core/undo";
 import { createRegistry } from "@tasker/core/operations";
 import {
+  formatTime,
+  getDisplayDescription,
+  parseTaskDescription,
+} from "@tasker/core/parsers";
+import type { Task } from "@tasker/core/types";
+import {
   callNative,
   createAndroidDatabase,
   type AndroidBridge,
@@ -17,6 +23,7 @@ declare global {
     TaskerNative?: AndroidBridge;
     taskerBack?: () => boolean;
     taskerShortcut?: () => void;
+    taskerWidgetSnapshot?: () => void;
   }
 }
 export function connectAndroidHost() {
@@ -28,6 +35,51 @@ export function connectAndroidHost() {
   window.addEventListener("tasker:sync-reset", () => {
     registry = createRegistry(db, new UndoManager(db), androidSync().store);
   });
+  // The home-screen widget draws this snapshot. Native asks for it whenever the app
+  // leaves the foreground, the only time the widget can be seen and data can't change.
+  window.taskerWidgetSnapshot = () => {
+    const get = async <T>(channel: string) => {
+      const [error, value] = (await registry.invoke(channel, [])) as
+        | [null, T]
+        | [{ message: string }, null];
+      if (error) throw new Error(error.message);
+      return value as T;
+    };
+    void Promise.all([
+      get<string[]>("lists:getAll"),
+      get<Task[]>("tasks:getAll"),
+      get<string[]>("tasks:getAllListsOrder"),
+    ])
+      .then(([lists, tasks, allOrder]) => {
+        const open = tasks.filter((t) => t.status === 0 || t.status === 1);
+        const known = new Set(allOrder);
+        bridge.widgetSnapshot?.(
+          JSON.stringify({
+            lists,
+            // Each list's own order; All lists puts unsaved (new) tasks first, like the app.
+            tasks: open.map((t) => {
+              const dueTime = t.dueDate
+                ? parseTaskDescription(t.description).dueTime
+                : null;
+              return {
+                id: t.id,
+                list: t.listName,
+                title: getDisplayDescription(t.description).split("\n")[0],
+                status: t.status,
+                priority: t.priority,
+                due: t.dueDate,
+                time: dueTime ? formatTime(dueTime) : null,
+              };
+            }),
+            allOrder: [
+              ...open.filter((t) => !known.has(t.id)).map((t) => t.id),
+              ...allOrder,
+            ],
+          }),
+        );
+      })
+      .catch(() => {});
+  };
   const transport = {
     invoke: (channel: string, ...args: unknown[]) =>
       registry.invoke(channel, args).then((result) => {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_label">Tasker list</string>
+    <string name="widget_description">Open tasks from one of your lists</string>
+    <string name="widget_new_task">New task</string>
+    <string name="widget_choose_list">Choose list</string>
+    <string name="widget_all_lists">All lists</string>
+    <string name="widget_no_tasks">No open tasks</string>
+    <string name="widget_no_snapshot">Open Tasker once to show your tasks here</string>
+    <string name="widget_missing_list">This list no longer exists. Tap its name to pick another.</string>
+</resources>
