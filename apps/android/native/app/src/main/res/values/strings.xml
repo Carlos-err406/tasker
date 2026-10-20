@@ -8,4 +8,5 @@
     <string name="widget_no_tasks">No open tasks</string>
     <string name="widget_no_snapshot">Open Tasker once to show your tasks here</string>
     <string name="widget_missing_list">This list no longer exists. Tap its name to pick another.</string>
+    <string name="reminders_channel">Due reminders</string>
 </resources>

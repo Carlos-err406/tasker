@@ -2,6 +2,7 @@ package org.tasker.android;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.Insets;
@@ -31,6 +32,7 @@ public final class MainActivity extends Activity {
     private static final String SHORTCUT_ACTION = "org.tasker.android.SHORTCUT";
     private static final List<String> SHORTCUTS = List.of("new-task", "search", "open-task", "open-list");
     private final AtomicReference<String> pendingShortcut = new AtomicReference<>();
+    private static final int NOTIFICATIONS = 2;
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         database = new TaskerDatabase(this);
@@ -82,6 +84,9 @@ public final class MainActivity extends Activity {
             }
         });
         web.loadUrl(ORIGIN + "/index.html");
+    }
+    private boolean notificationsAllowed() {
+        return getSystemService(android.app.NotificationManager.class).areNotificationsEnabled();
     }
     private void publishShortcuts() {
         ShortcutManager manager = getSystemService(ShortcutManager.class);
@@ -157,6 +162,28 @@ public final class MainActivity extends Activity {
         }
         @JavascriptInterface public String execute(String request) { return database.execute(request); }
         @JavascriptInterface public String takeShortcut() { return pendingShortcut.getAndSet(null); }
+        @JavascriptInterface public void reminders(String json) {
+            Reminders.schedule(MainActivity.this, json);
+            // Ask once, the first time there's something to remind; the Settings switch asks again.
+            SharedPreferences prefs = getSharedPreferences("reminders", MODE_PRIVATE);
+            if (!prefs.getBoolean("asked", false) && Reminders.hasReminders(MainActivity.this) && !notificationsAllowed()) {
+                prefs.edit().putBoolean("asked", true).apply();
+                runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATIONS));
+            }
+        }
+        @JavascriptInterface public void requestNotifications() {
+            if (notificationsAllowed()) return;
+            runOnUiThread(() -> {
+                if (isDestroyed()) return;
+                // After a denial Android stops showing the prompt, so open the app's notification settings instead.
+                if (getSharedPreferences("reminders", MODE_PRIVATE).getBoolean("asked", false) && !shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS))
+                    startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                else {
+                    getSharedPreferences("reminders", MODE_PRIVATE).edit().putBoolean("asked", true).apply();
+                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATIONS);
+                }
+            });
+        }
         @JavascriptInterface public void widgetSnapshot(String json) { TaskListWidget.saveSnapshot(MainActivity.this, json, database::image); }
         // Focus set without a tap (a shortcut on a cold start) doesn't raise the keyboard by itself.
         @JavascriptInterface public void showKeyboard() {

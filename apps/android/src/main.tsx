@@ -107,6 +107,7 @@ function App() {
   const [mediaReset, setMediaReset] = useState(0);
   const changeSetting = (key: SettingKey, value: boolean) => {
     if (key === "mediaPreviews") setMediaReset((v) => v + 1);
+    if (key === "notifications" && value) window.TaskerNative?.requestNotifications?.();
     void store.setSetting(key, value);
   };
   const controlsDisabled =

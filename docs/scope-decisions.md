@@ -95,3 +95,8 @@ The user asked for task IDs with a prefix and more characters (Tasker task `9kf`
 - Long-pressing Tasker's icon offers **New task** and **Search** (Tasker task `hqxal`). A shortcut never discards an open draft. A Today shortcut was left out because `due:today` excludes overdue tasks.
 - The user chose a widget showing one list's open tasks (or All lists), not a Today widget (Tasker task `ee1zp`). It's read-only: tapping a task opens it in the app, so repeats, undo and sync stay in one place. The list name picks another list, and + adds a task to it.
 - Rows show what the app shows: priority, notes, due date and time, repeat, links, colored tags and thumbnails of attached images. The page writes a snapshot whenever the app leaves the foreground, since data only changes while the app is open.
+
+## Android reminders (2026-10-20)
+
+- Android notifications, phase 3 of the [recurring tasks and notifications plan](plans/2026-10-09-feat-recurring-tasks-and-notifications-plan.md), had not been built. The user noticed no reminders on the phone, and they're now implemented as planned: the page hands upcoming occurrences to native code after every change and sync, and native code rechecks each task in SQLite before posting. Alarms re-arm after reboot and app updates, and a **Notifications** switch is on the Settings page.
+- One change from the plan: alarms are exact. On the phone, Android gave the planned inexact alarm a 38-minute window. Tasker declares `USE_EXACT_ALARM` (granted at install for reminder apps on Android 13+; `SCHEDULE_EXACT_ALARM` covers Android 11–12) and falls back to an inexact alarm if the system refuses. This permission is restricted on Google Play, which doesn't apply to the GitHub release.

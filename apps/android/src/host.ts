@@ -1,5 +1,6 @@
 import { connectAndroidSync, androidSync } from "./sync";
 import { widgetImages, widgetNotes } from "./widget";
+import { upcomingReminders } from "./reminders";
 import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
@@ -98,6 +99,28 @@ export function connectAndroidHost() {
       .catch(() => {});
   };
   window.addEventListener("tasker:db-changed", () => window.taskerWidgetSnapshot?.());
+  // Due-time reminders: native code keeps an alarm for the earliest one and
+  // delivers it even while Tasker is closed. Rescheduled after every change and sync.
+  let reminderTimer: number | undefined;
+  const scheduleReminders = () => {
+    if (!bridge.reminders) return;
+    window.clearTimeout(reminderTimer);
+    reminderTimer = window.setTimeout(() => {
+      void Promise.all([
+        registry.invoke("settings:get", []),
+        registry.invoke("tasks:getAll", []),
+      ])
+        .then(([[, settings], [, tasks]]) => {
+          const on = (settings as { notifications?: boolean } | null)?.notifications;
+          bridge.reminders?.(
+            JSON.stringify(on ? upcomingReminders((tasks as Task[]) ?? [], new Date()) : []),
+          );
+        })
+        .catch(() => {});
+    }, 300);
+  };
+  window.addEventListener("tasker:db-changed", scheduleReminders);
+  scheduleReminders();
   const transport = {
     invoke: (channel: string, ...args: unknown[]) =>
       registry.invoke(channel, args).then((result) => {
@@ -107,6 +130,8 @@ export function connectAndroidHost() {
           )
         )
           androidSync().engine.localChanged();
+        if (!/^(tasks:(get|search)|lists:(get|is)|undo:(can|reload)|settings:get)/.test(channel))
+          scheduleReminders();
         return result;
       }),
   };
@@ -119,6 +144,7 @@ export function connectAndroidHost() {
   };
   configureHost({
     touch: true,
+    notifications: !!bridge.reminders,
     operations: {
       ...tasksInvokerFactory(transport),
       ...listsInvokerFactory(transport),
