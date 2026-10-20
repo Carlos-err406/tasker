@@ -42,6 +42,7 @@ import {
   PullToRefreshIndicator,
   syncAndRefresh,
   listLabel,
+  ALL_LISTS,
 } from "@tasker/ui";
 import { manageSync } from "./sync";
 import { About } from "./About";
@@ -161,15 +162,35 @@ function App() {
       delete window.taskerBack;
     };
   }, [panel, listAction, listBusy, backupBusy, searchShown, createMenuOpen]);
-  // Launcher shortcuts (long-press the app icon). An open editor or list form keeps its draft.
+  // Launcher shortcuts (long-press the app icon) and widget taps. An open editor or
+  // list form keeps its draft.
   useEffect(() => {
     window.taskerShortcut = () => {
-      const shortcut = window.TaskerNative?.takeShortcut?.();
-      if (!shortcut || store.isEditing || listAction || backupBusy) return;
+      // Leave it pending until the lists and tasks it may name have loaded.
+      if (store.loading) return;
+      const json = window.TaskerNative?.takeShortcut?.();
+      if (!json || store.isEditing || listAction || backupBusy) return;
+      const { action, list, task } = JSON.parse(json) as {
+        action: string;
+        list?: string;
+        task?: string;
+      };
       setPanel("tasks");
       setCreateMenuOpen(false);
-      if (shortcut === "new-task") setAddRequested(true);
-      if (shortcut === "search") {
+      // The widget names All lists with an empty string.
+      if (list !== undefined) {
+        const target = list === "" ? ALL_LISTS : list;
+        if (target === ALL_LISTS || store.lists.includes(target))
+          store.selectList(target);
+      }
+      if (action === "open-task" && task) {
+        closeSearch();
+        void store.navigateToTask(task);
+        return;
+      }
+      if (action === "open-list") return;
+      if (action === "new-task") setAddRequested(true);
+      if (action === "search") {
         setSearchOpen(true);
         requestAnimationFrame(() =>
           document
@@ -191,7 +212,7 @@ function App() {
     return () => {
       delete window.taskerShortcut;
     };
-  }, [store.isEditing, listAction, backupBusy]);
+  }, [store.loading, store.isEditing, store.lists, listAction, backupBusy]);
   return (
     <TooltipProvider>
       <main className="mobile-shell" aria-label="Tasker">

@@ -1,4 +1,5 @@
 import { connectAndroidSync, androidSync } from "./sync";
+import { widgetImages, widgetNotes } from "./widget";
 import { configureHost } from "@tasker/ui/host";
 import { tasksInvokerFactory } from "@tasker/ui/transport/tasks/preload";
 import { listsInvokerFactory } from "@tasker/ui/transport/lists/preload";
@@ -6,6 +7,14 @@ import { undoInvokerFactory } from "@tasker/ui/transport/undo/preload";
 import { settingsInvokerFactory } from "@tasker/ui/transport/settings/preload";
 import { UndoManager } from "@tasker/core/undo";
 import { createRegistry } from "@tasker/core/operations";
+import { formatTime, parseTaskDescription } from "@tasker/core/parsers";
+import type { Task } from "@tasker/core/types";
+import {
+  getDescriptionPreview,
+  getDisplayTitle,
+  getTagColor,
+  TAG_COLORS,
+} from "@tasker/ui";
 import {
   callNative,
   createAndroidDatabase,
@@ -17,6 +26,7 @@ declare global {
     TaskerNative?: AndroidBridge;
     taskerBack?: () => boolean;
     taskerShortcut?: () => void;
+    taskerWidgetSnapshot?: () => void;
   }
 }
 export function connectAndroidHost() {
@@ -28,6 +38,65 @@ export function connectAndroidHost() {
   window.addEventListener("tasker:sync-reset", () => {
     registry = createRegistry(db, new UndoManager(db), androidSync().store);
   });
+  // The home-screen widget draws this snapshot. Native asks for it whenever the app
+  // leaves the foreground, the only time the widget can be seen and data can't change.
+  window.taskerWidgetSnapshot = () => {
+    const get = async <T>(channel: string) => {
+      const [error, value] = (await registry.invoke(channel, [])) as
+        | [null, T]
+        | [{ message: string }, null];
+      if (error) throw new Error(error.message);
+      return value as T;
+    };
+    void Promise.all([
+      get<string[]>("lists:getAll"),
+      get<Task[]>("tasks:getAll"),
+      get<string[]>("tasks:getAllListsOrder"),
+    ])
+      .then(([lists, tasks, allOrder]) => {
+        const open = tasks.filter((t) => t.status === 0 || t.status === 1);
+        const known = new Set(allOrder);
+        const titles = new Map(tasks.map((t) => [t.id, getDisplayTitle(t)]));
+        bridge.widgetSnapshot?.(
+          JSON.stringify({
+            lists,
+            // Each list's own order; All lists puts unsaved (new) tasks first, like the app.
+            tasks: open.map((t) => {
+              const parsed = parseTaskDescription(t.description);
+              const named = (ids: string[] | null) =>
+                (ids ?? []).flatMap((id) => titles.get(id) ?? []);
+              return {
+                id: t.id,
+                list: t.listName,
+                title: getDisplayTitle(t),
+                notes: widgetNotes(getDescriptionPreview(t)),
+                images: widgetImages(t.description),
+                status: t.status,
+                priority: t.priority,
+                due: t.dueDate,
+                time: t.dueDate && parsed.dueTime ? formatTime(parsed.dueTime) : null,
+                repeats: !!(t.dueDate && parsed.repeat),
+                parent: (t.parentId && titles.get(t.parentId)) || null,
+                subtasks: parsed.hasSubtaskIds?.length ?? 0,
+                blockedBy: named(parsed.blockedByIds),
+                blocks: named(parsed.blocksIds),
+                related: named(parsed.relatedIds),
+                // Index into the app's tag palette, so each tag keeps its color.
+                tags: (t.tags ?? []).map((name) => ({
+                  name,
+                  color: TAG_COLORS.indexOf(getTagColor(name)),
+                })),
+              };
+            }),
+            allOrder: [
+              ...open.filter((t) => !known.has(t.id)).map((t) => t.id),
+              ...allOrder,
+            ],
+          }),
+        );
+      })
+      .catch(() => {});
+  };
   const transport = {
     invoke: (channel: string, ...args: unknown[]) =>
       registry.invoke(channel, args).then((result) => {

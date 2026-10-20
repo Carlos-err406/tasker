@@ -89,3 +89,9 @@ The user asked for task IDs with a prefix and more characters (Tasker task `9kf`
 - New IDs are `tsk_` plus 5 base-36 characters (`tsk_k3x9q`). The app shows them, references are typed with them (`^tsk_k3x9q`), and `id:` search accepts them with or without `tsk_`. The MCP server rejects anything else as "Not a task ID".
 - Existing IDs migrate on open (and after restoring an older backup) to `tsk_` + the old 3 characters + 2 derived from the creation time (`9kf` → `tsk_9kf..`). The mapping is deterministic, so each device migrates on its own and gets the same IDs. Descriptions, relationships, sync aliases and records, the All lists order and delivered reminders follow. Undo history is cleared.
 - Sync identities don't change, so migrating publishes no edits. Checkpoints move to format 2; format 1 checkpoints from devices still on 1.3.0 are read and upgraded. A 1.3.0 device can't read format 2, so it stops syncing ("Invalid or unsupported sync data") until it's updated.
+
+## Android launcher shortcuts and home-screen widget (2026-10-20)
+
+- Long-pressing Tasker's icon offers **New task** and **Search** (Tasker task `hqxal`). A shortcut never discards an open draft. A Today shortcut was left out because `due:today` excludes overdue tasks.
+- The user chose a widget showing one list's open tasks (or All lists), not a Today widget (Tasker task `ee1zp`). It's read-only: tapping a task opens it in the app, so repeats, undo and sync stay in one place. The list name picks another list, and + adds a task to it.
+- Rows show what the app shows: priority, notes, due date and time, repeat, links, colored tags and thumbnails of attached images. The page writes a snapshot whenever the app leaves the foreground, since data only changes while the app is open.

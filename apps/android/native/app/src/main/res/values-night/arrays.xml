@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's tag palette (TAG_COLORS), red through rose. -->
+<resources>
+    <array name="widget_tag_text">
+        <item>#FFFCA5A5</item>
+        <item>#FFFDBA74</item>
+        <item>#FFFCD34D</item>
+        <item>#FFFDE047</item>
+        <item>#FFBEF264</item>
+        <item>#FF86EFAC</item>
+        <item>#FF6EE7B7</item>
+        <item>#FF5EEAD4</item>
+        <item>#FF67E8F9</item>
+        <item>#FF7DD3FC</item>
+        <item>#FF93C5FD</item>
+        <item>#FFA5B4FC</item>
+        <item>#FFC4B5FD</item>
+        <item>#FFD8B4FE</item>
+        <item>#FFF0ABFC</item>
+        <item>#FFF9A8D4</item>
+        <item>#FFFDA4AF</item>
+    </array>
+</resources>
