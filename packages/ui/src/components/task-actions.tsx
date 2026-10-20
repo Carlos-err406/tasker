@@ -1,6 +1,11 @@
 import type { Task, TaskStatus } from "@tasker/core/types";
-import { TaskStatus as TS } from "@tasker/core/types";
+import { Priority, TaskStatus as TS } from "@tasker/core/types";
 import {
+  Calendar,
+  CalendarX,
+  ChevronDown,
+  ChevronsUp,
+  ChevronUp,
   Circle,
   CircleCheck,
   CircleDot,
@@ -8,10 +13,13 @@ import {
   Copy,
   CornerRightDown,
   FolderInput,
+  Minus,
   Pencil,
   Trash2,
 } from "lucide-react";
 import type { TaskMenuAction } from "./task-menu-actions.js";
+import { dateSuggestions } from "../lib/date-suggestions.js";
+import { getPriorityColor, withMetadata } from "../lib/task-display.js";
 
 export interface TaskActionHandlers {
   onEdit: () => void;
@@ -20,6 +28,7 @@ export interface TaskActionHandlers {
   onCreateSubtask: (taskId: string) => void;
   onMove: (taskId: string, targetList: string) => void;
   onSetStatus: (taskId: string, status: TaskStatus) => void;
+  onRename: (taskId: string, newDescription: string) => unknown;
   onDelete: (taskId: string, cascade?: boolean) => void;
 }
 
@@ -30,6 +39,11 @@ export function buildTaskActions(
   hasSubtasks: boolean,
   handlers: TaskActionHandlers,
 ): TaskMenuAction[] {
+  // Saved like an edit, so undo restores the exact text, time and repeat included.
+  const setMetadata = (change: Parameters<typeof withMetadata>[1]) => {
+    const next = withMetadata(task, change);
+    if (next !== task.description) handlers.onRename(task.id, next);
+  };
   return [
     {
       label: "Edit",
@@ -88,6 +102,49 @@ export function buildTaskActions(
         onSelect: () => handlers.onSetStatus(task.id, status),
         deferUntilClosed: true,
       })),
+    },
+    {
+      label: "Set Priority",
+      icon: <ChevronsUp />,
+      children: [
+        { label: "High", priority: Priority.High, Icon: ChevronsUp },
+        { label: "Medium", priority: Priority.Medium, Icon: ChevronUp },
+        { label: "Low", priority: Priority.Low, Icon: ChevronDown },
+        { label: "None", priority: null, Icon: Minus },
+      ].map(({ label, priority, Icon }) => ({
+        label,
+        icon: (
+          <Icon
+            className={getPriorityColor(priority) || "text-muted-foreground"}
+          />
+        ),
+        selected: task.priority === priority,
+        onSelect: () => setMetadata({ priority }),
+        deferUntilClosed: true,
+      })),
+    },
+    {
+      label: "Set Due Date",
+      icon: <Calendar />,
+      children: [
+        ...dateSuggestions("", new Date()).map(({ label, date, detail }) => ({
+          label: `${label} (${detail})`,
+          icon: <Calendar />,
+          selected: task.dueDate === date,
+          onSelect: () => setMetadata({ dueDate: date }),
+          deferUntilClosed: true,
+        })),
+        ...(task.dueDate
+          ? [
+              {
+                label: "Remove due date",
+                icon: <CalendarX />,
+                onSelect: () => setMetadata({ dueDate: null }),
+                deferUntilClosed: true,
+              },
+            ]
+          : []),
+      ],
     },
     hasSubtasks
       ? {

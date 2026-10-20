@@ -307,6 +307,7 @@ export const TaskItem = memo(function TaskItem({
     onCreateSubtask,
     onMove,
     onSetStatus,
+    onRename,
     onDelete,
   });
 
@@ -479,6 +480,7 @@ export const TaskItem = memo(function TaskItem({
                       onCreateSubtask={onCreateSubtask}
                       onMove={onMove}
                       onSetStatus={onSetStatus}
+                      onRename={onRename}
                       onDelete={onDelete}
                     />
                   ))}

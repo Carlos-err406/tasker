@@ -1674,6 +1674,42 @@ test("wide pasted text wraps in the editor and code blocks keep thin scrollbars"
   ).toBeLessThanOrEqual(2);
 });
 
+test("context menu sets priority and due date on the metadata line, and undo restores it", async ({
+  page,
+}) => {
+  await add(page, "Pay rent\nnotes\n@tomorrow 9am #home");
+  const description = async () =>
+    ((await rpc(page, "tasks:getAll")) as { description: string }[])[0]!
+      .description;
+  const choose = async (menu: string, item: RegExp) => {
+    await page.locator('[data-testid^="task-item-"]').click({ button: "right" });
+    await page.getByRole("menuitem", { name: menu }).hover();
+    const option = page.getByRole("menuitem", { name: item });
+    await expect(option).toBeVisible();
+    await option.dispatchEvent("click");
+  };
+  await choose("Set Priority", /^High$/);
+  await expect.poll(description).toMatch(/^Pay rent\nnotes\np1 @\S+ 9am #home$/);
+  await expect(
+    page.locator('[data-testid^="task-item-"] .text-red-500'),
+  ).toBeVisible();
+  await choose("Set Due Date", /^Today/);
+  const today = new Date().toLocaleDateString("en-CA");
+  await expect
+    .poll(description)
+    .toBe(`Pay rent\nnotes\np1 @${today} 9am #home`);
+  await choose("Set Due Date", /^Remove due date$/);
+  await expect.poll(description).toBe("Pay rent\nnotes\np1 #home");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect
+    .poll(description)
+    .toBe(`Pay rent\nnotes\np1 @${today} 9am #home`);
+  await choose("Set Priority", /^None$/);
+  await expect
+    .poll(description)
+    .toBe(`Pay rent\nnotes\n@${today} 9am #home`);
+});
+
 test("long unbroken words wrap inside the task instead of widening the list", async ({
   page,
 }) => {

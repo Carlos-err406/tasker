@@ -13,6 +13,7 @@ import {
   TAG_COLORS,
   getLinkedStatusLabel,
   getLinkedStatusColor,
+  withMetadata,
 } from '../src/lib/task-display.js';
 import type { Task } from '@tasker/core';
 import { TaskStatus, Priority } from '@tasker/core';
@@ -166,6 +167,37 @@ describe('task-display', () => {
     it('spreads tags across the whole palette', () => {
       const used = new Set(Array.from({ length: 500 }, (_, i) => getTagColor(`tag-${i}`)));
       expect(used.size).toBe(TAG_COLORS.length);
+    });
+  });
+
+  describe('withMetadata', () => {
+    const task = makeTask({
+      description: 'Pay rent\nnotes\n^tsk_aaaaa p3 @2026-11-01 9am *monthly #home',
+      priority: Priority.Low,
+      dueDate: '2026-11-01',
+      tags: ['home'],
+      parentId: 'tsk_aaaaa',
+    });
+
+    it('replaces the priority and keeps everything else', () => {
+      expect(withMetadata(task, { priority: Priority.High })).toBe(
+        'Pay rent\nnotes\n^tsk_aaaaa p1 @2026-11-01 9am *monthly #home',
+      );
+      expect(withMetadata(task, { priority: null })).toBe(
+        'Pay rent\nnotes\n^tsk_aaaaa @2026-11-01 9am *monthly #home',
+      );
+    });
+
+    it('moves the due date and keeps its time', () => {
+      expect(withMetadata(task, { dueDate: '2026-11-03' })).toBe(
+        'Pay rent\nnotes\n^tsk_aaaaa p3 @2026-11-03 9am *monthly #home',
+      );
+    });
+
+    it('adds a metadata line to a task without one', () => {
+      expect(withMetadata(makeTask({ description: 'Call mom' }), { priority: Priority.Medium })).toBe(
+        'Call mom\np2',
+      );
     });
   });
 });

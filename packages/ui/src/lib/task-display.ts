@@ -1,6 +1,11 @@
 import type { Task } from '@tasker/core/types';
 import { TaskStatus, Priority, PriorityName } from '@tasker/core/types';
-import { getDisplayDescription, parseTaskDescription, formatTime } from '@tasker/core/parsers';
+import {
+  getDisplayDescription,
+  parseTaskDescription,
+  formatTime,
+  syncMetadataToDescription,
+} from '@tasker/core/parsers';
 
 /** First line of the display description (title). */
 export function getDisplayTitle(task: Task): string {
@@ -113,6 +118,28 @@ export function getSchedule(task: Task): { time: string | null; repeat: string |
         : `every ${parsed.repeat.every} ${units[parsed.repeat.unit]}s`
     : null;
   return { time: parsed.dueTime ? formatTime(parsed.dueTime) : null, repeat };
+}
+
+/**
+ * The task's text with its priority or due date replaced on the metadata line,
+ * as if typed in the editor. Links, time, repeat and tags are kept.
+ */
+export function withMetadata(
+  task: Task,
+  change: { priority?: Priority | null; dueDate?: string | null },
+): string {
+  const parsed = parseTaskDescription(task.description);
+  return syncMetadataToDescription(
+    task.description,
+    change.priority !== undefined ? change.priority : task.priority,
+    change.dueDate !== undefined ? change.dueDate : task.dueDate,
+    task.tags,
+    parsed.parentId,
+    parsed.blocksIds,
+    parsed.hasSubtaskIds,
+    parsed.blockedByIds,
+    parsed.relatedIds,
+  );
 }
 
 /** Status label for linked tasks (relationship lines). Null for pending. */

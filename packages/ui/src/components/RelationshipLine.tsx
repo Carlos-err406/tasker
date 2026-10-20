@@ -61,6 +61,7 @@ interface RelationshipLineProps {
   onCreateSubtask: (taskId: string) => void;
   onMove: (taskId: string, targetList: string) => void;
   onSetStatus: (taskId: string, status: TaskStatus) => void;
+  onRename: (taskId: string, newDescription: string) => unknown;
   onDelete: (taskId: string, cascade?: boolean) => void;
 }
 
@@ -111,6 +112,7 @@ function LinkedTaskMenuContent({
   onCreateSubtask,
   onMove,
   onSetStatus,
+  onRename,
   onDelete,
 }: RelationshipLineProps) {
   const linked = useContext(LinkedTasksContext);
@@ -151,6 +153,7 @@ function LinkedTaskMenuContent({
           onCreateSubtask,
           onMove,
           onSetStatus,
+          onRename,
           onDelete,
         },
       )
