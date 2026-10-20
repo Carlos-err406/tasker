@@ -4,7 +4,8 @@ import type { UndoManager } from "../undo/index.js";
 import { tasksRegister } from "./handlers/tasks.js";
 import { listsRegister } from "./handlers/lists.js";
 import { undoRegister } from "./handlers/undo.js";
-import { settingsRegister, autoSort } from "./handlers/settings.js";
+import { settingsRegister } from "./handlers/settings.js";
+import { applyAutoSort } from "../queries/auto-sort.js";
 import { isSettingKey } from "../queries/settings-queries.js";
 import type { SyncStore } from "../sync/store.js";
 import { isTaskId } from "../task-id.js";
@@ -123,7 +124,7 @@ export function createRegistry(
             throw new Error("Task mutations must be synchronous");
           if (Array.isArray(result) && result[0])
             throw new Error(result[0].message);
-          autoSort(db);
+          applyAutoSort(db);
           if (sync) {
             if (channel === "lists:rename")
               sync.renameList(args[0] as string, args[1] as string);
