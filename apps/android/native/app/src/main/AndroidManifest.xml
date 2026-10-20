@@ -21,6 +21,7 @@
         <activity android:name=".TaskListWidgetConfigure" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:taskAffinity="" android:excludeFromRecents="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/></intent-filter>
         </activity>
+        <receiver android:name=".NotificationActions" android:exported="false" />
         <receiver android:name=".Reminders" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

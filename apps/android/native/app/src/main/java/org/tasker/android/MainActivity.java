@@ -13,15 +13,12 @@ import android.webkit.*;
 import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class MainActivity extends Activity {
-    private static final String ORIGIN = "https://app.tasker.local";
-    private static final String CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; media-src 'self' https:; font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    /** The running activity, so reminder buttons can act in its page instead of a hidden one. */
+    private static volatile java.lang.ref.WeakReference<MainActivity> live = new java.lang.ref.WeakReference<>(null);
     private WebView web;
     private TaskerDatabase database;
     private BackupCoordinator backups;
@@ -35,6 +32,7 @@ public final class MainActivity extends Activity {
     private static final int NOTIFICATIONS = 2;
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        live = new java.lang.ref.WeakReference<>(this);
         database = new TaskerDatabase(this);
         backups = new BackupCoordinator(this, database);
         syncHttp = new SyncHttp(backups.google);
@@ -78,12 +76,10 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                Uri uri = request.getUrl();
-                if (!"https".equals(uri.getScheme()) || !"app.tasker.local".equals(uri.getHost()) || uri.getPort() != -1) return null;
-                return localResponse(uri.getPath());
+                return LocalAssets.respond(MainActivity.this, database, request.getUrl());
             }
         });
-        web.loadUrl(ORIGIN + "/index.html");
+        web.loadUrl(LocalAssets.ORIGIN + "/index.html");
     }
     private boolean notificationsAllowed() {
         return getSystemService(android.app.NotificationManager.class).areNotificationsEnabled();
@@ -125,25 +121,14 @@ public final class MainActivity extends Activity {
         web.requestFocus();
         web.evaluateJavascript("window.taskerShortcut?.()", null);
     }
-    private WebResourceResponse localResponse(String path) {
-        try {
-            if (path == null || path.contains("..") || path.contains("\\")) return missing();
-            if (path.matches("/attachments/[a-f0-9-]{36}")) {
-                TaskerDatabase.Image image = database.image(path.substring("/attachments/".length()));
-                if (image == null) return missing();
-                return response(image.mime(), new ByteArrayInputStream(image.bytes()));
-            }
-            String asset = path.equals("/") ? "index.html" : path.substring(1);
-            if (!asset.equals("index.html") && !asset.matches("assets/[A-Za-z0-9_.-]+")) return missing();
-            String mime = asset.endsWith(".html") ? "text/html" : asset.endsWith(".js") ? "text/javascript" : asset.endsWith(".css") ? "text/css" : asset.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream";
-            return response(mime, getAssets().open(asset));
-        } catch (Exception error) { return missing(); }
-    }
-    private WebResourceResponse response(String mime, InputStream content) {
-        return new WebResourceResponse(mime, "UTF-8", 200, "OK", Map.of("Content-Security-Policy", CSP, "X-Content-Type-Options", "nosniff", "Cache-Control", "no-store"), content);
-    }
-    private WebResourceResponse missing() {
-        return new WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", Map.of(), new ByteArrayInputStream(new byte[0]));
+    /** Runs a reminder button's action in the open app's page; false when no page is open. */
+    static boolean runNotificationAction(String payload) {
+        MainActivity activity = live.get();
+        if (activity == null || activity.isDestroyed()) return false;
+        activity.runOnUiThread(() -> {
+            if (!activity.isDestroyed()) activity.web.evaluateJavascript("window.taskerNotificationAction?.(" + org.json.JSONObject.quote(payload) + ")", null);
+        });
+        return true;
     }
     private void openExternal(String url) {
         Uri uri = Uri.parse(url);
@@ -221,6 +206,7 @@ public final class MainActivity extends Activity {
         });
     }
     @Override protected void onDestroy() {
+        if (live.get() == this) live = new java.lang.ref.WeakReference<>(null);
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         syncHttp.close();
         updates.close();

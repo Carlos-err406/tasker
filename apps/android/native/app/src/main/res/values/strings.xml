@@ -9,4 +9,7 @@
     <string name="widget_no_snapshot">Open Tasker once to show your tasks here</string>
     <string name="widget_missing_list">This list no longer exists. Tap its name to pick another.</string>
     <string name="reminders_channel">Due reminders</string>
+    <string name="reminder_done">Done</string>
+    <string name="reminder_snooze">Snooze 1h</string>
+    <string name="reminder_tomorrow">Tomorrow</string>
 </resources>

@@ -35,6 +35,7 @@ public final class Reminders extends BroadcastReceiver {
     private static final String CHANNEL = "reminders";
     /** Reminders missed while the phone was off are still shown up to this late, like on the Mac. */
     private static final long MAX_LATENESS_MS = 12L * 60 * 60 * 1000;
+    private static final long SNOOZE_MS = 60L * 60 * 1000;
 
     @Override public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
@@ -63,15 +64,16 @@ public final class Reminders extends BroadcastReceiver {
         return reminders != null && reminders.length() > 0;
     }
 
-    /** What a check does: the occurrences to post, the delivered set to keep, and the next alarm time. */
-    record Plan(List<JSONObject> post, Set<String> delivered, long next) {}
+    /** What a check does: the occurrences to post, what to keep, and the next alarm time. */
+    record Plan(List<JSONObject> post, Set<String> delivered, List<JSONObject> snoozed, long next) {}
 
     /**
      * Pure decision for one check. Due occurrences are delivered once (posted only if at most
      * 12 hours late and the task is still open); keys no longer scheduled are forgotten.
+     * Snoozed reminders come back at their `until` time, while their occurrence is still scheduled.
      */
-    static Plan plan(JSONArray reminders, Set<String> deliveredBefore, long now, Predicate<JSONObject> stillOpen) {
-        List<JSONObject> post = new ArrayList<>();
+    static Plan plan(JSONArray reminders, Set<String> deliveredBefore, List<JSONObject> snoozedBefore, long now, Predicate<JSONObject> stillOpen) {
+        List<JSONObject> post = new ArrayList<>(), snoozed = new ArrayList<>();
         Set<String> delivered = new HashSet<>(deliveredBefore), scheduled = new HashSet<>();
         long next = Long.MAX_VALUE;
         for (int i = 0; i < reminders.length(); i++) {
@@ -85,9 +87,25 @@ public final class Reminders extends BroadcastReceiver {
             if (now - at <= MAX_LATENESS_MS && stillOpen.test(reminder)) post.add(reminder);
             delivered.add(key);
         }
+        for (JSONObject snooze : snoozedBefore) {
+            if (!scheduled.contains(snooze.optString("key"))) continue;
+            long until = snooze.optLong("until");
+            if (until > now) { snoozed.add(snooze); next = Math.min(next, until); }
+            else if (stillOpen.test(snooze)) post.add(snooze);
+        }
         // Forget occurrences the page no longer schedules (done, moved or deleted).
         delivered.retainAll(scheduled);
-        return new Plan(post, delivered, next);
+        return new Plan(post, delivered, snoozed, next);
+    }
+
+    /** Shows the same reminder again in an hour. */
+    static synchronized void snooze(Context context, JSONObject reminder) {
+        List<JSONObject> snoozed = loadSnoozed(context);
+        snoozed.removeIf(s -> s.optString("key").equals(reminder.optString("key")));
+        try { snoozed.add(new JSONObject(reminder.toString()).put("until", System.currentTimeMillis() + SNOOZE_MS)); }
+        catch (Exception impossible) { return; }
+        saveSnoozed(context, snoozed);
+        check(context);
     }
 
     /** Posts due occurrences that weren't delivered yet and arms the alarm for the next one. */
@@ -96,10 +114,11 @@ public final class Reminders extends BroadcastReceiver {
         if (reminders == null) return;
         SharedPreferences prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE);
         File path = context.getDatabasePath("tasker.db");
-        Plan plan = plan(reminders, prefs.getStringSet("delivered", new HashSet<>()), System.currentTimeMillis(),
-            reminder -> stillOpen(path, reminder));
+        Plan plan = plan(reminders, prefs.getStringSet("delivered", new HashSet<>()), loadSnoozed(context),
+            System.currentTimeMillis(), reminder -> stillOpen(path, reminder));
         for (JSONObject reminder : plan.post()) post(context, reminder);
         prefs.edit().putStringSet("delivered", plan.delivered()).apply();
+        saveSnoozed(context, plan.snoozed());
 
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
         PendingIntent alarm = PendingIntent.getBroadcast(context, 0,
@@ -142,8 +161,44 @@ public final class Reminders extends BroadcastReceiver {
             .setAutoCancel(true)
             .setContentIntent(PendingIntent.getActivity(context, key.hashCode(), open,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
+            .addAction(action(context, reminder, NotificationActions.DONE, R.string.reminder_done))
+            .addAction(action(context, reminder, NotificationActions.SNOOZE, R.string.reminder_snooze))
+            .addAction(action(context, reminder, NotificationActions.TOMORROW, R.string.reminder_tomorrow))
             .build();
         manager.notify(key.hashCode(), notification);
+    }
+
+    private static Notification.Action action(Context context, JSONObject reminder, String action, int label) {
+        Intent intent = new Intent(context, NotificationActions.class).setAction(action).putExtra("reminder", reminder.toString());
+        // One PendingIntent per occurrence and button: they differ only in extras otherwise.
+        PendingIntent pending = PendingIntent.getBroadcast(context, (reminder.optString("key") + action).hashCode(), intent,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        return new Notification.Action.Builder(null, context.getString(label), pending).build();
+    }
+
+    private static List<JSONObject> loadSnoozed(Context context) {
+        List<JSONObject> snoozed = new ArrayList<>();
+        try {
+            JSONArray array = new JSONArray(new String(snoozeFile(context).readFully(), StandardCharsets.UTF_8));
+            for (int i = 0; i < array.length(); i++) if (array.optJSONObject(i) != null) snoozed.add(array.getJSONObject(i));
+        } catch (Exception none) { /* No snoozes yet. */ }
+        return snoozed;
+    }
+
+    private static void saveSnoozed(Context context, List<JSONObject> snoozed) {
+        AtomicFile file = snoozeFile(context);
+        FileOutputStream out = null;
+        try {
+            out = file.startWrite();
+            out.write(new JSONArray(snoozed).toString().getBytes(StandardCharsets.UTF_8));
+            file.finishWrite(out);
+        } catch (Exception error) {
+            if (out != null) file.failWrite(out);
+        }
+    }
+
+    private static AtomicFile snoozeFile(Context context) {
+        return new AtomicFile(new File(context.getFilesDir(), "reminder-snoozes.json"));
     }
 
     private static JSONArray load(Context context) {

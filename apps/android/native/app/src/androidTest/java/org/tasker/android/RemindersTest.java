@@ -37,24 +37,45 @@ public final class RemindersTest extends AndroidTestCase {
             .put(reminder("stale", "2026-01-01", NOW - 13 * HOUR))
             .put(reminder("later", "2026-01-02", NOW + 2 * HOUR))
             .put(reminder("soon", "2026-01-02", NOW + HOUR));
-        Reminders.Plan first = Reminders.plan(schedule, Set.of("gone@2026-01-01T09:00"), NOW, r -> true);
+        Reminders.Plan first = Reminders.plan(schedule, Set.of("gone@2026-01-01T09:00"), List.of(), NOW, r -> true);
         assertEquals(List.of("due"), first.post().stream().map(r -> r.optString("taskId")).collect(java.util.stream.Collectors.toList()));
         assertEquals(Set.of("due@2026-01-01T09:00", "stale@2026-01-01T09:00"), first.delivered());
         assertEquals(NOW + HOUR, first.next());
 
-        Reminders.Plan again = Reminders.plan(schedule, first.delivered(), NOW + 1000, r -> true);
+        Reminders.Plan again = Reminders.plan(schedule, first.delivered(), List.of(), NOW + 1000, r -> true);
         assertTrue(again.post().isEmpty());
 
-        Reminders.Plan none = Reminders.plan(new JSONArray(), first.delivered(), NOW, r -> true);
+        Reminders.Plan none = Reminders.plan(new JSONArray(), first.delivered(), List.of(), NOW, r -> true);
         assertEquals(Long.MAX_VALUE, none.next());
         assertTrue(none.delivered().isEmpty());
     }
 
     public void testTasksNoLongerOpenAreMarkedDeliveredButNotPosted() throws Exception {
         JSONArray schedule = new JSONArray().put(reminder("done", "2026-01-01", NOW - HOUR));
-        Reminders.Plan plan = Reminders.plan(schedule, Set.of(), NOW, r -> false);
+        Reminders.Plan plan = Reminders.plan(schedule, Set.of(), List.of(), NOW, r -> false);
         assertTrue(plan.post().isEmpty());
         assertEquals(Set.of("done@2026-01-01T09:00"), plan.delivered());
+    }
+
+    public void testSnoozedRemindersComeBackWhileStillScheduled() throws Exception {
+        JSONObject due = reminder("due", "2026-01-01", NOW - HOUR);
+        JSONArray schedule = new JSONArray().put(due);
+        Set<String> delivered = Set.of("due@2026-01-01T09:00");
+        JSONObject snoozed = new JSONObject(due.toString()).put("until", NOW + HOUR);
+
+        Reminders.Plan waiting = Reminders.plan(schedule, delivered, List.of(snoozed), NOW, r -> true);
+        assertTrue(waiting.post().isEmpty());
+        assertEquals(1, waiting.snoozed().size());
+        assertEquals(NOW + HOUR, waiting.next());
+
+        Reminders.Plan back = Reminders.plan(schedule, delivered, waiting.snoozed(), NOW + HOUR, r -> true);
+        assertEquals(1, back.post().size());
+        assertTrue(back.snoozed().isEmpty());
+
+        // Completed meanwhile: the page stops scheduling it, so the snooze is dropped.
+        Reminders.Plan gone = Reminders.plan(new JSONArray(), delivered, List.of(snoozed), NOW + HOUR, r -> true);
+        assertTrue(gone.post().isEmpty());
+        assertTrue(gone.snoozed().isEmpty());
     }
 
     public void testRechecksStatusTrashAndDateInTheDatabase() throws Exception {

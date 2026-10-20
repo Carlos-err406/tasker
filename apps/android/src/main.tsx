@@ -557,8 +557,17 @@ function App() {
   );
 }
 try {
-  connectAndroidHost();
-  createRoot(document.getElementById("root")!).render(<App />);
+  if (location.hash === "#notification-action") {
+    // Started by native code for a reminder button while Tasker is closed: no UI.
+    connectAndroidHost({ hidden: true });
+    const action = window.TaskerNative?.takeNotificationAction?.();
+    void (action ? window.taskerNotificationAction!(action) : Promise.resolve())
+      .catch(() => {})
+      .finally(() => window.TaskerNative?.finished?.());
+  } else {
+    connectAndroidHost();
+    createRoot(document.getElementById("root")!).render(<App />);
+  }
 } catch (error) {
   document.getElementById("root")!.textContent =
     `Tasker could not start: ${String(error)}`;
